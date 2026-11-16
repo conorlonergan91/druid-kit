@@ -267,6 +267,11 @@ local function addWorldMapProvider()
   function provider:RemoveAllData()
     self:GetMap():RemoveAllPinsByTemplate("DruidKitTrainerPinTemplate")
   end
+  -- One bad pin must never break the whole map: Blizzard asserts on odd positions.
+  local function addPin(map, data, x, y)
+    if type(x) ~= "number" or type(y) ~= "number" or x ~= x or y ~= y then return end
+    pcall(map.AcquirePin, map, "DruidKitTrainerPinTemplate", data, x, y)
+  end
   function provider:RefreshAllData()
     self:RemoveAllData()
     local map = self:GetMap()
@@ -276,12 +281,12 @@ local function addWorldMapProvider()
     if t then
       local tx, ty = DruidKit_NavProject and DruidKit_NavProject(t, cur)
       if tx and ty and tx >= 0 and tx <= 1 and ty >= 0 and ty <= 1 then
-        map:AcquirePin("DruidKitTrainerPinTemplate", { isTarget = true, cat = "druid", name = t.label,
+        addPin(map, { isTarget = true, cat = "druid", name = t.label,
           icon = "Interface\\Icons\\INV_Misc_Map_01" }, tx, ty)
       end
     end
     if not (DB and DB.trainersOn) then return end
-    for _, p in ipairs(byMap[cur] or {}) do map:AcquirePin("DruidKitTrainerPinTemplate", p, p.x, p.y) end
+    for _, p in ipairs(byMap[cur] or {}) do addPin(map, p, p.x, p.y) end
     -- city trainers also on the zone map around them (Darnassus on Teldrassil)
     for mapID, list in pairs(byMap) do
       local info = mapID ~= cur and C_Map.GetMapInfo(mapID)
@@ -289,7 +294,7 @@ local function addWorldMapProvider()
         local ok, l, r, t, b = pcall(C_Map.GetMapRectOnMap, mapID, cur)
         if ok and l then
           for _, p in ipairs(list) do
-            map:AcquirePin("DruidKitTrainerPinTemplate", p, l + p.x * (r - l), t + p.y * (b - t))
+            addPin(map, p, l + p.x * (r - l), t + p.y * (b - t))
           end
         end
       end
