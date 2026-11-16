@@ -7,6 +7,8 @@
 
 DruidKit_Guide.lua
 DruidKit.lua
+DruidKit_Trainers.lua
+DruidKit_Trainers.xml
 DruidKit_Style.lua
 DruidKit_Bags.lua
 DruidKit_Bank.lua

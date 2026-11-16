@@ -1,0 +1,8 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+  <Frame name="DruidKitTrainerPinTemplate" mixin="DruidKitTrainerPinMixin" enableMouse="true" virtual="true">
+    <Size x="14" y="14"/>
+    <Scripts>
+      <OnLoad method="OnLoad"/>
+    </Scripts>
+  </Frame>
+</Ui>
