@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Druid Kit
+## Notes: Levelling guide (Shift+J), action bars, healing mode (Alt+H), bags, bank, loot help, party view and catch-up tracker.
+## Author: Conor Lonergan
+## Version: 2.2
+## SavedVariablesPerCharacter: DruidKitDB
+
+DruidKit.lua

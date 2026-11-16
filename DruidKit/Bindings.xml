@@ -1,0 +1,12 @@
+<Bindings>
+  <Binding name="DRUIDKIT_TOGGLEGUIDE" header="DRUIDKIT" category="ADDONS">DruidKit_ToggleGuide()</Binding>
+  <Binding name="DRUIDKIT_TAB1" category="ADDONS">DruidKit_OpenTab(1)</Binding>
+  <Binding name="DRUIDKIT_TAB2" category="ADDONS">DruidKit_OpenTab(2)</Binding>
+  <Binding name="DRUIDKIT_TAB3" category="ADDONS">DruidKit_OpenTab(3)</Binding>
+  <Binding name="DRUIDKIT_TAB4" category="ADDONS">DruidKit_OpenTab(4)</Binding>
+  <Binding name="DRUIDKIT_TAB5" category="ADDONS">DruidKit_OpenTab(5)</Binding>
+  <Binding name="DRUIDKIT_TAB6" category="ADDONS">DruidKit_OpenTab(6)</Binding>
+  <Binding name="DRUIDKIT_TAB7" category="ADDONS">DruidKit_OpenTab(7)</Binding>
+  <Binding name="DRUIDKIT_TAB8" category="ADDONS">DruidKit_OpenTab(8)</Binding>
+  <Binding name="DRUIDKIT_TOGGLEMODE" category="ADDONS">DruidKit_ToggleMode()</Binding>
+</Bindings>
