@@ -7,8 +7,10 @@
 
 DruidKit_Guide.lua
 DruidKit.lua
+DruidKit_Helpers.lua
 DruidKit_Trainers.lua
 DruidKit_Trainers.xml
 DruidKit_Style.lua
 DruidKit_Bags.lua
 DruidKit_Bank.lua
+DruidKit_Party.lua
