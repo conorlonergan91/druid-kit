@@ -275,7 +275,7 @@ local function addWorldMapProvider()
     local t = DruidKit_NavTarget and DruidKit_NavTarget()
     if t then
       local tx, ty = DruidKit_NavProject and DruidKit_NavProject(t, cur)
-      if tx and tx >= 0 and tx <= 1 and ty >= 0 and ty <= 1 then
+      if tx and ty and tx >= 0 and tx <= 1 and ty >= 0 and ty <= 1 then
         map:AcquirePin("DruidKitTrainerPinTemplate", { isTarget = true, cat = "druid", name = t.label,
           icon = "Interface\\Icons\\INV_Misc_Map_01" }, tx, ty)
       end
@@ -572,10 +572,27 @@ local function toWorld(mapID, x, y)
   if ok and cont and pos then return cont, pos end
 end
 -- Where the target sits on another map (normalised; may be outside 0-1)
+-- Worked out from where the map's corners sit in the world (the same call the arrow already relies on),
+-- because C_Map.GetMapPosFromWorldPos doesn't return a usable position in this client.
+local function vecXY(v)
+  if type(v) ~= "table" then return end
+  local a, b
+  if v.GetXY then a, b = v:GetXY() end
+  a, b = a or v.x, b or v.y
+  if type(a) == "number" and type(b) == "number" then return a, b end
+end
 function DruidKit_NavProject(t, mapID)
-  if not (t and t.cont and t.pos and C_Map.GetMapPosFromWorldPos) then return end
-  local ok, _, mp = pcall(C_Map.GetMapPosFromWorldPos, t.cont, t.pos, mapID)
-  if ok and mp then return mp:GetXY() end
+  if not (t and t.cont and t.pos) then return end
+  local c0, o = toWorld(mapID, 0, 0)
+  local c1, ex = toWorld(mapID, 1, 0)
+  local c2, ey = toWorld(mapID, 0, 1)
+  if not (o and ex and ey) or c0 ~= t.cont or c1 ~= t.cont or c2 ~= t.cont then return end
+  local ox, oy = vecXY(o); local ux, uy = vecXY(ex); local vx, vy = vecXY(ey); local px, py = vecXY(t.pos)
+  if not (ox and ux and vx and px) then return end
+  ux, uy, vx, vy, px, py = ux - ox, uy - oy, vx - ox, vy - oy, px - ox, py - oy
+  local det = ux * vy - uy * vx
+  if det == 0 then return end
+  return (px * vy - py * vx) / det, (ux * py - uy * px) / det
 end
 function DruidKit_NavTarget() return nav end
 
@@ -587,7 +604,8 @@ function DruidKit_MapYards(mapID)
   local _, b = toWorld(mapID, 1, 0)
   local _, c = toWorld(mapID, 0, 1)
   if not (a and b and c) then return end
-  local ax, ay = a:GetXY(); local bx, by = b:GetXY(); local cx, cy = c:GetXY()
+  local ax, ay = vecXY(a); local bx, by = vecXY(b); local cx, cy = vecXY(c)
+  if not (ax and bx and cx) then return end
   local w = math.sqrt((bx - ax) ^ 2 + (by - ay) ^ 2)
   local h = math.sqrt((cx - ax) ^ 2 + (cy - ay) ^ 2)
   if w <= 0 or h <= 0 then return end
@@ -667,7 +685,7 @@ function DruidKit_NavUpdate()
   local tx, ty = DruidKit_NavProject(nav, here)
   local px, py = pp:GetXY()
   local w, h = DruidKit_MapYards(here)
-  if not (tx and w) then arrowF.tex:Hide(); arrowF.info:SetText("") return end
+  if not (tx and ty and w) then arrowF.tex:Hide(); arrowF.info:SetText("") return end
   local east, south = (tx - px) * w, (ty - py) * h
   local dist = math.sqrt(east * east + south * south)
   if dist < 12 then
