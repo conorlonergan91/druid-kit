@@ -7,3 +7,6 @@
 
 DruidKit_Guide.lua
 DruidKit.lua
+DruidKit_Style.lua
+DruidKit_Bags.lua
+DruidKit_Bank.lua

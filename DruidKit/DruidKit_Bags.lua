@@ -1,0 +1,881 @@
+-- Druid Kit: bag check. Finds gear upgrades in your bags, junk to sell, and things to use.
+--   /dk bags   open or close the Bag check panel
+-- Upgrades also show a green line on the item's tooltip and a banner when you loot one.
+-- At a vendor, a "Sell junk" button sells grey items only.
+
+local GREEN, ORANGE, GREY, YELLOW = "|cff7fd35b", "|cffff7c0a", "|cff9d9d9d", "|cffffd100"
+local function say(msg) print("|cff7fd35bDruid Kit:|r " .. msg) end
+local function safe(fn, ...)
+  if not fn then return nil end
+  local ok, a, b, c, d, e, f, g, h, i, j, k, l = pcall(fn, ...)
+  if ok then return a, b, c, d, e, f, g, h, i, j, k, l end
+end
+
+-- How much each stat is worth to you (bear tank + healer, levelling).
+local WEIGHTS = {
+  ITEM_MOD_STAMINA_SHORT = 1.0,
+  ITEM_MOD_AGILITY_SHORT = 0.8,
+  ITEM_MOD_STRENGTH_SHORT = 0.8,
+  ITEM_MOD_INTELLECT_SHORT = 0.7,
+  ITEM_MOD_SPIRIT_SHORT = 0.6,
+  RESISTANCE0_NAME = 0.06,              -- armor
+  ITEM_MOD_ATTACK_POWER_SHORT = 0.4,
+  ITEM_MOD_SPELL_HEALING_DONE_SHORT = 0.5,
+  ITEM_MOD_SPELL_POWER_SHORT = 0.5,
+  ITEM_MOD_HEALTH_REGENERATION_SHORT = 1.0,
+  ITEM_MOD_MANA_REGENERATION_SHORT = 1.5,
+  ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 0.3,
+}
+
+-- Healing gear: Intellect, Spirit and healing power matter most.
+local HEAL_WEIGHTS = {
+  ITEM_MOD_INTELLECT_SHORT = 1.0,
+  ITEM_MOD_SPIRIT_SHORT = 0.8,
+  ITEM_MOD_STAMINA_SHORT = 0.4,
+  ITEM_MOD_SPELL_HEALING_DONE_SHORT = 1.2,
+  ITEM_MOD_SPELL_POWER_SHORT = 1.0,
+  ITEM_MOD_MANA_REGENERATION_SHORT = 2.0,
+  RESISTANCE0_NAME = 0.02,
+}
+local function healMode() return DruidKitDB and DruidKitDB.barMode == "heal" end
+local function activeWeights() return healMode() and HEAL_WEIGHTS or WEIGHTS end
+local function otherWeights() return healMode() and WEIGHTS or HEAL_WEIGHTS end
+
+local SLOTS = {
+  INVTYPE_HEAD = { 1 }, INVTYPE_NECK = { 2 }, INVTYPE_SHOULDER = { 3 }, INVTYPE_CHEST = { 5 }, INVTYPE_ROBE = { 5 },
+  INVTYPE_WAIST = { 6 }, INVTYPE_LEGS = { 7 }, INVTYPE_FEET = { 8 }, INVTYPE_WRIST = { 9 }, INVTYPE_HAND = { 10 },
+  INVTYPE_FINGER = { 11, 12 }, INVTYPE_TRINKET = { 13, 14 }, INVTYPE_CLOAK = { 15 },
+  INVTYPE_WEAPON = { 16 }, INVTYPE_WEAPONMAINHAND = { 16 }, INVTYPE_2HWEAPON = { 16 },
+  INVTYPE_HOLDABLE = { 17 }, INVTYPE_RELIC = { 18 },
+}
+local SLOT_NAMES = { "Head", "Neck", "Shoulders", "Shirt", "Chest", "Waist", "Legs", "Feet", "Wrists", "Hands",
+  "Ring", "Ring", "Trinket", "Trinket", "Back", "Weapon", "Off-hand", "Idol" }
+
+-- What a druid can use: cloth/leather armor, misc (rings, necks, cloaks), idols;
+-- one- and two-handed maces, staves, daggers, fist weapons.
+local ARMOR_OK = { [0] = true, [1] = true, [2] = true, [8] = true }   -- misc, cloth, leather, idol
+local WEAPON_OK = { [4] = true, [5] = true, [10] = true, [13] = true, [15] = true }
+-- Trade goods, reagents, quest items, recipes and containers are never junk.
+local KEEP_CLASS = { [1] = true, [5] = true, [7] = true, [9] = true, [12] = true }
+-- Tools are never junk either: fishing poles and miscellaneous "weapons" like mining picks.
+local KEEP_WEAPON = { [14] = true, [20] = true }
+local function isTool(classID, subID) return classID == 2 and KEEP_WEAPON[subID] end
+
+local function getInfo(item)
+  if C_Item and C_Item.GetItemInfo then return C_Item.GetItemInfo(item) end
+  return GetItemInfo(item)
+end
+local function getStats(link)
+  if C_Item and C_Item.GetItemStats then return C_Item.GetItemStats(link) end
+  if GetItemStats then return GetItemStats(link) end
+end
+local function numSlots(bag)
+  if C_Container and C_Container.GetContainerNumSlots then return C_Container.GetContainerNumSlots(bag) end
+  return GetContainerNumSlots(bag)
+end
+local function slotInfo(bag, slot)
+  if C_Container and C_Container.GetContainerItemInfo then
+    local i = C_Container.GetContainerItemInfo(bag, slot)
+    if i then return i.hyperlink, i.stackCount, i.quality, i.hasLoot, i.itemID, i.isLocked end
+    return
+  end
+  local _, count, locked, quality, _, lootable, link, _, _, id = GetContainerItemInfo(bag, slot)
+  return link, count, quality, lootable, id, locked
+end
+local function questInfo(bag, slot)
+  if C_Container and C_Container.GetContainerItemQuestInfo then
+    local q = C_Container.GetContainerItemQuestInfo(bag, slot)
+    if q then return q.isQuestItem, q.questID, q.isActive end
+  elseif GetContainerItemQuestInfo then
+    return GetContainerItemQuestInfo(bag, slot)
+  end
+end
+
+-- Names of items your active quests ask for ("0/5 Strider Meat" -> "Strider Meat"). Never sell, drop or bank these.
+local questNeed, questNeedAt = {}, -100
+local function questItems()
+  if GetTime() - questNeedAt < 3 then return questNeed end
+  questNeedAt = GetTime()
+  local set = {}
+  local function add(text)
+    local name = text and (text:match("^%d+/%d+ (.+)$") or text:match("^(.-): %d+/%d+$"))
+    if name then set[name] = true end
+  end
+  if C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetQuestObjectives then
+    for i = 1, (C_QuestLog.GetNumQuestLogEntries() or 0) do
+      local q = C_QuestLog.GetInfo(i)
+      if q and not q.isHeader and q.questID then
+        for _, o in ipairs(C_QuestLog.GetQuestObjectives(q.questID) or {}) do add(o.text) end
+      end
+    end
+  elseif GetNumQuestLogEntries and GetQuestLogLeaderBoard then
+    for i = 1, (GetNumQuestLogEntries() or 0) do
+      for j = 1, (GetNumQuestLeaderBoards(i) or 0) do add((GetQuestLogLeaderBoard(j, i))) end
+    end
+  end
+  questNeed = set
+  return set
+end
+DruidKit_QuestItems = function() local ok, r = pcall(questItems); return ok and r or {} end
+
+-- Library books (Forever): hand in to Garion Wendell, top of the Wizard's Sanctum, Stormwind Mage Quarter.
+-- Never sell or destroy: a deleted book may not be lootable again.
+local BOOKS = {}
+for _, n in ipairs({
+  "Archmage Theocritus' Research Journal", "Archmage Theocritus's Research Journal", "Archmage Antonidas: The Unabridged Autobiography",
+  "The Apothecary's Metaphysical Primer", "Ataeric: On Arcane Curiosities", "The Dalaran Digest, Vol. 23",
+  "Rumi of Gnomeregan: The Collected Works", "Runes of the Sorcerer-Kings", "Bewitchments and Glamours",
+  "Crimes Against Anatomy", "Goaz Scrolls", "Defensive Magics 101", "A Web of Lies: Debunking Myths and Legends",
+  "Basilisks: Should Petrification be Feared?", "Mummies: A Guide to the Unsavory Undead",
+  "A Luddite's Guide to Caring for Your Demonic Pet", "Sanguine Sorcery", "Venomous Journeys", "A Mind of Metal",
+  "Conjurer's Codex", "Stonewrought Design", "Magma or Lava?", "Necromancy 101", "Undead Potatoes",
+  "A Study of the Light", "Scourge: Undead Menace or Misunderstood?", "The Knight and the Lady", "The Lessons of Ta'zo",
+  "Nar'thalas Almanac, Vol. 74", "Arcanic Systems Manual", "Baxtan: On Destructive Magics", "Secrets of the Dreamers",
+  "Fury of the Land", "Geomancy: The Stone-Cold Truth", "Demons and You", "RwlRwlRwlRwl!", "Legends of the Tidesages",
+  "Everyday Etiquette", "Northern Kalimdor - A Comprehensive Guide", "Northern Kalimdor – A Comprehensive Guide",
+  "Ka-Boom!", "Temptation and Seduction" }) do BOOKS[n] = true end
+local function isBook(name) return name and BOOKS[name] or false end
+DruidKit_IsLibraryBook = isBook
+
+-- "Red Leather Bandanas" and "Red Leather Bandana" are the same thing.
+local function norm(n) n = n:lower():gsub("^%s+", ""):gsub("%s+$", ""); return (n:gsub("es$", ""):gsub("s$", "")) end
+local function questNeeds(name)
+  if not name then return false end
+  local ok, set = pcall(questItems)
+  if not ok or not set then return false end
+  if set[name] then return true end
+  local n = norm(name)
+  for k in pairs(set) do if norm(k) == n then return true end end
+  return false
+end
+
+-- One check for everything that must never be sold, dropped or offered: returns a reason, or nil.
+local function protectedReason(link, bag, slot)
+  local name, _, _, _, _, _, _, _, _, _, _, classID, _, bindType = getInfo(link)
+  if questNeeds(name) then return "your quest needs this" end
+  if isBook(name) then return "library book: hand it in at the Stormwind library" end
+  if name and name:find("Waylaid") then return "Waylaid Crate" end
+  if classID == 12 or bindType == 4 then return "quest item" end
+  if bag and slot then
+    local isQuest = questInfo(bag, slot)
+    if isQuest then return "quest item" end
+  end
+end
+DruidKit_Protected = function(link, bag, slot) local ok, r = pcall(protectedReason, link, bag, slot); return ok and r or nil end
+
+local function usable(classID, subID, equipLoc)
+  if not SLOTS[equipLoc] then return false end
+  if classID == 4 then return ARMOR_OK[subID] or false end
+  if classID == 2 then return WEAPON_OK[subID] or false end
+  return false
+end
+
+local function score(link, w)
+  local stats = safe(getStats, link)
+  if not stats then return 0 end
+  w = w or activeWeights()
+  local s = 0
+  for k, v in pairs(stats) do s = s + (w[k] or 0) * v end
+  return s
+end
+
+local function equippedScore(slot, w)
+  local link = GetInventoryItemLink("player", slot)
+  return link and score(link, w) or 0, link
+end
+
+-- Gear sets saved with /dk healset and /dk questset: which set (if any) an item belongs to.
+local function itemID(link) return link and tonumber(link:match("item:(%d+)")) end
+local function setOf(link)
+  local id = itemID(link)
+  local sets = DruidKitDB and DruidKitDB.gearSets
+  if not (id and sets) then return end
+  for mode, set in pairs(sets) do
+    for _, l in pairs(set) do if itemID(l) == id then return mode end end
+  end
+end
+
+-- Returns gain, slot name for an item, or nil if it isn't an upgrade.
+local function upgradeFor(link, w, anyLevel)
+  local _, _, _, _, minLevel, _, _, _, equipLoc, _, _, classID, subID = getInfo(link)
+  if not equipLoc or not usable(classID, subID, equipLoc) then return end
+  if not anyLevel and (minLevel or 0) > UnitLevel("player") then return end
+  local mine = score(link, w)
+  if mine <= 0 then return end
+  local slots = SLOTS[equipLoc]
+  local current
+  if equipLoc == "INVTYPE_2HWEAPON" then
+    current = equippedScore(16, w) + equippedScore(17, w)
+  elseif equipLoc == "INVTYPE_HOLDABLE" then
+    local mh = GetInventoryItemLink("player", 16)
+    local mhLoc = mh and select(9, getInfo(mh))
+    if mhLoc == "INVTYPE_2HWEAPON" then return end      -- would drop your staff
+    current = equippedScore(17, w)
+  else
+    current = math.huge
+    for _, s in ipairs(slots) do current = math.min(current, (equippedScore(s, w))) end
+  end
+  local gain = mine - current
+  if gain >= 1 then return gain, SLOT_NAMES[slots[1]], mine end
+end
+
+-- Gear worth keeping even though it isn't an upgrade right now: your saved sets, or
+-- pieces that are better for your other role (healing while you quest, or the reverse).
+-- Returns a reason and which role it's for ("heal" or "quest").
+local function keepReason(link)
+  local set = setOf(link)
+  if set then return (set == "heal" and "in your healing set" or "in your questing set"), set end
+  local gain, slotName = upgradeFor(link, otherWeights())
+  if gain and gain >= 2 then
+    local role = healMode() and "quest" or "heal"
+    return ("better for %s (+%d %s)"):format(role == "heal" and "healing" or "bear", math.floor(gain + 0.5), slotName:lower()), role
+  end
+end
+DruidKit_GearKeep = function(link) local ok, a, b = pcall(keepReason, link); if ok then return a, b end end
+
+-- Scan ------------------------------------------------------------------------------
+local results = { upgrades = {}, junk = {}, unusable = {}, use = {}, junkValue = 0 }
+
+local function scan()
+  local up, junk, unusable, use, poles, spare, kept, bank = {}, {}, {}, {}, {}, {}, {}, {}
+  local junkValue = 0
+  for bag = 0, 4 do
+    for slot = 1, (numSlots(bag) or 0) do
+      local link, count, quality, lootable, itemID = slotInfo(bag, slot)
+      if link then
+        local name, _, q, _, minLevel, _, _, _, equipLoc, icon, price, classID, subID = getInfo(link)
+        q = q or quality
+        local isQuest, questID, active = questInfo(bag, slot)
+        local guard = name and protectedReason(link, bag, slot)
+        if guard then
+          -- quest items, library books and Waylaid Crates: never sold or dropped
+          if isBook(name) then
+            table.insert(bank, { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1,
+              why = "library book: hand in to Garion Wendell (Stormwind library) or bank it" })
+          end
+        elseif name then
+          local entry = { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1 }
+          if questID and not active then
+            entry.why = "starts a quest: right-click it"
+            table.insert(use, entry)
+          elseif lootable then
+            entry.why = "has loot inside: right-click to open"
+            table.insert(use, entry)
+          elseif q == 0 and (price or 0) > 0 then
+            junkValue = junkValue + price * (count or 1)
+            entry.value = price * (count or 1)
+            table.insert(junk, entry)
+          elseif classID == 2 and subID == 20 then
+            entry.ilvl, entry.price = select(4, getInfo(link)) or 0, price or 0
+            table.insert(poles, entry)
+          elseif classID == 9 then
+            entry.why = "recipe: right-click to learn it"
+            table.insert(use, entry)
+          elseif not isQuest and (classID == 7 or classID == 5) and DruidKit_NeededFor then
+            -- Never herbs (they're for Alchemy), and nothing any recipe you know uses.
+            local _, known, used = DruidKit_NeededFor(name)
+            if known and not used and not (classID == 7 and subID == 9) then
+              entry.why, entry.value = "none of your recipes use this", (price or 0) * (count or 1)
+              table.insert(spare, entry)
+            end
+          elseif not isQuest and not KEEP_CLASS[classID] and not isTool(classID, subID) then
+            local gain, slotName = upgradeFor(link)
+            local keepWhy = SLOTS[equipLoc] and keepReason(link)
+            if gain and not setOf(link) then
+              entry.gain, entry.slotName = gain, slotName
+              table.insert(up, entry)
+            elseif keepWhy then
+              entry.why = keepWhy
+              table.insert(kept, entry)
+            elseif SLOTS[equipLoc] and (price or 0) > 0 then
+              entry.value = (price or 0) * (count or 1)
+              if not usable(classID, subID, equipLoc) then
+                entry.why = "druids can't use this"
+                table.insert(unusable, entry)
+              elseif (minLevel or 0) <= UnitLevel("player") then
+                entry.why = "worse than what you're wearing"
+                table.insert(unusable, entry)
+              else
+                local later, laterSlot = upgradeFor(link, nil, true)
+                if later then
+                  entry.why = ("for your %s at level %d: bank it till then"):format(laterSlot:lower(), minLevel)
+                  table.insert(bank, entry)
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  -- Keep your best fishing pole (worn or in bags); offer the others for sale.
+  local worn = GetInventoryItemLink("player", 16)
+  local bestIlvl, bestPrice = -1, -1
+  if worn then
+    local _, _, _, il, _, _, _, _, _, _, pr, c, sc = getInfo(worn)
+    if c == 2 and sc == 20 then bestIlvl, bestPrice = il or 0, pr or 0 end
+  end
+  local best
+  for _, e in ipairs(poles) do
+    if e.ilvl > bestIlvl or (e.ilvl == bestIlvl and e.price > bestPrice) then best, bestIlvl, bestPrice = e, e.ilvl, e.price end
+  end
+  for _, e in ipairs(poles) do
+    if e ~= best and e.price > 0 then e.why = "you have a better fishing pole"; e.value = e.price; table.insert(unusable, e) end
+  end
+
+  table.sort(up, function(a, b) return a.gain > b.gain end)
+
+  -- Make room: cheapest junk first, then gear you'd sell anyway, then spare materials.
+  local drop = {}
+  local function add(list, why)
+    table.sort(list, function(a, b) return (a.value or 0) < (b.value or 0) end)
+    for _, e in ipairs(list) do
+      table.insert(drop, { bag = e.bag, slot = e.slot, link = e.link, name = e.name, icon = e.icon, count = e.count,
+        value = e.value or 0, why = why or e.why })
+    end
+  end
+  add(junk, "grey junk")
+  for _, e in ipairs(unusable) do e.value = e.value or 0 end
+  add(unusable)
+  add(spare)
+  results = { upgrades = up, junk = junk, unusable = unusable, use = use, junkValue = junkValue, drop = drop, kept = kept, bank = bank }
+  return results
+end
+
+-- Panel -------------------------------------------------------------------------------
+local panel
+local refresh
+local S
+
+local function money(c)
+  if GetCoinTextureString then return GetCoinTextureString(c) end
+  return ("%dg %ds %dc"):format(c / 10000, (c / 100) % 100, c % 100)
+end
+
+local function qualityOf(link)
+  local _, _, q = getInfo(link)
+  return q or 1
+end
+
+local function freeSlots()
+  local free, total = 0, 0
+  for bag = 0, 4 do
+    local n = numSlots(bag) or 0
+    total = total + n
+    for slot = 1, n do if not slotInfo(bag, slot) then free = free + 1 end end
+  end
+  return free, total
+end
+
+local sellJunk
+-- Sell one bag slot at an open vendor, only if it still holds the same item we listed.
+local function sellEntry(e)
+  if not (MerchantFrame and MerchantFrame:IsShown()) then say("talk to a vendor first.") return false end
+  local link = slotInfo(e.bag, e.slot)
+  if link ~= e.link then return false end
+  if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(e.bag, e.slot) else UseContainerItem(e.bag, e.slot) end
+  return true
+end
+
+refresh = function()
+  if not panel or not panel:IsShown() then return end
+  local r = scan()
+  local free, total = freeSlots()
+  panel.sub:SetText(("%d of %d bag slots free"):format(free, total))
+  S.begin(panel)
+
+  S.header(panel, "Upgrades to put on", "Interface\\Icons\\INV_Chest_Leather_04", #r.upgrades)
+  if #r.upgrades == 0 then S.note(panel, "Nothing better in your bags. You're wearing your best.") end
+  for _, e in ipairs(r.upgrades) do
+    S.item(panel, e.link, e.icon, qualityOf(e.link), e.name,
+      ("|cff7fd35b+%d|r for your %s"):format(math.floor(e.gain + 0.5), e.slotName:lower()), "Equip", function()
+        if InCombatLockdown() then say("can't change gear in combat.") return end
+        if C_Item and C_Item.EquipItemByName then C_Item.EquipItemByName(e.link) else EquipItemByName(e.link) end
+        C_Timer.After(0.5, refresh)
+      end)
+  end
+
+  if #r.use > 0 then
+    S.header(panel, "Use these", "Interface\\Icons\\INV_Misc_Note_01", #r.use)
+    for _, e in ipairs(r.use) do
+      S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)))
+    end
+  end
+
+  if #r.kept > 0 then
+    S.header(panel, "Gear you're keeping", "Interface\\Icons\\INV_Misc_Bag_10_Green", #r.kept)
+    S.note(panel, healMode() and "Healing mode is on. Bear and questing pieces are kept; Bank check offers to store them."
+      or "Kept for healing. Bank check offers to store them while you quest. /dk heal to wear your healing set.")
+    for _, e in ipairs(r.kept) do
+      S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)))
+    end
+  end
+
+  if #r.bank > 0 then
+    S.header(panel, "Bank these (not needed yet)", "Interface\\Icons\\INV_Box_02", #r.bank)
+    S.note(panel, "Keep them, but they don't need a bag slot now. Bank check stores them at any banker.")
+    for _, e in ipairs(r.bank) do
+      S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)))
+    end
+  end
+
+  local sellCount = #r.unusable + (#r.junk > 0 and 1 or 0)
+  local atShop = MerchantFrame and MerchantFrame:IsShown()
+  S.header(panel, "Sell at a vendor", "Interface\\Icons\\INV_Misc_Coin_02", sellCount,
+    (atShop and sellCount > 0) and "Sell all" or nil, function()
+      local n = 0
+      for _, e in ipairs(r.unusable) do if sellEntry(e) then n = n + 1 end end
+      if n > 0 then say(("sold %d item%s."):format(n, n == 1 and "" or "s")) end
+      if #r.junk > 0 then sellJunk() else C_Timer.After(0.5, refresh) end
+    end)
+  if sellCount == 0 then S.note(panel, "Nothing to sell.")
+  elseif not atShop then S.note(panel, "Talk to any vendor and Sell buttons appear here.") end
+  if #r.junk > 0 then
+    local first = r.junk[1]
+    S.item(panel, nil, first.icon, 0, ("%d grey item%s"):format(#r.junk, #r.junk == 1 and "" or "s"),
+      ("Worth %s."):format(money(r.junkValue)), atShop and "Sell" or nil, atShop and function() sellJunk() end or nil)
+  end
+  for _, e in ipairs(r.unusable) do
+    S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)),
+      atShop and "Sell" or nil, atShop and function() sellEntry(e); C_Timer.After(0.4, refresh) end or nil)
+  end
+
+  S.header(panel, "Bags full? Drop these first", "Interface\\Icons\\INV_Misc_Bag_07_Black", math.min(#r.drop, 5))
+  if #r.drop == 0 then
+    S.note(panel, "Nothing safe to drop: everything in your bags is useful.")
+  else
+    local atVendor = MerchantFrame and MerchantFrame:IsShown()
+    S.note(panel, atVendor and "You're at a vendor: Sell gets money for it. Cheapest first."
+      or "Destroy asks you to confirm first. At a vendor these become Sell buttons. Cheapest first.")
+    for n, e in ipairs(r.drop) do
+      if n > 5 then break end
+      local q = qualityOf(e.link)
+      S.item(panel, e.link, e.icon, q, e.name .. (e.count > 1 and ("  |cffffffffx" .. e.count .. "|r") or ""),
+        ("%s%s"):format((e.why:gsub("^%l", string.upper)), e.value > 0 and (", sells for " .. money(e.value)) or ""),
+        atVendor and "Sell" or "Destroy", function()
+          if atVendor then
+            if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(e.bag, e.slot) else UseContainerItem(e.bag, e.slot) end
+            C_Timer.After(0.4, refresh)
+          else
+            DruidKit_ConfirmDestroy(e)
+          end
+        end)
+    end
+  end
+
+  S.finish(panel)
+  panel.footer:SetText("Never suggests quest items, library books, herbs, anything your quests need, recipe materials, potions, food or your best fishing pole.")
+end
+
+-- Destroy with a clear yes/no. Nothing is deleted unless you click Destroy in the dialog.
+StaticPopupDialogs["DRUIDKIT_DESTROY"] = {
+  text = "Destroy %s?\n\nIt's gone for good. %s",
+  button1 = "Destroy", button2 = "Keep it",
+  OnAccept = function(self, data)
+    if not data then return end
+    ClearCursor()
+    if C_Container and C_Container.PickupContainerItem then C_Container.PickupContainerItem(data.bag, data.slot) else PickupContainerItem(data.bag, data.slot) end
+    local ok = pcall(DeleteCursorItem)
+    if not ok then
+      say("WoW wants you to finish this yourself: the item is on your cursor, click the ground, then confirm.")
+      return
+    end
+    C_Timer.After(0.4, refresh)
+  end,
+  OnCancel = function() ClearCursor() end,
+  timeout = 0, whileDead = true, hideOnEscape = true, showAlert = true,
+}
+function DruidKit_ConfirmDestroy(e)
+  local worth = (e.value or 0) > 0 and ("It would sell for " .. money(e.value) .. " at a vendor.") or "It has no vendor value."
+  local dlg = StaticPopup_Show("DRUIDKIT_DESTROY", e.link .. ((e.count or 1) > 1 and (" x" .. e.count) or ""), worth)
+  if dlg then dlg.data = { bag = e.bag, slot = e.slot } end
+end
+
+local function toggle()
+  S = S or DruidKitStyle
+  if not panel then
+    panel = S.window("DruidKitBagCheck", "Bag check", "Interface\\Icons\\INV_Misc_Bag_08", 400, 470)
+    panel:SetPoint("RIGHT", UIParent, "RIGHT", -240, 0)
+  end
+  if panel:IsShown() then panel:Hide() else panel:Show(); refresh() end
+end
+DruidKit_ToggleBags = toggle
+
+-- Tooltip line on upgrades --------------------------------------------------------------
+local function tooltipLine(tt, link)
+  if not link then return end
+  if isBook((getInfo(link))) then
+    tt:AddLine("Druid Kit: library book. Hand in to Garion Wendell, Stormwind library. Don't sell or destroy it.", 0.5, 0.83, 0.36, true)
+    return
+  end
+  local why = not upgradeFor(link) and keepReason(link)
+  if why then tt:AddLine("Druid Kit: keep, " .. why, 0.5, 0.83, 0.36) end
+  local gain, slotName = upgradeFor(link)
+  if gain then tt:AddLine(("Druid Kit: upgrade for your %s (+%d)"):format(slotName:lower(), math.floor(gain + 0.5)), 0.5, 0.83, 0.36) end
+end
+if TooltipDataProcessor and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
+  TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tt, data)
+    if tt ~= GameTooltip and tt ~= ItemRefTooltip then return end
+    local _, link = tt:GetItem()
+    pcall(tooltipLine, tt, link)
+  end)
+elseif GameTooltip:HasScript("OnTooltipSetItem") then
+  GameTooltip:HookScript("OnTooltipSetItem", function(tt) local _, link = tt:GetItem(); pcall(tooltipLine, tt, link) end)
+end
+
+-- Sell junk button at vendors ---------------------------------------------------------
+local sellBtn
+sellJunk = function()
+  local sold, total = 0, 0
+  for bag = 0, 4 do
+    for slot = 1, (numSlots(bag) or 0) do
+      local link, count, quality, _, _, locked = slotInfo(bag, slot)
+      if link and not locked then
+        local _, _, q, _, _, _, _, _, _, _, price = getInfo(link)
+        if (q or quality) == 0 and (price or 0) > 0 and not protectedReason(link, bag, slot) then
+          if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(bag, slot) else UseContainerItem(bag, slot) end
+          sold = sold + 1; total = total + price * (count or 1)
+        end
+      end
+    end
+  end
+  if sold > 0 then say(("sold %d grey item%s for %s."):format(sold, sold == 1 and "" or "s", money(total)))
+  else say("no grey items to sell.") end
+  C_Timer.After(0.5, refresh)
+end
+local function showSellButton()
+  if not MerchantFrame then return end
+  if not sellBtn then
+    sellBtn = CreateFrame("Button", "DruidKitSellJunk", MerchantFrame, "UIPanelButtonTemplate")
+    sellBtn:SetSize(96, 22)
+    sellBtn:SetPoint("TOPRIGHT", MerchantFrame, "TOPRIGHT", -40, -40)
+    sellBtn:SetText("Sell junk")
+    sellBtn:SetScript("OnClick", sellJunk)
+  end
+  local r = scan()
+  sellBtn:SetEnabled(#r.junk > 0)
+  sellBtn:Show()
+end
+
+-- Events ------------------------------------------------------------------------------
+local known = {}
+local loggedIn = false
+local function announceNewUpgrades()
+  local r = scan()
+  for _, e in ipairs(r.upgrades) do
+    if not known[e.link] and loggedIn then
+      known[e.link] = true
+      local msg = ("Upgrade in your bags: %s (%s)"):format(e.name, e.slotName)
+      if RaidNotice_AddMessage and RaidWarningFrame and ChatTypeInfo then
+        pcall(RaidNotice_AddMessage, RaidWarningFrame, msg, { r = 0.5, g = 0.83, b = 0.36 })
+      end
+      say(msg .. ". /dk bags to equip.")
+    end
+    known[e.link] = true
+  end
+  refresh()
+end
+
+local ev = CreateFrame("Frame")
+for _, e in ipairs({ "PLAYER_LOGIN", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "MERCHANT_SHOW", "MERCHANT_CLOSED", "PLAYER_LEVEL_UP" }) do
+  pcall(ev.RegisterEvent, ev, e)
+end
+local pending = false
+ev:SetScript("OnEvent", function(_, e)
+  if e == "PLAYER_LOGIN" then
+    C_Timer.After(5, function()
+      pcall(scan)
+      for _, x in ipairs(results.upgrades) do known[x.link] = true end
+      loggedIn = true
+      local n = #results.upgrades
+      if n > 0 then say(("%d gear upgrade%s in your bags. /dk bags to see and equip."):format(n, n == 1 and "" or "s")) end
+    end)
+    return
+  end
+  if e == "MERCHANT_SHOW" then pcall(showSellButton); C_Timer.After(0.2, function() pcall(refresh) end) return end
+  if e == "MERCHANT_CLOSED" then C_Timer.After(0.2, function() pcall(refresh) end) return end
+  if pending then return end
+  pending = true
+  C_Timer.After(1, function() pending = false; pcall(announceNewUpgrades) end)
+end)
+
+-- Shared with the bank helper
+DruidKitBagsAPI = {
+  getInfo = getInfo, slotInfo = slotInfo, questInfo = questInfo, numSlots = numSlots,
+  upgradeFor = upgradeFor, isTool = isTool, refresh = function() refresh() end,
+}
+
+-- Loot helper and roll advisor --------------------------------------------------------
+-- Bags full while looting: says, for each item, TAKE (and what to drop first) or SKIP.
+-- Group rolls: says NEED, GREED or PASS with the reason, and has the three buttons.
+-- Advice is words, not colours. Nothing is dropped or rolled without your click.
+local FONT = "Fonts\\FRIZQT__.TTF"
+local GOLDC = { 0.85, 0.68, 0.3 }
+local function txt(parent, size)
+  local fs = parent:CreateFontString(nil, "OVERLAY"); fs:SetFont(FONT, size, "OUTLINE"); fs:SetJustifyH("LEFT"); fs:SetWordWrap(true)
+  return fs
+end
+local function box(name, w)
+  local f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
+  f:SetWidth(w); f:SetFrameStrata("DIALOG"); f:SetClampedToScreen(true)
+  f:SetMovable(true); f:EnableMouse(true); f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  if f.SetBackdrop then
+    f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 14,
+                    insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+    f:SetBackdropColor(0.02, 0.07, 0.03, 0.95); f:SetBackdropBorderColor(GOLDC[1], GOLDC[2], GOLDC[3], 1)
+  end
+  f.title = txt(f, 14); f.title:SetPoint("TOPLEFT", 10, -8); f.title:SetTextColor(GOLDC[1], GOLDC[2], GOLDC[3])
+  f.rows = {}
+  f:Hide()
+  return f
+end
+local function button(parent, label, w)
+  local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+  b:SetSize(w or 70, 24); b:SetText(label)
+  return b
+end
+local function bagFree()
+  local free = 0
+  for bag = 0, 4 do
+    local n = numSlots(bag) or 0
+    for slot = 1, n do if not slotInfo(bag, slot) then free = free + 1 end end
+  end
+  return free
+end
+local function stacksWithBags(link)
+  local id = itemID(link); if not id then return false end
+  local stackMax = select(8, getInfo(link)) or 1
+  if stackMax <= 1 then return false end
+  for bag = 0, 4 do
+    for slot = 1, (numSlots(bag) or 0) do
+      local l, count = slotInfo(bag, slot)
+      if l and itemID(l) == id and (count or 1) < stackMax then return true end
+    end
+  end
+  return false
+end
+
+-- Verdict for one item: "take"/"skip", reason, and the bag item to drop first (or nil)
+local function lootVerdict(link, qty, isQuest, cheapest)
+  if isQuest then return "take", "quest item" end
+  local guard = protectedReason(link)
+  if guard then return "take", guard end
+  local name, _, q, _, _, _, _, _, _, _, price = getInfo(link)
+  if name and name:find("Waylaid") then return "take", "Waylaid Crate: fill it for Merchant's Favor" end
+  if stacksWithBags(link) then return "take", "stacks with what you have: no new slot" end
+  local gain, slotName = upgradeFor(link)
+  if gain then return "take", ("upgrade for your %s (+%d)"):format(slotName:lower(), math.floor(gain + 0.5)) end
+  local keep = keepReason(link)
+  if keep then return "take", keep end
+  if name and DruidKit_NeededFor then
+    local need, _, used = DruidKit_NeededFor(name)
+    if need or used then return "take", "your recipes use it" end
+  end
+  local value = (price or 0) * (qty or 1)
+  if not cheapest then return "skip", "everything in your bags is worth keeping" end
+  if value > (cheapest.value or 0) then
+    return "take", ("sells for %s, more than %s (%s)"):format(money(value), cheapest.name, money(cheapest.value or 0))
+  end
+  return "skip", ("sells for %s: worth less than anything you'd drop"):format(money(value))
+end
+
+local lootBox
+local function showLootHelp()
+  if InCombatLockdown() and false then return end
+  local free = bagFree()
+  if free > 0 then if lootBox then lootBox:Hide() end return end
+  lootBox = lootBox or box("DruidKitLootHelp", 330)
+  lootBox.title:SetText("Bags full: what to take")
+  for _, r in ipairs(lootBox.rows) do r:Hide() end
+  local res = scan()
+  local cheapest = res.drop and res.drop[1]
+  local y, n = -30, 0
+  for i = 1, (GetNumLootItems and GetNumLootItems() or 0) do
+    local slotType = GetLootSlotType and GetLootSlotType(i)
+    local icon, name, qty, _, quality, _, isQuest = GetLootSlotInfo(i)
+    if name then
+      n = n + 1
+      local row = lootBox.rows[n]
+      if not row then
+        row = CreateFrame("Frame", nil, lootBox); row:SetSize(310, 40)
+        row.icon = row:CreateTexture(nil, "ARTWORK"); row.icon:SetSize(30, 30); row.icon:SetPoint("LEFT", 0, 0)
+        row.verdict = txt(row, 13); row.verdict:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 0); row.verdict:SetWidth(270)
+        row.why = txt(row, 11); row.why:SetPoint("TOPLEFT", row.verdict, "BOTTOMLEFT", 0, -2); row.why:SetWidth(270)
+        lootBox.rows[n] = row
+      end
+      row:SetPoint("TOPLEFT", 10, y); row.icon:SetTexture(icon)
+      local verdict, why
+      if slotType and slotType ~= 1 then verdict, why = "take", "money or currency: needs no bag space"
+      else
+        local link = GetLootSlotLink and GetLootSlotLink(i)
+        if link then verdict, why = lootVerdict(link, qty, isQuest, cheapest) else verdict, why = "take", "" end
+      end
+      row.verdict:SetText((verdict == "take" and "|cff7fd35bTAKE|r  " or "|cffff6060SKIP|r  ") .. name)
+      row.why:SetText(why or ""); row:Show()
+      y = y - 44
+    end
+  end
+  if not lootBox.drop then
+    lootBox.drop = button(lootBox, "Make room", 300)
+    lootBox.dropText = txt(lootBox, 11)
+  end
+  if cheapest then
+    lootBox.dropText:ClearAllPoints(); lootBox.dropText:SetPoint("TOPLEFT", 10, y - 2); lootBox.dropText:SetWidth(310)
+    lootBox.dropText:SetText(("To take one: destroy |cffffd100%s|r (%s, %s), then click the item."):format(cheapest.name, cheapest.why or "", money(cheapest.value or 0)))
+    lootBox.dropText:Show()
+    lootBox.drop:ClearAllPoints(); lootBox.drop:SetPoint("TOPLEFT", 10, y - 34)
+    lootBox.drop:SetText("Destroy " .. cheapest.name)
+    lootBox.drop:SetScript("OnClick", function() DruidKit_ConfirmDestroy(cheapest) end)
+    lootBox.drop:Show()
+    y = y - 64
+  else
+    lootBox.dropText:Hide(); lootBox.drop:Hide()
+  end
+  lootBox:SetHeight(-y + 10)
+  lootBox:ClearAllPoints()
+  if LootFrame and LootFrame:IsShown() then lootBox:SetPoint("TOPLEFT", LootFrame, "TOPRIGHT", 8, 0)
+  else lootBox:SetPoint("CENTER", UIParent, "CENTER", 260, 80) end
+  lootBox:Show()
+end
+
+-- Rolls
+local rollBox
+local rolls = {}      -- rollID -> info
+-- Who else in the party wears what (for polite rolling). Hunters and shamans wear leather until 40.
+local CLOTH = { MAGE = "mage", PRIEST = "priest", WARLOCK = "warlock" }
+local LEATHER = { ROGUE = "rogue", DRUID = "druid", HUNTER = "hunter", SHAMAN = "shaman" }
+local function partyWearers(subID)
+  local list = {}
+  for i = 1, 4 do
+    local u = "party" .. i
+    if UnitExists and UnitExists(u) then
+      local _, cls = UnitClass(u)
+      local lvl = UnitLevel(u) or 0
+      if subID == 1 and CLOTH[cls] then table.insert(list, CLOTH[cls])
+      elseif subID == 2 and LEATHER[cls] and not ((cls == "HUNTER" or cls == "SHAMAN") and lvl >= 40) then
+        table.insert(list, LEATHER[cls]) end
+    end
+  end
+  return list
+end
+local SMALL = 3   -- upgrades below this are "small"
+local function rollAdvice(link, canNeed, canGreed)
+  local _, _, quality, _, _, _, _, _, equipLoc, _, price, classID, subID, bindType = getInfo(link)
+  local sells = money(price or 0)
+  local isArmour = classID == 4 and (subID == 1 or subID == 2)
+  local others = isArmour and partyWearers(subID) or {}
+  local who = others[1]
+  if classID == 9 and canGreed then
+    return "GREED", "recipe: Greed. If you want it for your profession, ask in /p first", 2
+  end
+  if (classID == 7 or classID == 5) and canGreed then
+    return "GREED", ("crafting material: Greed (sells for %s)"):format(sells), 2
+  end
+  local gain, slotName = upgradeFor(link)
+  if gain and canNeed then
+    local g = math.floor(gain + 0.5)
+    if subID == 1 and classID == 4 and who then
+      if gain < SMALL then
+        return "GREED", ("small upgrade (+%d) but cloth is the %s's armour: be nice, Greed"):format(g, who), 2
+      end
+      return "NEED", ("big upgrade (+%d %s). Cloth: ask in /p first, \"ok if I Need?\""):format(g, slotName:lower()), 1
+    end
+    if who and gain < SMALL then
+      return "GREED", ("only a small upgrade (+%d). The %s may want it more: Greed is the kind choice"):format(g, who), 2
+    end
+    if who then
+      return "NEED", ("upgrade for your %s (+%d). The %s may roll too: that's fair"):format(slotName:lower(), g, who), 1
+    end
+    return "NEED", ("upgrade for your %s (+%d)"):format(slotName:lower(), g), 1
+  end
+  -- Too high level for you today, but you'll grow into it (within 5 levels)
+  local minLevel = select(5, getInfo(link)) or 0
+  local myLevel = UnitLevel("player") or 0
+  if minLevel > myLevel and minLevel - myLevel <= 5 then
+    local later, laterSlot = upgradeFor(link, nil, true)
+    if later and canGreed then
+      return "GREED", ("upgrade for your %s at level %d (+%d): Greed. If nobody Needs it, ask in /p if you can have it"):format(
+        laterSlot:lower(), minLevel, math.floor(later + 0.5)), 2
+    end
+  end
+  local other = keepReason(link)
+  if other and canGreed then
+    return "GREED", ("off-role piece (%s): Greed, so main-role players get first pick"):format(other), 2
+  end
+  if other and canNeed then return "NEED", other, 1 end
+  if canGreed then
+    if equipLoc and equipLoc ~= "" and not usable(classID, subID, equipLoc) then
+      local kind = (classID == 4 and (subID == 3 and "mail" or subID == 4 and "plate" or subID == 6 and "a shield"))
+        or (classID == 2 and "that weapon type") or "it"
+      return "GREED", ("druids can never use %s; sells for %s"):format(kind, sells), 2
+    end
+    local tail = ""
+    if bindType == 2 and (quality or 0) >= 2 then tail = ". Never Need just to sell it" end
+    if who and equipLoc and equipLoc ~= "" then tail = (". The %s may Need it"):format(who) .. tail end
+    return "GREED", ("not an upgrade for you; sells for %s%s"):format(sells, tail), 2
+  end
+  return "PASS", "you can't roll Greed on this", 0
+end
+DruidKitBagsAPI.rollAdvice = rollAdvice
+DruidKitBagsAPI.protectedReason = protectedReason
+
+local function drawRolls()
+  rollBox = rollBox or box("DruidKitRolls", 360)
+  rollBox.title:SetText("Loot roll advice")
+  for _, r in ipairs(rollBox.rows) do r:Hide() end
+  local y, n = -30, 0
+  for id, info in pairs(rolls) do
+    n = n + 1
+    local row = rollBox.rows[n]
+    if not row then
+      row = CreateFrame("Frame", nil, rollBox); row:SetSize(340, 70)
+      row.icon = row:CreateTexture(nil, "ARTWORK"); row.icon:SetSize(32, 32); row.icon:SetPoint("TOPLEFT", 0, 0)
+      row.name = txt(row, 13); row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 0); row.name:SetWidth(300)
+      row.why = txt(row, 11); row.why:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -2); row.why:SetWidth(300)
+      row.need = button(row, "Need", 74); row.need:SetPoint("BOTTOMLEFT", 40, 0)
+      row.greed = button(row, "Greed", 74); row.greed:SetPoint("LEFT", row.need, "RIGHT", 6, 0)
+      row.pass = button(row, "Pass", 74); row.pass:SetPoint("LEFT", row.greed, "RIGHT", 6, 0)
+      rollBox.rows[n] = row
+    end
+    row:SetPoint("TOPLEFT", 10, y); row.icon:SetTexture(info.icon)
+    row.name:SetText(("|cffffd100%s|r  %s"):format(info.advice, info.name or "?"))
+    row.why:SetText(info.why)
+    for _, pair in ipairs({ { row.need, 1, "Need" }, { row.greed, 2, "Greed" }, { row.pass, 0, "Pass" } }) do
+      local b, choice, label = pair[1], pair[2], pair[3]
+      b:SetText(choice == info.pick and (">" .. label .. "<") or label)   -- the advised button is marked
+      b:SetEnabled((choice ~= 1 or info.canNeed) and (choice ~= 2 or info.canGreed))
+      b:SetScript("OnClick", function()
+        pcall(RollOnLoot, id, choice); rolls[id] = nil; drawRolls()
+      end)
+    end
+    row:Show()
+    y = y - 76
+  end
+  if n == 0 then rollBox:Hide() return end
+  rollBox:SetHeight(-y + 8)
+  if not rollBox.placed then rollBox:SetPoint("TOP", UIParent, "TOP", 0, -140); rollBox.placed = true end
+  rollBox:Show()
+end
+local function onStartRoll(id)
+  local link = GetLootRollItemLink and GetLootRollItemLink(id)
+  local icon, name, _, _, _, canNeed, canGreed = GetLootRollItemInfo(id)
+  if not link then return end
+  local advice, why, pick = rollAdvice(link, canNeed, canGreed)
+  rolls[id] = { icon = icon, name = name, advice = advice, why = why, pick = pick, canNeed = canNeed, canGreed = canGreed }
+  drawRolls()
+end
+
+local lev = CreateFrame("Frame")
+for _, e in ipairs({ "LOOT_OPENED", "LOOT_SLOT_CLEARED", "LOOT_CLOSED", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL" }) do pcall(lev.RegisterEvent, lev, e) end
+lev:SetScript("OnEvent", function(_, e, a1)
+  if e == "LOOT_OPENED" or e == "LOOT_SLOT_CLEARED" then
+    C_Timer.After(0.05, function() local ok, err = pcall(showLootHelp); if not ok then say("loot helper: " .. tostring(err)) end end)
+  elseif e == "LOOT_CLOSED" then
+    if lootBox then lootBox:Hide() end
+  elseif e == "START_LOOT_ROLL" then
+    local ok, err = pcall(onStartRoll, a1); if not ok then say("roll advice: " .. tostring(err)) end
+  elseif e == "CANCEL_LOOT_ROLL" then
+    rolls[a1] = nil; pcall(drawRolls)
+  end
+end)

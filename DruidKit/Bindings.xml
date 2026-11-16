@@ -8,5 +8,6 @@
   <Binding name="DRUIDKIT_TAB6" category="ADDONS">DruidKit_OpenTab(6)</Binding>
   <Binding name="DRUIDKIT_TAB7" category="ADDONS">DruidKit_OpenTab(7)</Binding>
   <Binding name="DRUIDKIT_TAB8" category="ADDONS">DruidKit_OpenTab(8)</Binding>
+  <Binding name="DRUIDKIT_BAGS" category="ADDONS">DruidKit_ToggleBags()</Binding>
   <Binding name="DRUIDKIT_TOGGLEMODE" category="ADDONS">DruidKit_ToggleMode()</Binding>
 </Bindings>
