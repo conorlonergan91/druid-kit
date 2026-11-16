@@ -5,4 +5,5 @@
 ## Version: 2.2
 ## SavedVariablesPerCharacter: DruidKitDB
 
+DruidKit_Guide.lua
 DruidKit.lua
