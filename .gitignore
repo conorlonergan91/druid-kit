@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.ruff_cache/
+.venv/
+.DS_Store
+# Personal guides and exported saves stay local
+guide.json
+*.bak
+WTF/

@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Claude Progress
+## Notes: Saves your level, quests, gear, quest rewards, bank, recipes, professions and talents to a file Claude can read. Updates on /reload or logout.
+## Author: Conor Lonergan
+## Version: 1.8
+## SavedVariables: ClaudeProgressDB
+
+ClaudeProgress.lua
