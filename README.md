@@ -56,6 +56,7 @@ DruidKit/          the addon (Lua 5.1, loaded in toc order)
 ClaudeProgress/    character-state exporter
 tools/             guide generator, route builder and examples
 planner/           route-planning toolkit (rk.py), agent rules and task, eval tools
+skills/            the Claude skill that runs updates (personal details stay in a private handoff file)
 tests/             tests that run the real addon code against a mocked WoW API
 ```
 
