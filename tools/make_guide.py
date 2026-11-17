@@ -15,6 +15,8 @@ section:
   "short": str,                                  optional jump-button label (10 chars max)
   "go": {"zone": str, "x": num, "y": num, "label": str}   optional Go button (map coordinates 0-100)
 }
+"route" (optional): the step tracker's route, see tools/example_route.py and DruidKit_Steps.lua
+}
 Icons are names from Interface\\Icons (e.g. "Ability_Racial_BearForm").
 Lines starting with "- " become green bullets. WoW colour codes (|cffRRGGBB...|r) are allowed.
 """
@@ -30,6 +32,39 @@ def lua_str(s: str) -> str:
         level += 1
     eq = "=" * level
     return f"[{eq}[{s}]{eq}]"
+
+
+def lua_value(v):
+    """Python value -> Lua literal (strings, numbers, booleans, lists)."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(v)
+    if isinstance(v, str):
+        return lua_str(v)
+    if isinstance(v, list):
+        return "{ " + ", ".join(lua_value(x) for x in v) + " }"
+    raise TypeError(f"can't write {type(v).__name__} to Lua")
+
+
+# Route step keys as the addon reads them ("goto" is a Lua 5.2+ keyword, so it becomes "at").
+STEP_KEYS = {"do": '["do"]', "goto": "at"}
+
+
+def route_lua(route) -> list:
+    """DruidKitRoute = { id = ..., sections = { { title = ..., steps = { {...}, ... } } } }"""
+    if not route:
+        return ["DruidKitRoute = nil"]
+    out = ["DruidKitRoute = {", f"  id = {lua_str(route['id'])},", "  sections = {"]
+    for sec in route["sections"]:
+        out.append(f"    {{ title = {lua_str(sec['title'])}, steps = {{")
+        for st in sec["steps"]:
+            fields = ", ".join(f"{STEP_KEYS.get(k, k)} = {lua_value(v)}" for k, v in st.items())
+            out.append(f"      {{ {fields} }},")
+        out.append("    } },")
+    out.append("  },")
+    out.append("}")
+    return out
 
 
 def main(src: str, dest: str) -> None:
@@ -65,6 +100,7 @@ def main(src: str, dest: str) -> None:
         out.append("    },")
     out.append("  },")
     out.append("}")
+    out.extend(route_lua(g.get("route")))
     with open(dest, "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")
 

@@ -695,6 +695,7 @@ function DruidKit_NavUpdate()
   local dist = math.sqrt(east * east + south * south)
   if dist < 12 then
     navSay("you've arrived: " .. nav.label .. ".")
+    if DruidKit_OnArrive then pcall(DruidKit_OnArrive, nav.label) end
     DruidKit_NavClear(true)
     return
   end
@@ -731,16 +732,24 @@ function DruidKit_NavTo(mapID, x, y, label)
 end
 
 -- Waypoint from a zone name and map numbers (as written in the guide): DruidKit_GoTo("Westfall", 56.2, 47.6, "Gryan")
-function DruidKit_GoTo(zone, x, y, label)
+-- quiet = true: no chat line (the step tracker sets the arrow on every step).
+function DruidKit_GoTo(zone, x, y, label, quiet)
   local mapID = zone and findMap(zone) or (C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player"))
-  if not mapID then navSay("can't find the map for " .. tostring(zone) .. ".") return end
+  if not mapID then
+    if not quiet then navSay("can't find the map for " .. tostring(zone) .. ".") end
+    return false
+  end
   local text = ("%s (%s %.1f, %.1f)"):format(label or "Waypoint", zone or (mapName(mapID) or ""), x, y)
   if C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates then
     pcall(C_Map.SetUserWaypoint, UiMapPoint.CreateFromCoordinates(mapID, x / 100, y / 100))
   end
-  if DruidKit_NavTo(mapID, x / 100, y / 100, text) then navSay("heading to " .. text .. ". Right-click the arrow to stop.")
+  local ok = DruidKit_NavTo(mapID, x / 100, y / 100, text)
+  if quiet then return ok end
+  if ok then navSay("heading to " .. text .. ". Right-click the arrow to stop.")
   else navSay(("go to %s, %.1f, %.1f."):format(zone or "", x, y)) end
+  return ok
 end
+DruidKit_FindMap = function(zone) return zone and findMap(zone) end
 
 -- Click anywhere on the world map: on a zone or city map a plain left-click sets a waypoint there;
 -- Ctrl+click works on any map. (Plain clicks on the continent map still open zones.)

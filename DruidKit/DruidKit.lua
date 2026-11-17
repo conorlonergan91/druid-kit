@@ -537,8 +537,11 @@ SlashCmdList["DRUIDKIT"] = function(msg)
     herbsOn()
   elseif cmd == "keys" then
     DruidKit_SetDefaultKeys()
+  elseif (cmd == "steps" or cmd == "auto" or cmd == "arrow") and DruidKit_StepsCommand then
+    DruidKit_StepsCommand(cmd == "steps" and rest or cmd)
   elseif not (DruidKit_HelperCommand and DruidKit_HelperCommand(cmd, rest)) then
     say("/dk bars \194\183 heal \194\183 quest \194\183 healset \194\183 questset \194\183 save NAME \194\183 load NAME \194\183 list \194\183 herbs \194\183 bags \194\183 Full list: Help tab (Alt+6)")
+    say("/dk steps (show or hide the step window) \194\183 steps reset \194\183 auto (quest auto accept/hand-in on or off) \194\183 arrow")
     say("/dk catchup [level] \194\183 tracker/hud/rest/trainers on or off \194\183 unlock \194\183 lock")
   end
 end

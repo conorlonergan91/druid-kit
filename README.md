@@ -14,6 +14,7 @@ reflects where the character actually is.
 
 | Area | What it does |
 | --- | --- |
+| Step tracker (`/dk steps`) | RestedXP-style route window: one action at a time (accept, do, hand in, go, fly, train), ticked off automatically from quest, zone and level events. The arrow follows the current step, and the route's quests are accepted and handed in with the right reward picked (hold Shift to do it yourself). |
 | Guide (`Shift+J`, `Alt+1-8`) | Tabbed guide window with a jump bar and **Go** buttons that start the navigation arrow. Content is data, generated from JSON. |
 | Action bars (`/dk bars`) | Lays out caster, Bear, Cat and Prowl bars by how easy each key is to reach. Melee abilities are placed as small `/startattack` macros so auto attack never drops. New spells go onto their key the moment they're learned. |
 | Healing mode (`Alt+H`) | Swaps bars and gear between questing and healing sets in one keypress. |
@@ -35,7 +36,8 @@ reflects where the character actually is.
   (map size worked out from world positions of its corners) and compares the bearing with the player's facing.
 - **Accessibility first.** Every alert is a word, letter or icon; colour is only ever a second signal.
 - **Guide as data.** `tools/make_guide.py` turns a JSON guide into `DruidKit_Guide.lua`, so content changes never
-  touch addon code.
+  touch addon code. Routes are plain Python data (`tools/example_route.py`); `tools/build_now.py` turns one into the
+  step tracker's route and the guide's Now tab.
 
 ## Repository layout
 
@@ -45,6 +47,7 @@ DruidKit/          the addon (Lua 5.1, loaded in toc order)
   DruidKit_Bags.lua    bag check, sell/bank lists, loot helper, roll advice
   DruidKit_Bank.lua    bank check
   DruidKit_Trainers.lua trainer pins, Go to window, navigation arrow, /way
+  DruidKit_Steps.lua   step tracker: route window, auto-advance, automatic quest accept and hand-in
   DruidKit_Party.lua   party healing view
   DruidKit_Helpers.lua HUD, catch-up tracker, profession lines
   DruidKit_Style.lua   shared window styling
@@ -59,7 +62,7 @@ tests/             tests that run the real addon code against a mocked WoW API
 The tests load the addon's Lua files into a **Lua 5.1** runtime (the version WoW uses) via
 [lupa](https://github.com/scoder/lupa), with the WoW API mocked in `tests/mocks/`. They cover bag and sell rules,
 quest-item protection, roll advice, bar layouts and macros, healing mode, the guide window, trainer pins, navigation
-maths and the exporter.
+maths, the step tracker and the exporter.
 
 ```sh
 pip install -r requirements-dev.txt

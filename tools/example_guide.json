@@ -1,146 +1,151 @@
 {
  "title": "Druid Kit Guide (example)",
- "updated": "16 Nov, 00:35",
+ "updated": "example",
  "tabs": [
   {
    "name": "Now",
    "sections": [
     {
-     "title": "1. Molsen Farm: well sample, Defias, livers",
+     "title": "How the steps work",
+     "short": "How",
+     "lines": [
+      "- The |cffffd100step window|r (right side of the screen) shows one thing to do. It ticks itself off when you accept, finish or hand in a quest, reach the place, or arrive by flight.",
+      "- The arrow follows the current step. |cffffd100Done|r skips a step, |cffffd100Back|r goes back one.",
+      "- Guide quests are accepted and handed in for you, with the reward picked. |cffffd100Hold Shift|r at a quest giver to do it yourself.",
+      "- |cff7fd35b/dk steps|r shows or hides the window · |cff7fd35b/dk auto|r turns auto quests off or on · |cff7fd35b/dk steps reset|r starts over (finished steps skip themselves)."
+     ]
+    },
+    {
+     "title": "Westfall: Defias chain (18-19)",
      "short": "1",
      "lines": [
-      "- |cff7fd35bWhere:|r Molsen Farm, west of Saldean's Farm (north-west of Sentinel Hill).",
-      "- |cff7fd35bTip:|r pull one Defias at a time."
-     ]
+      "- 1. |cffffd100Hand in:|r The People's Militia (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6) reward: Fist of the People's Militia|r",
+      "- 2. |cffffd100Do:|r Wear Fist of the People's Militia. Alt+B at a vendor: sell the Torchlight Wand and Hunting Bow.",
+      "- 3. |cffffd100Accept:|r Red Silk Bandanas (Scout Riell) |cff9d9d9d· top of the Sentinel Hill tower (56.6, 47.4)|r",
+      "- 4. |cffffd100Fly to|r Stormwind |cff9d9d9d· Sentinel Hill|r",
+      "- 5. |cffffd100Hand in:|r Humble Beginnings (Baros Alexston) |cff9d9d9d· Cathedral Square (49.0, 30.2)|r",
+      "- 6. |cffffd100Do:|r Library books: hand any you carry to Garion Wendell, top of the Wizard's Sanctum, Mage Quarter.",
+      "- 7. |cffffd100Go to:|r Walk to Lakeshire, Redridge |cff9d9d9d· leave by the main gate, follow the road east through Elwynn past Goldshire into Redridge (26.0, 46.0)|r",
+      "- 8. |cffffd100Hand in:|r The Defias Brotherhood (Wiley the Black) |cff9d9d9d· upstairs in the Lakeshire inn (26.0, 46.0)|r",
+      "- 9. |cffffd100Accept:|r The Defias Brotherhood (Wiley the Black) |cff9d9d9d· upstairs in the Lakeshire inn|r",
+      "- 10. |cffffd100Do:|r Talk to the Lakeshire flight master to learn the flight path.",
+      "- 11. |cffffd100Fly to|r Sentinel Hill |cff9d9d9d· Lakeshire flight master (via Stormwind)|r",
+      "- 12. |cffffd100Hand in:|r The Defias Brotherhood (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6)|r",
+      "- 13. |cffffd100Accept:|r The Defias Brotherhood (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6)|r",
+      "- 14. |cffffd100Fly to|r Stormwind |cff9d9d9d· Sentinel Hill flight master|r",
+      "- 15. |cffffd100Hand in:|r The Defias Brotherhood (Master Mathias Shaw) |cff9d9d9d· SI:7 building in Old Town, upstairs|r",
+      "- 16. |cffffd100Accept:|r The Defias Brotherhood (Master Mathias Shaw) |cff9d9d9d· SI:7, Old Town|r",
+      "- 17. |cffffd100Fly to|r Sentinel Hill |cff9d9d9d· Stormwind flight master|r",
+      "- 18. |cffffd100Hand in:|r The Defias Brotherhood (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6)|r",
+      "- 19. |cffffd100Accept:|r The Defias Brotherhood (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6)|r",
+      "- 20. |cffffd100Do:|r Kill the Defias Messenger for A Mysterious Message |cff9d9d9d· he starts by the Moonbrook blacksmith and walks the road north to the Gold Coast Quarry and Jangolode Mine (44.4, 69.6)|r",
+      "- 21. |cffffd100Hand in:|r The Defias Brotherhood (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6)|r",
+      "- 22. |cffffd100Accept:|r The Defias Brotherhood (The Defias Traitor) |cff9d9d9d· in front of the Sentinel Hill tower (56.2, 47.6)|r",
+      "- 23. |cffffd100Do:|r Escort the Defias Traitor to the hideout in Moonbrook",
+      "- 24. |cffffd100Hand in:|r The Defias Brotherhood (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6)|r",
+      "- 25. |cffffd100Accept:|r The Defias Brotherhood (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6)|r"
+     ],
+     "go": {
+      "zone": "Westfall",
+      "x": 56.2,
+      "y": 47.6,
+      "label": "Gryan Stoutmantle"
+     }
     },
     {
-     "title": "2. Jangolode Mine: finish the Defias",
+     "title": "The Deadmines (18-20, group)",
      "short": "2",
      "lines": [
-      "- |cff7fd35bWhere:|r Jangolode Mine, north of the Molsen Farm.",
-      "- |cff7fd35bDo:|r finish the Trappers, Smugglers and bandanas (camps respawn fast)."
-     ]
+      "- 26. |cffffd100Do:|r Find a group: ask friends first, or Looking for Group (green eye): The Deadmines, tick Tank + Damage, List.",
+      "- 27. |cffffd100Go to:|r Deadmines entrance |cff9d9d9d· the mine in Moonbrook; follow the tunnel to the portal (42.0, 72.0)|r",
+      "- 28. |cffffd100Do:|r Red Silk Bandanas from Defias miners and overseers",
+      "- 29. |cffffd100Do:|r 4 Miners' Union Cards from the miners",
+      "- 30. |cffffd100Do:|r Thistlenettle's Badge from Foreman Thistlenettle",
+      "- 31. |cffffd100Do:|r Gnoam Sprecklesprocket from Sneed's Shredder",
+      "- 32. |cffffd100Do:|r Kill Edwin VanCleef (last boss, on the ship)"
+     ],
+     "go": {
+      "zone": "Westfall",
+      "x": 42.0,
+      "y": 72.0,
+      "label": "Deadmines entrance"
+     }
     },
     {
-     "title": "3. North coast: murlocs",
+     "title": "Hand-ins: Sentinel Hill and Stormwind",
      "short": "3",
      "lines": [
-      "- |cff7fd35bWhere:|r the coast north of the mine (Longshore).",
-      "- |cff7fd35bDo:|r kill Longshore murlocs for 7 |cffffd100Murloc Gills|r and 3 |cffffd100Murloc Eyes|r (|cffffd100Westfall Stew|r).",
-      "- |cff7fd35bTip:|r they come in pairs and run for help: pull from the edge."
-     ]
+      "- 33. |cffffd100Hand in:|r The Defias Brotherhood (Gryan Stoutmantle) |cff9d9d9d· Sentinel Hill tower (56.2, 47.6)|r",
+      "- 34. |cffffd100Hand in:|r Red Silk Bandanas (Scout Riell) |cff9d9d9d· top of the Sentinel Hill tower (56.6, 47.4)|r",
+      "- 35. |cffffd100Fly to|r Stormwind |cff9d9d9d· Sentinel Hill flight master|r",
+      "- 36. |cffffd100Hand in:|r Collecting Memories (Wilder Thistlenettle) |cff9d9d9d· Dwarven District (65.2, 21.2) reward: Dusty Mining Gloves|r",
+      "- 37. |cffffd100Hand in:|r Oh Brother... (Wilder Thistlenettle) |cff9d9d9d· Dwarven District reward: Miner's Revenge|r",
+      "- 38. |cffffd100Hand in:|r Underground Assault (Shoni the Shilent) |cff9d9d9d· Dwarven District (55.4, 12.4) reward: Bravo's Armbands|r",
+      "- 39. |cffffd100Hand in:|r An Unsent Letter (Baros Alexston) |cff9d9d9d· Cathedral Square (49.0, 30.2)|r"
+     ],
+     "go": {
+      "zone": "Westfall",
+      "x": 56.2,
+      "y": 47.6,
+      "label": "Gryan Stoutmantle"
+     }
     },
     {
-     "title": "4. Jansen Stead: the other well sample",
+     "title": "Moonglade and Darnassus: Aquatic Form",
      "short": "4",
      "lines": [
-      "- |cff7fd35bWhere:|r the Jansen Stead, north-east along the road |cff9d9d9d(60, 19)|r.",
-      "- |cff7fd35bDo:|r use the sample kit at the well (Jansen sample)."
-     ],
-     "go": {
-      "zone": "Westfall",
-      "x": 60,
-      "y": 19,
-      "label": "Jansen Stead"
-     }
-    },
-    {
-     "title": "5. Saldean's Farm hand-ins",
-     "short": "5",
-     "lines": [
-      "- |cff7fd35bWhere:|r Saldean's Farm, east of the Molsen Farm on the road north of Sentinel Hill.",
-      "- |cff7fd35bDo:|r hand in |cffffd100Westfall Stew|r and |cffffd100Goretusk Liver Pie|r to Salma Saldean. Take any follow-ups."
-     ]
-    },
-    {
-     "title": "6. Sentinel Hill hand-ins",
-     "short": "6",
-     "lines": [
-      "- |cff7fd35bWhere:|r Sentinel Hill: Gryan |cff9d9d9d(56.2, 47.6)|r, Alba Fairmoon |cff9d9d9d(52.5, 53.0)|r.",
-      "- |cff7fd35bTip:|r the Murloc Gills hand-in: Questie shows who. At level 18, train new spells at a druid trainer the next time you're in a city."
-     ],
-     "go": {
-      "zone": "Westfall",
-      "x": 56.2,
-      "y": 47.6,
-      "label": "Gryan Stoutmantle"
-     }
-    },
-    {
-     "title": "7. Sea Lion lockbox and sleeping-bag note",
-     "short": "7",
-     "lines": [
-      "- |cff7fd35bWhere:|r west coast by the shipwreck |cff9d9d9d(17.9, 33.1)|r (|cff3fc7ebunderwater|r); Alexston Farmstead |cff9d9d9d(37.1, 50.1)|r is on the way.",
-      "- |cff7fd35bTip:|r refill your breath at the bubbling fissure."
-     ],
-     "go": {
-      "zone": "Westfall",
-      "x": 17.9,
-      "y": 33.1,
-      "label": "Sea Lion shipwreck"
-     }
-    },
-    {
-     "title": "8. Defias Brotherhood: Lakeshire",
-     "short": "8",
-     "lines": [
-      "- |cff7fd35bWhere:|r Lakeshire, Redridge Mountains: from Westfall go back through Elwynn on the road east past Goldshire, then the road east into Redridge. Get the Lakeshire flight path.",
-      "- |cff7fd35bDo:|r talk to |cffffd100Wiley the Black|r in Lakeshire for |cffffd100The Defias Brotherhood|r (it's ready in your log). Follow the chain with Questie: it ends by sending you into the Deadmines."
-     ]
-    },
-    {
-     "title": "9. Find a Deadmines group",
-     "short": "9",
-     "lines": [
-      "- |cff7fd35bWhere:|r anywhere: Looking for Group (green-eye button).",
-      "- |cff7fd35bTip:|r before the run: eat for Well Fed, drink an Elixir of Minor Strength."
-     ]
-    },
-    {
-     "title": "10. The Deadmines",
-     "short": "10",
-     "lines": [
-      "- |cff7fd35bWhere:|r the mine in Moonbrook, south-west of Sentinel Hill |cff9d9d9d(about 42, 72)|r; follow the tunnel to the portal.",
-      "- |cff7fd35bDo:|r kill all the bosses (order: Dungeons tab, Alt+8). Get 4 |cffffd100Miners' Union Cards|r, |cffffd100Thistlenettle's Badge|r, |cffffd100Gnoam Sprecklesprocket|r (Sneed's Shredder) and the Defias chain items. Loot |cffffd100An Unsent Letter|r from VanCleef and right-click it.",
-      "- |cff7fd35bTip:|r look out for Blackened Defias Armor (big chest upgrade)."
-     ],
-     "go": {
-      "zone": "Westfall",
-      "x": 42,
-      "y": 72,
-      "label": "Deadmines entrance (Moonbrook)"
-     }
-    },
-    {
-     "title": "11. Hand in: Sentinel Hill, then Stormwind",
-     "short": "11",
-     "lines": [
-      "- |cff7fd35bWhere:|r Gryan at Sentinel Hill |cff9d9d9d(56.2, 47.6)|r; then fly to Stormwind (1s 10c).",
-      "- |cff7fd35bDo:|r Gryan: the Defias chain (/reload and say \"update\" first so I can pick). Stormwind: |cffffd100Wilder|r (Collecting Memories → |cffffd100Dusty Mining Gloves|r; Oh Brother... → |cffffd100Miner's Revenge|r, sell 17s 75c), |cffffd100Shoni|r (Underground Assault → |cffffd100Bravo's Armbands|r), |cffffd100Baros Alexston|r, Cathedral Square |cff9d9d9d(49.0, 30.2)|r (Humble Beginnings, An Unsent Letter).",
-      "- |cff7fd35bTip:|r shopping while you're in Stormwind: 10 Empty Vials, 4 Mild Spices, 5 Simple Wood (Crafting tab)."
-     ],
-     "go": {
-      "zone": "Westfall",
-      "x": 56.2,
-      "y": 47.6,
-      "label": "Gryan Stoutmantle"
-     }
-    },
-    {
-     "title": "12. Moonglade and Darnassus: Aquatic Form",
-     "short": "12",
-     "lines": [
-      "- |cff7fd35bWhere:|r cast |cffffd100Teleport: Moonglade|r; Shrine of Remulos |cff9d9d9d(36.5, 40.1)|r; then fly Nighthaven → Rut'theran and take the portal up to Darnassus |cff9d9d9d(35.2, 8.0)|r.",
-      "- |cff7fd35bDo:|r make the Pendant of the Sea Lion inside the shrine, hand in to Dendrite Starblaze |cff9d9d9d(56.2, 30.7)|r, then to Mathrengyl Bearwalker in Darnassus: |cffffd100Aquatic Form|r.",
-      "- |cff7fd35bTip:|r then say \"update\" for the next loop.",
-      "|cff9d9d9dOptional: Stormpike's Delivery (Loch Modan) is ready to hand in: skip unless friends are going.|r"
+      "- 40. |cffffd100Go to:|r Cast Teleport: Moonglade",
+      "- 41. |cffffd100Train|r Loganaar (druid trainer) |cff9d9d9d· Nighthaven, Moonglade|r",
+      "- 42. |cffffd100Do:|r Right-click a pendant half at the Shrine of Remulos to join them into the Pendant of the Sea Lion |cff9d9d9d· (36.5, 40.1)|r",
+      "- 43. |cffffd100Hand in:|r Trial of the Sea Lion (Dendrite Starblaze) |cff9d9d9d· Nighthaven (56.2, 30.7)|r",
+      "- 44. |cffffd100Accept:|r Aquatic Form (Dendrite Starblaze) |cff9d9d9d· Nighthaven|r",
+      "- 45. |cffffd100Fly to|r Rut'theran Village |cff9d9d9d· Nighthaven flight master|r",
+      "- 46. |cffffd100Hand in:|r Aquatic Form (Mathrengyl Bearwalker) |cff9d9d9d· Cenarion Enclave, Darnassus (35.2, 8.0)|r",
+      "- 47. |cffffd100Do:|r Set your hearthstone in Auberdine when you get there (Darkshore is your base for the next levels).",
+      "- 48. |cffffd100Go to:|r Boat to Auberdine |cff9d9d9d· back down the portal to Rut'theran; the boat leaves from the dock|r"
      ],
      "go": {
       "zone": "Moonglade",
       "x": 36.5,
       "y": 40.1,
-      "label": "Shrine of Remulos"
+      "label": "Right-click a pendant half at the Shrine of Remulos to join them into the Pendant of the Sea Lion"
      }
+    },
+    {
+     "title": "South Darkshore (19-20)",
+     "short": "5",
+     "lines": [
+      "- 49. |cffffd100Hand in:|r Making Do (Thundris Windweaver) |cff9d9d9d· Auberdine|r",
+      "- 50. |cffffd100Accept:|r Easy Strider Living (Alanndarian Nightsong) |cff9d9d9d· Auberdine|r",
+      "- 51. |cffffd100Do:|r 12 Lunar Fungus from the caves east of Auberdine",
+      "- 52. |cffffd100Do:|r Kill Anaya Dawnrunner at the Ameth'Aran ruins for her pendant |cff9d9d9d· (41.8, 60.7)|r",
+      "- 53. |cffffd100Do:|r 5 Fine Moonstalker Pelts from Moonstalker Sires and Matriarchs |cff9d9d9d· along the Wildbend River|r",
+      "- 54. |cffffd100Do:|r 5 Strider Meat from Foreststriders along the southern road",
+      "- 55. |cffffd100Do:|r 4 Grizzled Scalps from Grizzled Thistle Bears, then use the Buzzbox |cff9d9d9d· far south, between the Grove of the Ancients and Blackwood Den|r",
+      "- 56. |cffffd100Do:|r Kill Jai'vhanel for her feather (Questie's marker) |cff9d9d9d· reward: Darnassian Knife|r",
+      "- 57. |cffffd100Do:|r Kill the Den Mother in her cave near Bashal'Aran |cff9d9d9d· (52.3, 35.8)|r",
+      "- 58. |cffffd100Do:|r 5 Scaber Stalks and a Death Cap in the cave behind Cliffspring Falls |cff9d9d9d· (54.4, 31.8)|r",
+      "- 59. |cffffd100Do:|r Clear the murloc camp, stand in the middle: 3 waves, Murkdeep last |cff9d9d9d· (36.0, 76.0)|r",
+      "- 60. |cffffd100Hand in:|r Gathering the Cure (Alanndarian Nightsong) |cff9d9d9d· Auberdine|r",
+      "- 61. |cffffd100Hand in:|r Easy Strider Living (Alanndarian Nightsong) |cff9d9d9d· Auberdine|r",
+      "- 62. |cffffd100Hand in:|r A Lost Master (Terenthis) |cff9d9d9d· Auberdine|r",
+      "- 63. |cffffd100Hand in:|r Tharnariun's Hope (Tharnariun Treetender) |cff9d9d9d· Auberdine reward: Timberland Cape|r",
+      "- 64. |cffffd100Hand in:|r Cave Mushrooms (Thundris Windweaver) |cff9d9d9d· Auberdine reward: Gustweald Cloak|r",
+      "- 65. |cffffd100Hand in:|r WANTED: Murkdeep! (Sentinel Glynda Nal'Shea) |cff9d9d9d· Auberdine|r",
+      "- 66. |cffffd100Level 20|r Cat Form! Say \"update\" for the next part (Wetlands)."
+     ],
+     "go": {
+      "zone": "Darkshore",
+      "x": 41.8,
+      "y": 60.7,
+      "label": "Kill Anaya Dawnrunner at the Ameth'Aran ruins for her pendant"
+     }
+    },
+    {
+     "title": "You",
+     "lines": [
+      "- Your level, XP and money show here when the guide is generated from your save."
+     ]
     }
    ]
   },
@@ -636,5 +641,603 @@
     }
    ]
   }
- ]
+ ],
+ "route": {
+  "id": "v1-2026-11-17",
+  "sections": [
+   {
+    "title": "Westfall: Defias chain (18-19)",
+    "steps": [
+     {
+      "do": "turnin",
+      "q": 14,
+      "name": "The People's Militia",
+      "pick": "Fist of the People's Militia",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "note",
+      "text": "Wear Fist of the People's Militia. Alt+B at a vendor: sell the Torchlight Wand and Hunting Bow."
+     },
+     {
+      "do": "accept",
+      "q": 214,
+      "name": "Red Silk Bandanas",
+      "npc": "Scout Riell",
+      "where": "top of the Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.6,
+       47.4
+      ]
+     },
+     {
+      "do": "fly",
+      "to": "Stormwind",
+      "npc": "Thor (flight master)",
+      "where": "Sentinel Hill",
+      "tip": "1s 10c."
+     },
+     {
+      "do": "turnin",
+      "q": 399,
+      "name": "Humble Beginnings",
+      "npc": "Baros Alexston",
+      "where": "Cathedral Square",
+      "goto": [
+       "Stormwind City",
+       49.0,
+       30.2
+      ]
+     },
+     {
+      "do": "note",
+      "text": "Library books: hand any you carry to Garion Wendell, top of the Wizard's Sanctum, Mage Quarter.",
+      "tip": "Skip if you'd rather keep it banked for now."
+     },
+     {
+      "do": "goto",
+      "text": "Walk to Lakeshire, Redridge",
+      "to": "Lakeshire",
+      "where": "leave by the main gate, follow the road east through Elwynn past Goldshire into Redridge",
+      "goto": [
+       "Redridge Mountains",
+       26.0,
+       46.0
+      ]
+     },
+     {
+      "do": "turnin",
+      "q": 65,
+      "name": "The Defias Brotherhood",
+      "npc": "Wiley the Black",
+      "where": "upstairs in the Lakeshire inn",
+      "goto": [
+       "Redridge Mountains",
+       26.0,
+       46.0
+      ]
+     },
+     {
+      "do": "accept",
+      "q": 132,
+      "name": "The Defias Brotherhood",
+      "npc": "Wiley the Black",
+      "where": "upstairs in the Lakeshire inn"
+     },
+     {
+      "do": "note",
+      "text": "Talk to the Lakeshire flight master to learn the flight path."
+     },
+     {
+      "do": "fly",
+      "to": "Sentinel Hill",
+      "where": "Lakeshire flight master (via Stormwind)"
+     },
+     {
+      "do": "turnin",
+      "q": 132,
+      "name": "The Defias Brotherhood",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "accept",
+      "q": 135,
+      "name": "The Defias Brotherhood",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "fly",
+      "to": "Stormwind",
+      "where": "Sentinel Hill flight master"
+     },
+     {
+      "do": "turnin",
+      "q": 135,
+      "name": "The Defias Brotherhood",
+      "npc": "Master Mathias Shaw",
+      "where": "SI:7 building in Old Town, upstairs"
+     },
+     {
+      "do": "accept",
+      "q": 141,
+      "name": "The Defias Brotherhood",
+      "npc": "Master Mathias Shaw",
+      "where": "SI:7, Old Town"
+     },
+     {
+      "do": "fly",
+      "to": "Sentinel Hill",
+      "where": "Stormwind flight master"
+     },
+     {
+      "do": "turnin",
+      "q": 141,
+      "name": "The Defias Brotherhood",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "accept",
+      "q": 142,
+      "name": "The Defias Brotherhood",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "complete",
+      "q": 142,
+      "name": "The Defias Brotherhood",
+      "text": "Kill the Defias Messenger for A Mysterious Message",
+      "where": "he starts by the Moonbrook blacksmith and walks the road north to the Gold Coast Quarry and Jangolode Mine",
+      "goto": [
+       "Westfall",
+       44.4,
+       69.6
+      ],
+      "tip": "He goes inside both mines; wait on the road if you miss him."
+     },
+     {
+      "do": "turnin",
+      "q": 142,
+      "name": "The Defias Brotherhood",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "accept",
+      "q": 155,
+      "name": "The Defias Brotherhood",
+      "npc": "The Defias Traitor",
+      "where": "in front of the Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "complete",
+      "q": 155,
+      "name": "The Defias Brotherhood",
+      "text": "Escort the Defias Traitor to the hideout in Moonbrook",
+      "tip": "Stay close; Defias ambush him on the way. Better with a friend."
+     },
+     {
+      "do": "turnin",
+      "q": 155,
+      "name": "The Defias Brotherhood",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "accept",
+      "q": 166,
+      "name": "The Defias Brotherhood",
+      "tip": "Kill Edwin VanCleef in the Deadmines.",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     }
+    ]
+   },
+   {
+    "title": "The Deadmines (18-20, group)",
+    "steps": [
+     {
+      "do": "note",
+      "text": "Find a group: ask friends first, or Looking for Group (green eye): The Deadmines, tick Tank + Damage, List.",
+      "tip": "Eat for Well Fed and drink an Elixir of Minor Strength before you start."
+     },
+     {
+      "do": "goto",
+      "text": "Deadmines entrance",
+      "to": "The Deadmines",
+      "where": "the mine in Moonbrook; follow the tunnel to the portal",
+      "goto": [
+       "Westfall",
+       42.0,
+       72.0
+      ]
+     },
+     {
+      "do": "complete",
+      "q": 214,
+      "name": "Red Silk Bandanas",
+      "text": "Red Silk Bandanas from Defias miners and overseers"
+     },
+     {
+      "do": "complete",
+      "q": 168,
+      "name": "Collecting Memories",
+      "text": "4 Miners' Union Cards from the miners"
+     },
+     {
+      "do": "complete",
+      "q": 167,
+      "name": "Oh Brother...",
+      "text": "Thistlenettle's Badge from Foreman Thistlenettle"
+     },
+     {
+      "do": "complete",
+      "q": 2040,
+      "name": "Underground Assault",
+      "text": "Gnoam Sprecklesprocket from Sneed's Shredder"
+     },
+     {
+      "do": "complete",
+      "q": 166,
+      "name": "The Defias Brotherhood",
+      "text": "Kill Edwin VanCleef (last boss, on the ship)",
+      "tip": "Loot An Unsent Letter from him and right-click it to start its quest."
+     }
+    ]
+   },
+   {
+    "title": "Hand-ins: Sentinel Hill and Stormwind",
+    "steps": [
+     {
+      "do": "turnin",
+      "q": 166,
+      "name": "The Defias Brotherhood",
+      "tip": "Say \"update\" first so I can pick your reward.",
+      "npc": "Gryan Stoutmantle",
+      "where": "Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.2,
+       47.6
+      ]
+     },
+     {
+      "do": "turnin",
+      "q": 214,
+      "name": "Red Silk Bandanas",
+      "npc": "Scout Riell",
+      "where": "top of the Sentinel Hill tower",
+      "goto": [
+       "Westfall",
+       56.6,
+       47.4
+      ]
+     },
+     {
+      "do": "fly",
+      "to": "Stormwind",
+      "where": "Sentinel Hill flight master"
+     },
+     {
+      "do": "turnin",
+      "q": 168,
+      "name": "Collecting Memories",
+      "npc": "Wilder Thistlenettle",
+      "where": "Dwarven District",
+      "goto": [
+       "Stormwind City",
+       65.2,
+       21.2
+      ],
+      "pick": "Dusty Mining Gloves"
+     },
+     {
+      "do": "turnin",
+      "q": 167,
+      "name": "Oh Brother...",
+      "npc": "Wilder Thistlenettle",
+      "where": "Dwarven District",
+      "pick": "Miner's Revenge",
+      "tip": "Sell Miner's Revenge: 17s 75c."
+     },
+     {
+      "do": "turnin",
+      "q": 2040,
+      "name": "Underground Assault",
+      "npc": "Shoni the Shilent",
+      "where": "Dwarven District",
+      "goto": [
+       "Stormwind City",
+       55.4,
+       12.4
+      ],
+      "pick": "Bravo's Armbands"
+     },
+     {
+      "do": "turnin",
+      "name": "An Unsent Letter",
+      "npc": "Baros Alexston",
+      "where": "Cathedral Square",
+      "goto": [
+       "Stormwind City",
+       49.0,
+       30.2
+      ]
+     }
+    ]
+   },
+   {
+    "title": "Moonglade and Darnassus: Aquatic Form",
+    "steps": [
+     {
+      "do": "goto",
+      "text": "Cast Teleport: Moonglade",
+      "to": "Moonglade"
+     },
+     {
+      "do": "train",
+      "npc": "Loganaar (druid trainer)",
+      "where": "Nighthaven, Moonglade",
+      "tip": "Train everything new for your level."
+     },
+     {
+      "do": "complete",
+      "q": 272,
+      "name": "Trial of the Sea Lion",
+      "text": "Right-click a pendant half at the Shrine of Remulos to join them into the Pendant of the Sea Lion",
+      "goto": [
+       "Moonglade",
+       36.5,
+       40.1
+      ]
+     },
+     {
+      "do": "turnin",
+      "q": 272,
+      "name": "Trial of the Sea Lion",
+      "npc": "Dendrite Starblaze",
+      "where": "Nighthaven",
+      "goto": [
+       "Moonglade",
+       56.2,
+       30.7
+      ]
+     },
+     {
+      "do": "accept",
+      "name": "Aquatic Form",
+      "npc": "Dendrite Starblaze",
+      "where": "Nighthaven"
+     },
+     {
+      "do": "fly",
+      "to": "Rut'theran Village",
+      "where": "Nighthaven flight master",
+      "tip": "Then take the pink portal up to Darnassus."
+     },
+     {
+      "do": "turnin",
+      "name": "Aquatic Form",
+      "npc": "Mathrengyl Bearwalker",
+      "where": "Cenarion Enclave, Darnassus",
+      "goto": [
+       "Darnassus",
+       35.2,
+       8.0
+      ]
+     },
+     {
+      "do": "note",
+      "text": "Set your hearthstone in Auberdine when you get there (Darkshore is your base for the next levels)."
+     },
+     {
+      "do": "goto",
+      "text": "Boat to Auberdine",
+      "to": "Auberdine",
+      "where": "back down the portal to Rut'theran; the boat leaves from the dock",
+      "tip": "Free, a few minutes."
+     }
+    ]
+   },
+   {
+    "title": "South Darkshore (19-20)",
+    "steps": [
+     {
+      "do": "turnin",
+      "q": 97926,
+      "name": "Making Do",
+      "npc": "Thundris Windweaver",
+      "where": "Auberdine"
+     },
+     {
+      "do": "accept",
+      "name": "Easy Strider Living",
+      "npc": "Alanndarian Nightsong",
+      "where": "Auberdine"
+     },
+     {
+      "do": "complete",
+      "q": 6123,
+      "name": "Gathering the Cure",
+      "text": "12 Lunar Fungus from the caves east of Auberdine",
+      "tip": "Grey mushrooms with bright blue spots. Pull the moonkin one at a time."
+     },
+     {
+      "do": "complete",
+      "q": 963,
+      "name": "For Love Eternal",
+      "text": "Kill Anaya Dawnrunner at the Ameth'Aran ruins for her pendant",
+      "goto": [
+       "Darkshore",
+       41.8,
+       60.7
+      ],
+      "tip": "She hits hard: Bear Form with Rejuvenation on."
+     },
+     {
+      "do": "complete",
+      "q": 986,
+      "name": "A Lost Master",
+      "text": "5 Fine Moonstalker Pelts from Moonstalker Sires and Matriarchs",
+      "where": "along the Wildbend River",
+      "tip": "Plain Moonstalkers don't drop them."
+     },
+     {
+      "do": "complete",
+      "name": "Easy Strider Living",
+      "text": "5 Strider Meat from Foreststriders along the southern road"
+     },
+     {
+      "do": "complete",
+      "q": 1003,
+      "name": "Buzzbox 525",
+      "text": "4 Grizzled Scalps from Grizzled Thistle Bears, then use the Buzzbox",
+      "where": "far south, between the Grove of the Ancients and Blackwood Den"
+     },
+     {
+      "do": "complete",
+      "q": 98025,
+      "name": "WANTED: Jai'vhanel",
+      "text": "Kill Jai'vhanel for her feather (Questie's marker)",
+      "pick": "Darnassian Knife",
+      "tip": "Sell the knife: 4s 42c."
+     },
+     {
+      "do": "complete",
+      "q": 2139,
+      "name": "Tharnariun's Hope",
+      "text": "Kill the Den Mother in her cave near Bashal'Aran",
+      "goto": [
+       "Darkshore",
+       52.3,
+       35.8
+      ],
+      "tip": "Kill her cubs first. Easier with a friend."
+     },
+     {
+      "do": "complete",
+      "q": 947,
+      "name": "Cave Mushrooms",
+      "text": "5 Scaber Stalks and a Death Cap in the cave behind Cliffspring Falls",
+      "goto": [
+       "Darkshore",
+       54.4,
+       31.8
+      ],
+      "tip": "Turn right inside for the Death Cap."
+     },
+     {
+      "do": "complete",
+      "q": 4740,
+      "name": "WANTED: Murkdeep!",
+      "text": "Clear the murloc camp, stand in the middle: 3 waves, Murkdeep last",
+      "goto": [
+       "Darkshore",
+       36.0,
+       76.0
+      ],
+      "tip": "Stay in Bear Form; heal between waves."
+     },
+     {
+      "do": "turnin",
+      "q": 6123,
+      "name": "Gathering the Cure",
+      "npc": "Alanndarian Nightsong",
+      "where": "Auberdine"
+     },
+     {
+      "do": "turnin",
+      "name": "Easy Strider Living",
+      "npc": "Alanndarian Nightsong",
+      "where": "Auberdine"
+     },
+     {
+      "do": "turnin",
+      "q": 986,
+      "name": "A Lost Master",
+      "npc": "Terenthis",
+      "where": "Auberdine"
+     },
+     {
+      "do": "turnin",
+      "q": 2139,
+      "name": "Tharnariun's Hope",
+      "npc": "Tharnariun Treetender",
+      "where": "Auberdine",
+      "pick": "Timberland Cape"
+     },
+     {
+      "do": "turnin",
+      "q": 947,
+      "name": "Cave Mushrooms",
+      "npc": "Thundris Windweaver",
+      "where": "Auberdine",
+      "pick": "Gustweald Cloak"
+     },
+     {
+      "do": "turnin",
+      "q": 4740,
+      "name": "WANTED: Murkdeep!",
+      "npc": "Sentinel Glynda Nal'Shea",
+      "where": "Auberdine"
+     },
+     {
+      "do": "level",
+      "level": 20,
+      "text": "Cat Form! Say \"update\" for the next part (Wetlands)."
+     }
+    ]
+   }
+  ]
+ }
 }
