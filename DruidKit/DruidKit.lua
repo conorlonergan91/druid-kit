@@ -541,7 +541,7 @@ SlashCmdList["DRUIDKIT"] = function(msg)
     DruidKit_StepsCommand(cmd == "steps" and rest or cmd)
   elseif not (DruidKit_HelperCommand and DruidKit_HelperCommand(cmd, rest)) then
     say("/dk bars \194\183 heal \194\183 quest \194\183 healset \194\183 questset \194\183 save NAME \194\183 load NAME \194\183 list \194\183 herbs \194\183 bags \194\183 Full list: Help tab (Alt+6)")
-    say("/dk steps (show or hide the step window) \194\183 steps reset \194\183 auto (quest auto accept/hand-in on or off) \194\183 arrow")
+    say("/dk steps (show or hide steps + arrow, Alt+N) \194\183 steps reset \194\183 steps unskip \194\183 steps log \194\183 auto (quest auto accept/hand-in) \194\183 arrow")
     say("/dk catchup [level] \194\183 tracker/hud/rest/trainers on or off \194\183 unlock \194\183 lock")
   end
 end
@@ -995,6 +995,18 @@ local function setDefaultModeKey()
   end
 end
 
+local function setDefaultStepsKey()
+  if DruidKitDB.stepsKeySet or InCombatLockdown() then return end
+  DruidKitDB.stepsKeySet = true
+  if GetBindingKey and GetBindingKey("DRUIDKIT_STEPS") then return end
+  local current = GetBindingAction and GetBindingAction("ALT-N")
+  if current == nil or current == "" then
+    safe(SetBinding, "ALT-N", "DRUIDKIT_STEPS")
+    safe(SaveBindings, GetCurrentBindingSet and GetCurrentBindingSet() or 1)
+    say("Alt+N shows or hides the route steps and arrow.")
+  end
+end
+
 local function setDefaultGuideKey()
   if DruidKitDB.guideKeySet or InCombatLockdown() then return end
   DruidKitDB.guideKeySet = true
@@ -1009,7 +1021,7 @@ end
 
 function DruidKit_SetDefaultKeys()
   if InCombatLockdown() then say("after combat, please."); return end
-  pcall(setDefaultGuideKey); pcall(setDefaultTabKeys); pcall(setDefaultBagsKey); pcall(setDefaultGoKey); pcall(setDefaultAutorunKey); pcall(setDefaultModeKey)
+  pcall(setDefaultGuideKey); pcall(setDefaultTabKeys); pcall(setDefaultBagsKey); pcall(setDefaultGoKey); pcall(setDefaultAutorunKey); pcall(setDefaultModeKey); pcall(setDefaultStepsKey)
   say("keys checked.")
   askReload()
 end

@@ -14,6 +14,7 @@ local pos = 1
 local lastArrowFor
 
 local Y, G, W, R = "|cffffd100", "|cff9d9d9d", "|cffffffff", "|r"
+BINDING_NAME_DRUIDKIT_STEPS = "Show / hide route steps and arrow"
 
 local function say(m) print("|cff7fd35bDruid Kit:|r " .. m) end
 local function safe(fn, ...)
@@ -97,6 +98,8 @@ local function isDone(i)
   local st = steps[i]
   if not st then return true end
   if DB.manual[i] then return true end
+  local key = st.q or st.name
+  if key and DB.skipQ[key] then return true end
   local d = st["do"]
   if d == "accept" then
     return logEntry(st.q, st.name) ~= nil or turnedIn(st.q, st.name)
@@ -112,6 +115,64 @@ local function isDone(i)
     return (UnitLevel("player") or 0) >= (st.level or 999)
   end
   return false   -- note, train: you tick them (train also ticks when you close the trainer)
+end
+
+-- Projected vs actual ------------------------------------------------------------------------
+-- DB.cur tracks the step you're on: play time, deaths and XP. When it ends (done, skipped or
+-- ticked) a line goes into DB.stepLog, which the next "update" reads to re-plan.
+local function xpNow()
+  return (safe(UnitLevel, "player") or 1), (safe(UnitXP, "player") or 0), (safe(UnitXPMax, "player") or 1)
+end
+
+local function startStats()
+  local lv, xp, mx = xpNow()
+  DB.cur = { i = pos, secs = 0, deaths = 0, lv = lv, xp = xp, mx = mx }
+end
+
+local function xpGained(c)
+  local lv, xp = xpNow()
+  if lv == c.lv then return xp - c.xp end
+  return (c.mx - c.xp) + xp      -- crossed a level (close enough for one step)
+end
+
+local function logStep(i, how)
+  local st, c = steps[i], DB.cur
+  if not st then return end
+  local mine = c and c.i == i
+  table.insert(DB.stepLog, { route = DruidKitRoute and DruidKitRoute.id, i = i, ["do"] = st["do"], q = st.q,
+    name = st.name or st.text, est = st.est, secs = mine and math.floor(c.secs) or 0,
+    deaths = mine and c.deaths or 0, xp = mine and xpGained(c) or 0, lv = (xpNow()),
+    how = how, at = date and date("%Y-%m-%d %H:%M") })
+  while #DB.stepLog > 400 do table.remove(DB.stepLog, 1) end
+end
+
+local function clock(secs)
+  secs = math.floor(secs or 0)
+  return ("%d:%02d"):format(secs / 60, secs % 60)
+end
+
+-- Struggling = 2+ deaths on this step, or well over the projected time.
+local function struggling(st)
+  local c = DB.cur
+  if not c or c.i ~= pos then return false end
+  if c.deaths >= 2 then return true end
+  local est = (st.est or 0) * 60
+  return est > 0 and c.secs > math.max(est * 2.5, est + 600)
+end
+
+local function adviceLine(st)
+  if st["do"] ~= "complete" and st["do"] ~= "turnin" then return nil end
+  if struggling(st) then
+    if st.party then
+      return Y .. "Struggling:" .. R .. " group up. Type " .. W .. "/4 LFG " .. (st.name or "this quest") .. R
+        .. " (kills count for everyone). Or press " .. W .. "Skip" .. R .. ": the next update decides drop or come back."
+    end
+    return Y .. "Struggling:" .. R .. " press " .. W .. "Skip" .. R
+      .. " to leave it for now. The next update decides whether to drop it or come back stronger."
+  end
+  if st.party then
+    return G .. "Tip: others nearby on this quest? Group up: kills count for everyone." .. R
+  end
 end
 
 -- Text -----------------------------------------------------------------------------------------
@@ -144,7 +205,18 @@ local function detailLines(st)
   return table.concat(out, "\n")
 end
 
+local shortLineFull
+local function clip(t, n)
+  if not t or #t <= n then return t end
+  local cut = t:sub(1, n):match("^(.*)[%s,;:]") or t:sub(1, n)
+  return cut .. "..."
+end
+
 local function shortLine(st)
+  return clip(shortLineFull(st), 58)
+end
+
+shortLineFull = function(st)
   local d = st["do"]
   if d == "accept" or d == "turnin" then return VERB[d] .. " " .. st.name end
   if d == "fly" or d == "hearth" then return VERB[d] .. " " .. (st.to or "") end
@@ -167,9 +239,13 @@ local function pointArrow()
 end
 
 -- Window ---------------------------------------------------------------------------------------
+-- Layout, top to bottom: header row (step count + section on the left, time/deaths on the right),
+-- the action in large text, its details, the next two steps, then a row of buttons.
+local WIDTH, PAD = 360, 10
+
 local function build()
   frame = CreateFrame("Frame", "DruidKitSteps", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-  frame:SetSize(340, 150)
+  frame:SetSize(WIDTH, 160)
   frame:SetFrameStrata("MEDIUM")
   frame:SetClampedToScreen(true)
   frame:SetMovable(true); frame:EnableMouse(true); frame:RegisterForDrag("LeftButton")
@@ -182,56 +258,79 @@ local function build()
   if frame.SetBackdrop then
     frame:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
       edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
-    frame:SetBackdropColor(0, 0, 0, 0.8)
+    frame:SetBackdropColor(0, 0, 0, 0.85)
   end
   local p = DB.stepsPos
   frame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", p and p[1] or -20, p and p[2] or -230)
 
-  local function fs(size, r, g, b)
+  local function fs(size, r, g, b, width, justify)
     local f = frame:CreateFontString(nil, "OVERLAY")
     f:SetFont("Fonts\\FRIZQT__.TTF", size, "OUTLINE")
-    f:SetJustifyH("LEFT"); f:SetJustifyV("TOP"); f:SetWidth(320)
+    f:SetJustifyH(justify or "LEFT"); f:SetJustifyV("TOP"); f:SetWidth(width or (WIDTH - 2 * PAD))
     if f.SetWordWrap then f:SetWordWrap(true) end
     f:SetTextColor(r, g, b)
     return f
   end
-  frame.head = fs(12, 0.62, 0.62, 0.62); frame.head:SetPoint("TOPLEFT", 10, -8); frame.head:SetWidth(200)
-  frame.main = fs(16, 1, 1, 1);          frame.main:SetPoint("TOPLEFT", frame.head, "BOTTOMLEFT", 0, -4)
-  frame.detail = fs(13, 0.85, 0.85, 0.85); frame.detail:SetPoint("TOPLEFT", frame.main, "BOTTOMLEFT", 0, -4)
-  frame.next = fs(12, 0.62, 0.62, 0.62); frame.next:SetPoint("TOPLEFT", frame.detail, "BOTTOMLEFT", 0, -6)
+  frame.head = fs(11, 0.62, 0.62, 0.62, WIDTH - 2 * PAD - 110); frame.head:SetPoint("TOPLEFT", PAD, -8)
+  if frame.head.SetWordWrap then frame.head:SetWordWrap(false) end
+  frame.stats = fs(11, 0.62, 0.62, 0.62, 110, "RIGHT"); frame.stats:SetPoint("TOPRIGHT", -PAD, -8)
+  frame.main = fs(15, 1, 1, 1);           frame.main:SetPoint("TOPLEFT", frame.head, "BOTTOMLEFT", 0, -6)
+  frame.detail = fs(12, 0.85, 0.85, 0.85); frame.detail:SetPoint("TOPLEFT", frame.main, "BOTTOMLEFT", 0, -4)
+  frame.next = fs(11, 0.62, 0.62, 0.62);  frame.next:SetPoint("TOPLEFT", frame.detail, "BOTTOMLEFT", 0, -6)
 
-  local function btn(label, tip, onClick, x)
+  local x = PAD
+  local function btn(label, tip, onClick)
     local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    b:SetSize(56, 20); b:SetText(label)
-    b:SetPoint("TOPRIGHT", frame, "TOPRIGHT", x, -5)
+    b:SetSize(54, 20); b:SetText(label)
+    b:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, 8)
+    x = x + 58
     b:SetScript("OnClick", onClick)
-    b:SetScript("OnEnter", function(s) GameTooltip:SetOwner(s, "ANCHOR_LEFT"); GameTooltip:SetText(tip, 1, 1, 1, 1, true); GameTooltip:Show() end)
+    b:SetScript("OnEnter", function(s) GameTooltip:SetOwner(s, "ANCHOR_TOP"); GameTooltip:SetText(tip, 1, 1, 1, 1, true); GameTooltip:Show() end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return b
   end
-  frame.doneBtn = btn("Done", "Mark this step done and move on.", function() DruidKit_StepDone() end, -6)
-  frame.backBtn = btn("Back", "Go back one step.", function() DruidKit_StepBack() end, -64)
+  frame.backBtn = btn("Back", "Go back one step.", function() DruidKit_StepBack() end)
+  frame.doneBtn = btn("Done", "Mark this step done and move on.", function() DruidKit_StepDone() end)
+  frame.skipBtn = btn("Skip", "Leave this quest for now (dying a lot, or no group). The next update decides: drop it or come back later.", function() DruidKit_StepSkip() end)
+  frame.hideBtn = btn("Hide", "Hide the steps and the arrow. Alt+N or the Route button brings them back.", function() DruidKit_ToggleSteps(false) end)
+  frame.hideBtn:ClearAllPoints(); frame.hideBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, 8)
+end
+
+local function textH(f)
+  local t = f:GetText()
+  if not t or t == "" then return 0 end
+  return f:GetStringHeight() or 0
 end
 
 local function resize()
-  local h = 16 + frame.head:GetStringHeight() + frame.main:GetStringHeight() + frame.detail:GetStringHeight()
-    + frame.next:GetStringHeight() + 18
-  frame:SetHeight(math.max(80, h))
+  local h = 8 + 14 + 6 + textH(frame.main) + 4 + textH(frame.detail) + 6 + textH(frame.next) + 8 + 20 + 8
+  frame:SetHeight(math.max(96, h))
 end
 
 local function draw()
   if not frame then return end
   local st = steps[pos]
   if not st then
-    frame.head:SetText("Druid Kit route")
+    frame.head:SetText("Druid Kit route"); frame.stats:SetText("")
     frame.main:SetText(Y .. "Route finished." .. R .. " Say \"update\" for the next part.")
     frame.detail:SetText(""); frame.next:SetText("")
     resize()
     return
   end
-  frame.head:SetText(("Step %d of %d · %s"):format(pos, #steps, st.sec or ""))
+  frame.head:SetText(("Step %d/%d  ·  %s"):format(pos, #steps, st.sec or ""))
+  local c = DB.cur
+  local stats = ""
+  if c and c.i == pos and c.secs >= 30 then
+    stats = clock(c.secs) .. (st.est and (" / ~" .. st.est .. "m") or "")
+  end
+  if c and c.i == pos and c.deaths > 0 then
+    stats = stats .. (stats ~= "" and "  " or "") .. c.deaths .. (c.deaths == 1 and " death" or " deaths")
+  end
+  frame.stats:SetText(stats)
   frame.main:SetText(mainLine(st))
-  frame.detail:SetText(detailLines(st))
+  local adv = adviceLine(st)
+  local det = detailLines(st)
+  frame.detail:SetText(adv and ((det ~= "" and (det .. "\n") or "") .. adv) or det)
   local nxt = {}
   for i = pos + 1, math.min(#steps, pos + 2) do table.insert(nxt, "Then: " .. shortLine(steps[i])) end
   frame.next:SetText(table.concat(nxt, "\n"))
@@ -242,9 +341,13 @@ end
 local function evaluate()
   if not DB then return end
   local moved = false
-  while pos <= #steps and isDone(pos) do pos = pos + 1; moved = true end
+  while pos <= #steps and isDone(pos) do
+    local k = steps[pos].q or steps[pos].name
+    if not DB.manual[pos] and not (k and DB.skipQ[k]) then logStep(pos, "done") end
+    pos = pos + 1; moved = true
+  end
   DB.routeStep = pos
-  if moved then lastArrowFor = nil end
+  if moved or not DB.cur or DB.cur.i ~= pos then lastArrowFor = nil; startStats() end
   pointArrow()
   draw()
 end
@@ -252,6 +355,7 @@ DruidKit_StepsEvaluate = function() pcall(evaluate) end
 
 function DruidKit_StepDone()
   if not steps[pos] then return end
+  logStep(pos, "ticked")
   DB.manual[pos] = true
   pos = pos + 1
   lastArrowFor = nil
@@ -268,11 +372,49 @@ function DruidKit_StepBack()
   pointArrow(); draw()
 end
 
+-- Skip: leave this quest (every step of it) for now. Recorded for the next re-plan.
+function DruidKit_StepSkip()
+  local st = steps[pos]
+  if not st then return end
+  local key = st.q or st.name
+  logStep(pos, "skipped")
+  if key and (st["do"] == "complete" or st["do"] == "turnin" or st["do"] == "accept") then
+    DB.skipQ[key] = { name = st.name, lvl = (xpNow()), deaths = DB.cur and DB.cur.deaths or 0,
+      secs = DB.cur and math.floor(DB.cur.secs) or 0, at = date and date("%Y-%m-%d %H:%M") }
+    say(("skipped %s for now. Your quest log keeps it; the next update decides drop or come back. /dk steps unskip undoes this."):format(st.name or "this quest"))
+  else
+    DB.manual[pos] = true
+  end
+  pos = pos + 1
+  lastArrowFor = nil
+  evaluate()
+end
+
+local popBtn
+local function showPop(show)
+  if not popBtn then
+    popBtn = CreateFrame("Button", "DruidKitStepsShow", UIParent, "UIPanelButtonTemplate")
+    popBtn:SetSize(64, 20); popBtn:SetText("Route")
+    popBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+    popBtn:SetScript("OnClick", function() DruidKit_ToggleSteps(true) end)
+    popBtn:SetScript("OnEnter", function(s) GameTooltip:SetOwner(s, "ANCHOR_LEFT"); GameTooltip:SetText("Show the route steps and arrow (Alt+N).", 1, 1, 1, 1, true); GameTooltip:Show() end)
+    popBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  end
+  if show then popBtn:Show() else popBtn:Hide() end
+end
+
+-- Show or hide the step window together with its arrow (Alt+N, /dk steps, the Hide/Route buttons).
 function DruidKit_ToggleSteps(show)
+  if not DB then return end
   if not frame then build() end
   if show == nil then show = not frame:IsShown() end
   DB.stepsHidden = not show
-  if show then frame:Show(); evaluate() else frame:Hide() end
+  if show then
+    frame:Show(); showPop(false); lastArrowFor = nil; evaluate()
+  else
+    frame:Hide(); showPop(#steps > 0)
+    if DruidKit_NavClear and DruidKit_NavTarget and DruidKit_NavTarget() then DruidKit_NavClear(true) end
+  end
 end
 
 -- The Now tab and the doc use this list too.
@@ -330,7 +472,7 @@ end
 local ev = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN", "QUEST_REMOVED",
   "ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED_INDOORS", "PLAYER_LEVEL_UP", "TRAINER_CLOSED",
-  "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "GOSSIP_SHOW", "QUEST_GREETING" }) do
+  "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "GOSSIP_SHOW", "QUEST_GREETING", "PLAYER_DEAD" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 
@@ -347,18 +489,30 @@ ev:SetScript("OnEvent", function(_, e, a1)
     DB = DruidKitDB
     DB.manual = DB.manual or {}
     DB.titleDone = DB.titleDone or {}
+    DB.skipQ = DB.skipQ or {}
+    DB.stepLog = DB.stepLog or {}
     titleDone = DB.titleDone
     flatten()
     local id = DruidKitRoute and DruidKitRoute.id
     if DB.routeId ~= id then
-      DB.routeId = id; DB.routeStep = 1; DB.manual = {}
+      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.cur = nil
     end
     pos = DB.routeStep or 1
     DruidKit_ToggleSteps(not DB.stepsHidden and #steps > 0)
     return
   end
   if not DB then return end
-  if e == "QUEST_TURNED_IN" then
+  if e == "PLAYER_DEAD" then
+    if DB.cur and DB.cur.i == pos then
+      DB.cur.deaths = DB.cur.deaths + 1
+      local st = steps[pos]
+      if st and DB.cur.deaths == 2 then
+        say(("2 deaths on %s. %s"):format(st.name or "this step", st.party and "Try a group (/4 LFG), or press Skip on the step window."
+          or "Press Skip on the step window to leave it for now; the next update re-plans it."))
+      end
+    end
+    pcall(draw)
+  elseif e == "QUEST_TURNED_IN" then
     local t = a1 and C_QuestLog and C_QuestLog.GetTitleForQuestID and safe(C_QuestLog.GetTitleForQuestID, a1)
     if t then titleDone[t] = true end
     soon()
@@ -403,10 +557,11 @@ end
 -- Keep progress text fresh while you work on a "Do" step.
 local tick = 0
 ev:SetScript("OnUpdate", function(_, el)
+  if DB and DB.cur and DB.cur.i == pos and not (UnitIsAFK and UnitIsAFK("player")) then DB.cur.secs = DB.cur.secs + el end
   tick = tick + el
   if tick < 2 then return end
   tick = 0
-  if frame and frame:IsShown() and steps[pos] and steps[pos]["do"] == "complete" then pcall(draw) end
+  if frame and frame:IsShown() and steps[pos] then pcall(draw) end
 end)
 
 -- /dk steps | /dk steps reset | /dk auto
@@ -416,6 +571,18 @@ function DruidKit_StepsCommand(arg)
     DB.manual = {}; pos = 1; DB.routeStep = 1; arrived = {}; lastArrowFor = nil
     DruidKit_ToggleSteps(true)
     say("route restarted: finished steps skip themselves.")
+  elseif arg == "unskip" then
+    local n = 0
+    for k in pairs(DB.skipQ) do DB.skipQ[k] = nil; n = n + 1 end
+    pos = 1; lastArrowFor = nil; evaluate()
+    say(("%d skipped quest%s back in the route."):format(n, n == 1 and " is" or "s are"))
+  elseif arg == "log" then
+    say("last steps (actual vs projected):")
+    for i = math.max(1, #DB.stepLog - 9), #DB.stepLog do
+      local l = DB.stepLog[i]
+      print(("  %s %s: %s%s, %d death%s, %d XP"):format(l.how, l.name or l["do"], clock(l.secs),
+        l.est and (" / ~" .. l.est .. "m") or "", l.deaths, l.deaths == 1 and "" or "s", l.xp or 0))
+    end
   elseif arg == "auto" then
     DB.autoQuests = DB.autoQuests == false
     say("automatic quest accept and hand-in " .. (DB.autoQuests == false and "OFF." or "ON (hold Shift to do it yourself)."))

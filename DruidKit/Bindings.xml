@@ -11,4 +11,5 @@
   <Binding name="DRUIDKIT_BAGS" category="ADDONS">DruidKit_ToggleBags()</Binding>
   <Binding name="DRUIDKIT_GOTO" category="ADDONS">DruidKit_ToggleGo()</Binding>
   <Binding name="DRUIDKIT_TOGGLEMODE" category="ADDONS">DruidKit_ToggleMode()</Binding>
+  <Binding name="DRUIDKIT_STEPS" category="ADDONS">DruidKit_ToggleSteps()</Binding>
 </Bindings>

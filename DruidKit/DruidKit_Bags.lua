@@ -59,7 +59,56 @@ local WEAPON_OK = { [4] = true, [5] = true, [10] = true, [13] = true, [15] = tru
 local KEEP_CLASS = { [1] = true, [5] = true, [7] = true, [9] = true, [12] = true }
 -- Tools are never junk either: fishing poles and miscellaneous "weapons" like mining picks.
 local KEEP_WEAPON = { [14] = true, [20] = true }
+-- Food/drink stacks of each kind to keep; the rest gets sold or dropped first.
+local MEAL_KEEP = 2
 local function isTool(classID, subID) return classID == 2 and KEEP_WEAPON[subID] end
+
+-- Recipes: what skill and rank they need, read from the item tooltip ("Requires Cooking (75)").
+local function skillRank(skill)
+  if not GetNumSkillLines or not GetSkillLineInfo then return nil end
+  for i = 1, (GetNumSkillLines() or 0) do
+    local name, header, _, rank = GetSkillLineInfo(i)
+    if name == skill and not header then return rank or 0 end
+  end
+end
+
+local scanTip
+local function tooltipLines(link)
+  local out = {}
+  if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+    local ok, data = pcall(C_TooltipInfo.GetHyperlink, link)
+    if ok and data and data.lines then
+      for _, l in ipairs(data.lines) do if l.leftText then table.insert(out, l.leftText) end end
+      return out
+    end
+  end
+  if not CreateFrame or not UIParent then return out end
+  scanTip = scanTip or CreateFrame("GameTooltip", "DruidKitScanTip", UIParent, "GameTooltipTemplate")
+  if not scanTip.SetHyperlink then return out end
+  scanTip:SetOwner(UIParent, "ANCHOR_NONE"); scanTip:ClearLines(); pcall(scanTip.SetHyperlink, scanTip, link)
+  for i = 1, (scanTip.NumLines and scanTip:NumLines() or 0) do
+    local fs = _G["DruidKitScanTipTextLeft" .. i]
+    if fs and fs.GetText then table.insert(out, fs:GetText() or "") end
+  end
+  return out
+end
+
+-- verdict for a recipe: "learn" | "later" | "known" | "noskill", plus skill, needed, have
+local function recipeCheck(link)
+  local skill, need, known
+  for _, t in ipairs(tooltipLines(link)) do
+    local sk, n = t:match("^Requires ([%a ]+) %((%d+)%)")
+    if sk and not skill then skill, need = sk, tonumber(n) end
+    if t == ITEM_SPELL_KNOWN or t == "Already known" then known = true end
+  end
+  if known then return "known" end
+  if not skill then return "learn" end
+  local have = skillRank(skill)
+  if not have then return "noskill", skill, need end
+  if have < need then return "later", skill, need, have end
+  return "learn", skill, need, have
+end
+DruidKit_RecipeCheck = recipeCheck
 
 local function getInfo(item)
   if C_Item and C_Item.GetItemInfo then return C_Item.GetItemInfo(item) end
@@ -238,6 +287,7 @@ local results = { upgrades = {}, junk = {}, unusable = {}, use = {}, junkValue =
 
 local function scan()
   local up, junk, unusable, use, poles, spare, kept, bank = {}, {}, {}, {}, {}, {}, {}, {}
+  local meals = { Food = {}, Drink = {} }
   local junkValue = 0
   for bag = 0, 4 do
     for slot = 1, (numSlots(bag) or 0) do
@@ -268,9 +318,28 @@ local function scan()
           elseif classID == 2 and subID == 20 then
             entry.ilvl, entry.price = select(4, getInfo(link)) or 0, price or 0
             table.insert(poles, entry)
+          elseif classID == 0 and subID == 5 and not isQuest then
+            -- Food and drink: keep only your best stacks (sorted after the scan)
+            local spell = GetItemSpell and GetItemSpell(link)
+            local kind = (spell == "Drink") and "Drink" or "Food"
+            entry.minLevel, entry.value = minLevel or 0, (price or 0) * (count or 1)
+            table.insert(meals[kind], entry)
           elseif classID == 9 then
-            entry.why = "recipe: right-click to learn it"
-            table.insert(use, entry)
+            local verdict, skill, need, have = recipeCheck(link)
+            entry.value = (price or 0) * (count or 1)
+            if verdict == "known" then
+              entry.why = "you already know this recipe"
+              table.insert(unusable, entry)
+            elseif verdict == "noskill" then
+              entry.why = ("needs %s, which you don't have"):format(skill)
+              table.insert(unusable, entry)
+            elseif verdict == "later" then
+              entry.why = ("learn at %s %d (you're %d): bank it till then"):format(skill, need, have)
+              table.insert(bank, entry)
+            else
+              entry.why = "recipe: right-click to learn it"
+              table.insert(use, entry)
+            end
           elseif not isQuest and (classID == 7 or classID == 5) and DruidKit_NeededFor then
             -- Never herbs (they're for Alchemy), and nothing any recipe you know uses.
             local _, known, used = DruidKit_NeededFor(name)
@@ -324,6 +393,30 @@ local function scan()
   end
 
   table.sort(up, function(a, b) return a.gain > b.gain end)
+
+  -- Food and drink: keep the best MEAL_KEEP stacks of each you can use now (plus one stack for later);
+  -- everything else is spare: sell it at a vendor or drop it for loot.
+  local lvl = UnitLevel("player")
+  for kind, list in pairs(meals) do
+    table.sort(list, function(a, b)
+      local au, bu = a.minLevel <= lvl, b.minLevel <= lvl
+      if au ~= bu then return au end
+      if a.minLevel ~= b.minLevel then return a.minLevel > b.minLevel end
+      return (a.count or 1) > (b.count or 1)
+    end)
+    local keptNow, keptLater, best = 0, 0, nil
+    for _, e in ipairs(list) do
+      if e.minLevel > lvl and keptLater < 1 then
+        keptLater = keptLater + 1
+      elseif e.minLevel <= lvl and keptNow < MEAL_KEEP then
+        keptNow = keptNow + 1
+        best = best or e
+      else
+        e.why = ("spare %s: you're keeping %s"):format(kind:lower(), best and best.name or "better ones")
+        table.insert(unusable, e)
+      end
+    end
+  end
 
   -- Make room: cheapest junk first, then gear you'd sell anyway, then spare materials.
   local drop = {}
@@ -464,7 +557,7 @@ refresh = function()
   end
 
   S.finish(panel)
-  panel.footer:SetText("Never suggests quest items, library books, herbs, anything your quests need, recipe materials, potions, food or your best fishing pole.")
+  panel.footer:SetText("Never suggests quest items, library books, herbs, anything your quests need, recipe materials, potions, your best 2 food and 2 drink stacks, or your best fishing pole.")
 end
 
 -- Destroy with a clear yes/no. Nothing is deleted unless you click Destroy in the dialog.

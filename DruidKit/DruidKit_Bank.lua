@@ -109,6 +109,14 @@ local function classify()
           name = nil
         end
         if name and DruidKit_Protected and DruidKit_Protected(link, bag, slot) then name = nil end  -- quest needs it: keep in bags
+        if name and classID == 9 and DruidKit_RecipeCheck then
+          local verdict, skill, need, have = DruidKit_RecipeCheck(link)
+          if verdict == "later" then
+            table.insert(deposit, { bag = bag, slot = slot, link = link, icon = icon, count = count or 1,
+              why = ("recipe for %s %d (you're %d)"):format(skill, need, have) })
+            name = nil
+          end
+        end
         local minLevel = select(5, API.getInfo(link)) or 0
         if name and minLevel > (UnitLevel("player") or 0) and API.upgradeFor then
           local later, laterSlot = API.upgradeFor(link, nil, true)
