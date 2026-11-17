@@ -82,6 +82,23 @@ local function progressText(q, name)
   return #parts > 0 and table.concat(parts, " · ") or nil
 end
 
+-- The quest's own "what to do" text from your log (e.g. "use the banner you found"), so the step
+-- explains how, not just what.
+local function questHowText(q, name)
+  local id = logEntry(q, name)
+  if not id or not GetQuestLogQuestText then return end
+  local idx = C_QuestLog and C_QuestLog.GetLogIndexForQuestID and safe(C_QuestLog.GetLogIndexForQuestID, id)
+  if not idx or idx < 1 then return end
+  local prev = GetQuestLogSelection and safe(GetQuestLogSelection)
+  safe(SelectQuestLogEntry, idx)
+  local _, objectives = safe(GetQuestLogQuestText)
+  if prev and prev > 0 then safe(SelectQuestLogEntry, prev) end
+  if type(objectives) ~= "string" or objectives == "" then return end
+  objectives = objectives:gsub("%s+", " ")
+  if #objectives > 160 then objectives = objectives:sub(1, 157):match("^(.*)%s") .. "..." end
+  return objectives
+end
+
 local function placeMatches(to)
   if not to then return false end
   local want = to:lower()
@@ -196,9 +213,12 @@ end
 local function detailLines(st)
   local out = {}
   if st.where then table.insert(out, "Where: " .. st.where .. (st.at and ("  (" .. st.at[2] .. ", " .. st.at[3] .. ")") or "")) end
+  if st.how then table.insert(out, "How: " .. st.how) end
   if st["do"] == "complete" then
     local p = progressText(st.q, st.name)
     if p then table.insert(out, "Progress: " .. p) end
+    local how = not st.how and questHowText(st.q, st.name)
+    if how then table.insert(out, "Quest says: " .. how) end
   end
   if st.pick then table.insert(out, "Reward: " .. st.pick) end
   if st.tip then table.insert(out, "Tip: " .. st.tip) end

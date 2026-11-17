@@ -48,6 +48,11 @@ DruidKit_ToggleSteps(true)
 R[#R+1] = DruidKitSteps:IsShown()
 DruidKit_StepsCommand("unskip")
 R[#R+1] = cur()
+C_QuestLog.GetLogIndexForQuestID = C_QuestLog.GetLogIndexForQuestID or function(q) return LOG[q] and 1 or nil end
+function SelectQuestLogEntry() end
+function GetQuestLogQuestText() return "desc", "Raise the banner you found in the cave to call out Headsplitter." end
+DruidKit_StepsEvaluate()
+R[#R+1] = DruidKitSteps.detail.text
 """)
 r = list(L.globals().R.values())
 print(r)
@@ -61,4 +66,5 @@ check(
 )
 check(r[9] is True, "Route/Alt+N shows it again", r[9])
 check(r[10] == 2, "unskip puts the quest back", r[10])
+check("Quest says: Raise the banner" in str(r[11]), "kill steps show the quest's own how-to text", r[11])
 done("steps2_test")

@@ -12,6 +12,7 @@ CLI (python3 rk.py <cmd> ...):
                                        best order of stops (accept, objectives, hand-in) by travel-salesman with
                                        precedence; prints stops, yards walked, minutes, XP
   sim PLAN.json                        replay a plan: levels, XP, minutes, prereq/min-level problems
+  calibrate DruidKit.lua               actual vs projected from the addon's step log: fight vs travel share
   cluster --quests ID... [--radius YD]  group quests whose objective areas are close; do each group in one visit
   party --level L --quests ID...      which kill quests save the most time in a group (kills shared, drops per player)
   travel FROM TO                       minutes between two towns (boats, flights, roads)
@@ -44,6 +45,7 @@ TRAVEL = json.loads(Path(HERE, "travel.json").read_text(encoding="utf-8"))
 ZONE_YARDS = {k: tuple(v) for k, v in TRAVEL["zone_yards"].items()}
 ZONE_IDS = {int(k): v for k, v in TRAVEL["zone_ids"].items()}
 RUN_YPS = 7.0  # running speed, yards per second (no mount before 40)
+PATH_FACTOR = 1.35  # real paths bend round hills, water and walls (step logs: ~1.3-1.5x a straight line)
 NIGHTELF, DRUID = 8, 1024
 XP_TO_LEVEL = [
     0,
@@ -186,12 +188,12 @@ def move_min(a, b):
     """Minutes from point a to point b: run inside a zone, else run to a town, travel, run on."""
     d = yards(a, b)
     if d is not None:
-        return d / RUN_YPS / 60
+        return d * PATH_FACTOR / RUN_YPS / 60
     ta, da = nearest_town(a)
     tb, db_ = nearest_town(b)
     if ta is None or tb is None:
         return 15.0
-    return da / RUN_YPS / 60 + travel_min(ta, tb) + db_ / RUN_YPS / 60
+    return (da + db_) * PATH_FACTOR / RUN_YPS / 60 + travel_min(ta, tb)
 
 
 # ---------------------------------------------------------------- quests
@@ -617,6 +619,35 @@ def party_savings(qids, level):
     return sorted(out, key=lambda r: -(r["xp_per_hour_group"] - r["xp_per_hour_solo"]))
 
 
+def calibrate(saved_vars):
+    """Actual vs projected from the addon's step log (DruidKit SavedVariables): fight vs travel time, est ratio."""
+    from lupa.lua51 import LuaRuntime
+
+    lua = LuaRuntime()
+    lua.execute(Path(saved_vars).read_text(encoding="utf-8"))
+    db_ = lua.globals().DruidKitDB
+    log = [db_.stepLog[i] for i in range(1, len(db_.stepLog) + 1)] if db_ and db_.stepLog else []
+    kinds, ratios = {}, []
+    for e in log:
+        kind = "fight" if e["do"] == "complete" else "travel/talk"
+        k = kinds.setdefault(kind, {"secs": 0, "xp": 0, "steps": 0})
+        k["secs"] += e.secs or 0
+        k["xp"] += e.xp or 0
+        k["steps"] += 1
+        if e.est and e.secs:
+            ratios.append(e.secs / (e.est * 60))
+    total = sum(k["secs"] for k in kinds.values()) or 1
+    for k in kinds.values():
+        k["share"] = round(k["secs"] / total, 2)
+        k["minutes"] = round(k["secs"] / 60, 1)
+    return {
+        "kinds": kinds,
+        "xp_per_hour": int(sum(k["xp"] for k in kinds.values()) * 3600 / total),
+        "actual_over_est": round(sum(ratios) / len(ratios), 2) if ratios else None,
+        "steps": len(log),
+    }
+
+
 def clusters(qids, radius=400):
     """Group quests whose objective areas lie within `radius` yards (single-link). Do each group in one visit."""
     pts = []
@@ -825,6 +856,8 @@ def main(argv):
         print(json.dumps({k: v for k, v in res.items() if k != "stops"}))
     elif cmd == "sim":
         print(json.dumps(simulate(json.loads(Path(args[0]).read_text(encoding="utf-8"))), indent=1))
+    elif cmd == "calibrate":
+        print(json.dumps(calibrate(args[0]), indent=1))
     elif cmd == "cluster":
         i = args.index("--quests") + 1
         qids = []

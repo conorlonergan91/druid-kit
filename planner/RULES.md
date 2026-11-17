@@ -103,3 +103,14 @@ Speed comes from power as much as from routing. `sim` now models it and reports 
   you're already passing.
 - Weapon upgrades: on town visits where a vendor sells a clearly better weapon (staff/mace) for your level, add a
   `{"kind": "travel", "text": "Buy <item> from <vendor> if your weapon is worse"}` note. No extra trips for it.
+
+## Added in v9: from the first real step logs
+- Say *how*, not just what: when an objective needs an item (a banner, a torch, a quest item you looted), the step
+  names it ("use the banner you picked up in the cave"); for caves, towers and high ground give the entrance and the
+  way up ("go round the east side to reach the ledge"). If the data doesn't say, leave `how` empty: the step
+  window shows the quest's own objective text instead.
+- Fight on the way: about 40% of levelling XP comes from kills. Routes cross mob areas instead of roads where it
+  costs little, and a step tip says to kill even-level mobs on the path. A stretch that is mostly talking and
+  travelling (city errands, deliveries, tram rides) is grouped into one visit and kept short.
+- Calibrate with `rk.py calibrate DruidKit.lua` after each session: if travel is over ~60% of play time, the next
+  plan favours denser kill hubs and fewer errands.
