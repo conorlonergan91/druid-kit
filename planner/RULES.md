@@ -118,3 +118,20 @@ Speed comes from power as much as from routing. `sim` now models it and reports 
   records the path actually walked on every step; `rk.py paths DruidKit.lua` turns bent walks into `via` lists, so
   each place you had to find the way to gets waypoints in the next route. The arrow also says when you've stopped
   getting closer for 30 seconds.
+
+## Added in v10: only travel the player can really use (from play: no flight path, no hearth set)
+A flight or a hearth the character doesn't have turns into a long walk. The route must earn every one of them.
+- Start from the save: `travel.home` (where the hearthstone is set), `travel.flights` (known flight paths) and
+  `travel.hearthCooldown`. In a plan, put them in `"start": {"home": ..., "flights": [...], "at": ..., "level": ...,
+  "accepted": [...]}`; with a route file, pass them to `tools/route_check.py --home ... --flights ...`.
+- Learn every flight path you pass. The first time the route reaches a town with a flight master (`fm: true` in
+  `travel.json`), add an `fp` step / event there, even if you won't fly from it today. It costs half a minute and
+  turns every later visit into a flight. Never write a `fly` to or from a path that isn't known or learned earlier.
+- Set the hearth on purpose. Before any trip that will come back (a class trip via Teleport: Moonglade, a dungeon,
+  a city errand), add a `home` step in the hub you'll return to, *before* you leave it. Never write a `hearth` step
+  unless the hearth is set to that town at that point. The default home is the hub you'll quest in next.
+- One hearth per hour (cooldown): don't plan two hearths within 60 minutes. If one is needed sooner, use Teleport:
+  Moonglade plus a flight, or walk, and say so.
+- No hearth or flight path: plan the walk honestly (road, minutes, danger), never "hearth back" as a placeholder.
+- `rk.py sim` now reports `flight_paths_learned`, `home_at_end` and problems for: flying to an unlearned path,
+  hearthing with no or the wrong home, hearth on cooldown, and walking through a flight-master town without `fp`.

@@ -31,7 +31,8 @@ details) lives in `HANDOFF.md` on the player's Mac, never in this skill or the p
 
 ## The route (step tracker)
 `build/route_vN.py` holds ROUTE: sections of one-action steps (accept / turnin / complete / goto / fly / hearth /
-train / level / note) with `q`, `name`, `npc`, `where`, `goto [zone, x, y]`, `to`, `pick`, `tip`, plus `est`
+train / level / note / fp / home; `fp` = learn the flight path in town `to`, `home` = set the hearthstone in `to`;
+both tick themselves) with `q`, `name`, `npc`, `where`, `goto [zone, x, y]`, `to`, `pick`, `tip`, plus `est`
 (projected minutes), `party=True` on kill steps worth a group, `how` (the item to use, the way in) and `via`
 (waypoints the arrow takes first: `[zone or map id, x, y, "label"]`). Keep headlines short; detail goes in `where`/`tip`.
 `build_now.py` puts it into guide.json and the Now tab; `make_guide.py` emits `DruidKitRoute`. Same route `id` keeps
@@ -46,7 +47,7 @@ the player's progress; a new id restarts it (finished steps skip themselves).
 
 ## On "update"
 1. In one device_bash call: save mtime; parse `ClaudeProgress.lua` (level, XP, zone, gold, skills, inventory, bank,
-   recipes, quests, completed) with a small Lua-table reader; grep `Logs/General.log` for "Lua Error" / "tainted".
+   recipes, quests, completed, travel = hearth home + cooldown + known flight paths) with a small Lua-table reader; grep `Logs/General.log` for "Lua Error" / "tainted".
    If the save is older than the last update, say so instead of re-planning.
 2. Read `DruidKitDB.stepLog` (secs, deaths, xp against `est`; how = done / ticked / skipped) and `DruidKitDB.skipQ`.
    For each skipped quest decide: drop it, or come back stronger or with a group. Recalibrate `est` where actuals
@@ -55,7 +56,11 @@ the player's progress; a new id restarts it (finished steps skip themselves).
 3. Re-plan from where the player is with the planner tools and RULES.md. Quest log: list exactly which quests to
    abandon (far below level, far away, needs an absent group, unknown item sources). Bags: Bag check handles food
    and drink (best two stacks each) and recipes (profession rank); name concrete items to sell or bank from the save.
-4. Edit the route file, run `build_now.py` (You lines) then `make_guide.py`; Lua 5.1 `loadstring` check on every
+4. Edit the route file. Travel must be real (RULES v10): an `fp` step at every flight master the route passes
+   for the first time, a `home` step before any trip that hearths back, no `fly`/`hearth` the save doesn't support.
+   Run `tools/route_check.py <route> --home <travel.home> --flights "<a;b;...>"` and fix every ERROR and warning.
+   If `travel.flightsKnown` is false, ask the player to open any flight master's map once. Then run `build_now.py`
+   (You lines) then `make_guide.py`; Lua 5.1 `loadstring` check on every
    file; `test/run_all.sh`.
 5. Update the Quest Guide doc (ids in HANDOFF). Read it first; one heading plus ordered lists in a single replace
    (whole-block replace needs ifHash + ifRev).

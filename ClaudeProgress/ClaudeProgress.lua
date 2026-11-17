@@ -575,6 +575,56 @@ pf:SetScript("OnEvent", function(_, ev, a1)
   end
 end)
 
+-- Travel (v1.9): flight paths you know (read from the flight map each time it opens; the list covers the
+-- whole continent, so one visit to any flight master fills it) and where your hearthstone is set.
+local function readTaxiNodes()
+  local out, n = {}, 0
+  local count = safe(NumTaxiNodes) or 0
+  for i = 1, count do
+    local kind = safe(TaxiNodeGetType, i)
+    local name = safe(TaxiNodeName, i)
+    if name and (kind == "CURRENT" or kind == "REACHABLE") then out[name] = true; n = n + 1 end
+  end
+  if n == 0 and C_TaxiMap and C_TaxiMap.GetAllTaxiNodes and C_Map and C_Map.GetBestMapForUnit then
+    local nodes = safe(C_TaxiMap.GetAllTaxiNodes, safe(C_Map.GetBestMapForUnit, "player"))
+    local S = Enum and Enum.FlightPathState or { Current = 0, Reachable = 1 }
+    for _, nd in ipairs(nodes or {}) do
+      if nd.name and (nd.state == S.Current or nd.state == S.Reachable) then out[nd.name] = true; n = n + 1 end
+    end
+  end
+  return out, n
+end
+
+local function recordFlights()
+  local nodes, n = readTaxiNodes()
+  if n == 0 then return end
+  ClaudeProgressDB = ClaudeProgressDB or {}
+  ClaudeProgressDB.flights = ClaudeProgressDB.flights or {}
+  local key = charKey()
+  local known = ClaudeProgressDB.flights[key] or {}
+  for name in pairs(nodes) do known[name] = true end
+  ClaudeProgressDB.flights[key] = known
+end
+
+local HEARTHSTONE = 6948
+local function snapshotTravel()
+  local cd
+  local getCd = (C_Container and C_Container.GetItemCooldown) or GetItemCooldown
+  local start, dur = safe(getCd, HEARTHSTONE)
+  if type(start) == "number" and type(dur) == "number" and start > 0 and GetTime then
+    cd = math.max(0, math.floor(start + dur - GetTime()))
+  end
+  local flights = ClaudeProgressDB and ClaudeProgressDB.flights and ClaudeProgressDB.flights[charKey()]
+  local list = {}
+  for name in pairs(flights or {}) do table.insert(list, name) end
+  table.sort(list)
+  return { home = safe(GetBindLocation), hearthCooldown = cd or 0, flights = list, flightsKnown = flights ~= nil }
+end
+
+local tf = CreateFrame("Frame")
+pcall(tf.RegisterEvent, tf, "TAXIMAP_OPENED")
+tf:SetScript("OnEvent", function() safe(recordFlights) end)
+
 -- Completed quests (v1.8): ids the server says are done, with titles where the client has them cached.
 local function snapshotCompleted()
   local ids = (C_QuestLog and C_QuestLog.GetAllCompletedQuestIDs and C_QuestLog.GetAllCompletedQuestIDs()) or nil
@@ -625,6 +675,8 @@ local function snapshot()
   ClaudeProgressDB[key].questRewards = okQ and rewards or { error = tostring(rewards) }
   local okC, done = pcall(snapshotCompleted)
   ClaudeProgressDB[key].completed = okC and done or { error = tostring(done) }
+  local okT, travel = pcall(snapshotTravel)
+  ClaudeProgressDB[key].travel = okT and travel or { error = tostring(travel) }
   local okI, inv = pcall(snapshotInventory)
   ClaudeProgressDB[key].inventory = okI and inv or { error = tostring(inv) }
   local lowest, low = snapshotDurability()

@@ -1,125 +1,149 @@
 {
- "_note": "Approximate: zone sizes from classic map data, travel minutes estimated (walk/boat/flight incl. waits). Town spots from QuestieDB NPC spawns.",
+ "_note": "Approximate: zone sizes from classic map data, travel minutes estimated (walk/boat/flight incl. waits). Town spots from QuestieDB NPC spawns. fm = the town has an Alliance-usable flight master (classic geography; Ratchet is neutral).",
  "towns": {
   "Shadowglen": {
    "zone": "Teldrassil",
    "x": 58.7,
-   "y": 44.3
+   "y": 44.3,
+   "fm": false
   },
   "Dolanaar": {
    "zone": "Teldrassil",
    "x": 55.6,
-   "y": 59.8
+   "y": 59.8,
+   "fm": false
   },
   "Darnassus": {
    "zone": "Darnassus",
    "x": 35.4,
-   "y": 8.4
+   "y": 8.4,
+   "fm": false
   },
   "Rut'theran": {
    "zone": "Teldrassil",
    "x": 58.4,
-   "y": 94.0
+   "y": 94.0,
+   "fm": true
   },
   "Nighthaven": {
    "zone": "Moonglade",
    "x": 44.2,
-   "y": 45.2
+   "y": 45.2,
+   "fm": true
   },
   "Auberdine": {
    "zone": "Darkshore",
    "x": 36.3,
-   "y": 45.6
+   "y": 45.6,
+   "fm": true
   },
   "Astranaar": {
    "zone": "Ashenvale",
    "x": 34.4,
-   "y": 48.0
+   "y": 48.0,
+   "fm": true
   },
   "Menethil": {
    "zone": "Wetlands",
    "x": 9.5,
-   "y": 59.7
+   "y": 59.7,
+   "fm": true
   },
   "Thelsamar": {
    "zone": "Loch Modan",
    "x": 33.9,
-   "y": 51.0
+   "y": 51.0,
+   "fm": true
   },
   "Ironforge": {
    "zone": "Ironforge",
    "x": 55.5,
-   "y": 47.7
+   "y": 47.7,
+   "fm": true
   },
   "Stormwind": {
    "zone": "Stormwind City",
    "x": 71.0,
-   "y": 72.5
+   "y": 72.5,
+   "fm": true
   },
   "Goldshire": {
    "zone": "Elwynn Forest",
    "x": 43.8,
-   "y": 65.8
+   "y": 65.8,
+   "fm": false
   },
   "Sentinel Hill": {
    "zone": "Westfall",
    "x": 56.6,
-   "y": 52.6
+   "y": 52.6,
+   "fm": true
   },
   "Lakeshire": {
    "zone": "Redridge Mountains",
    "x": 25.5,
-   "y": 59.4
+   "y": 59.4,
+   "fm": true
   },
   "Darkshire": {
    "zone": "Duskwood",
    "x": 77.5,
-   "y": 44.3
+   "y": 44.3,
+   "fm": true
   },
   "Stonetalon Peak": {
    "zone": "Stonetalon Mountains",
    "x": 36.4,
-   "y": 7.2
+   "y": 7.2,
+   "fm": true
   },
   "Southshore": {
    "zone": "Hillsbrad Foothills",
    "x": 51.0,
-   "y": 58.0
+   "y": 58.0,
+   "fm": true
   },
   "Refuge Pointe": {
    "zone": "Arathi Highlands",
    "x": 45.8,
-   "y": 47.6
+   "y": 47.6,
+   "fm": true
   },
   "Rebel Camp": {
    "zone": "Stranglethorn Vale",
    "x": 38.0,
-   "y": 3.0
+   "y": 3.0,
+   "fm": false
   },
   "Booty Bay": {
    "zone": "Stranglethorn Vale",
    "x": 27.0,
-   "y": 77.0
+   "y": 77.0,
+   "fm": true
   },
   "Nijel's Point": {
    "zone": "Desolace",
    "x": 66.0,
-   "y": 7.0
+   "y": 7.0,
+   "fm": true
   },
   "Shimmering Flats": {
    "zone": "Thousand Needles",
    "x": 78.0,
-   "y": 76.0
+   "y": 76.0,
+   "fm": false
   },
   "Forest Song": {
    "zone": "Ashenvale",
    "x": 85.0,
-   "y": 44.0
+   "y": 44.0,
+   "fm": false
   },
   "Ratchet": {
    "zone": "The Barrens",
    "x": 62.5,
-   "y": 37.0
+   "y": 37.0,
+   "fm": true
   }
  },
  "edges": [
@@ -628,5 +652,6 @@
  },
  "notes": [
   "20-30 towns/edges added 17 Nov from classic geography; minutes are rough estimates."
- ]
+ ],
+ "hearth_cooldown_min": 60
 }

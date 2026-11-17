@@ -16,11 +16,15 @@ Rules for this test:
 - Simulate XP as you go so quests are done near their level (min_level is a hard gate).
 
 Output: write plan.json in this folder:
-{"events": [ {"kind": "accept"|"turnin"|"abandon", "q": <quest id>} |
-             {"kind": "home", "text": "Set hearthstone to <place>"} | {"kind": "hearth", "text": "Hearth to <place>"} |
+{"start": {"home": "Shadowglen", "flights": []},
+ "events": [ {"kind": "accept"|"turnin"|"abandon", "q": <quest id>} |
+             {"kind": "home", "at": "<town>"} (set hearthstone) | {"kind": "hearth", "text": "Hearth to <town>"} |
+             {"kind": "fp", "at": "<town>"} (learn its flight path; needed before any flight to or from it) |
              {"kind": "train"} | {"kind": "grind", "to": <level as number>, "text": "<where>"} |
              {"kind": "travel", "text": "<how>"} ... in order],
  "summary": "<= 15 lines: zone order with level ranges and the main decisions"}
-Every turnin must come after its accept, and after its prerequisites are turned in.
+Every turnin must come after its accept, and after its prerequisites are turned in. A hearth needs an earlier
+"home" in that town; a flight ("travel" text "Fly to <town>") needs both ends learned with "fp" first. You start
+with no flight paths and the hearthstone set to Shadowglen.
 
 Plan all the way to 30. Choices before 20 should already account for where you will be levelling at 20-30.

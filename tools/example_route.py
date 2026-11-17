@@ -1,10 +1,12 @@
 """Example route: Sentinel Hill (18) -> Defias chain -> Deadmines -> Aquatic Form -> south Darkshore (20).
 
 Step fields:
-  do     accept | turnin | complete | goto | fly | hearth | train | level | note
+  do     accept | turnin | complete | goto | fly | hearth | train | level | note | fp | home
   q      quest ID (verified) ; name = quest title (also used to match when the ID is unsure)
   npc    who to talk to ; where = plain-words place ; goto = [zone, x, y] (verified only)
-  to     fly/hearth destination (zone or subzone text) ; pick = reward to take ; tip = one short line
+  to     fly/hearth destination (zone or subzone text); for fp/home the town (fp = learn its flight path,
+         home = set the hearthstone there) ; pick = reward to take ; tip = one short line
+Check travel with: python3 tools/route_check.py tools/example_route.py --home <save home> --flights "<a;b>"
   text   main line for note/goto/complete steps
 """
 
@@ -76,7 +78,7 @@ ROUTE = {
                     npc="Wiley the Black",
                     where="upstairs in the Lakeshire inn",
                 ),
-                g(do="note", text="Talk to the Lakeshire flight master to learn the flight path."),
+                g(do="fp", to="Lakeshire", npc="Ariena Stormfeather", where="Lakeshire flight master, by the bridge"),
                 g(do="fly", to="Sentinel Hill", where="Lakeshire flight master (via Stormwind)"),
                 g(do="turnin", q=132, name="The Defias Brotherhood", **GRYAN),
                 g(do="accept", q=135, name="The Defias Brotherhood", **GRYAN),
@@ -260,15 +262,19 @@ ROUTE = {
                     goto=["Darnassus", 35.2, 8.0],
                 ),
                 g(
-                    do="note",
-                    text="Set your hearthstone in Auberdine when you get there (Darkshore is your base for the next levels).",
-                ),
-                g(
                     do="goto",
                     text="Boat to Auberdine",
                     to="Auberdine",
                     where="back down the portal to Rut'theran; the boat leaves from the dock",
                     tip="Free, a few minutes.",
+                ),
+                g(do="fp", to="Auberdine", npc="Caylais Moonfeather", where="Auberdine flight master"),
+                g(
+                    do="home",
+                    to="Auberdine",
+                    npc="Innkeeper Shaussiy",
+                    where="Auberdine inn",
+                    tip="Darkshore is your base for the next levels.",
                 ),
             ],
         },

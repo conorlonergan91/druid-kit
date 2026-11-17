@@ -6,6 +6,10 @@ Usage: python3 tools/build_now.py tools/example_route.py tools/example_guide.jso
 import importlib.util
 import json
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import route_check  # noqa: E402
 
 Y, G, R, LEAF = "|cffffd100", "|cff9d9d9d", "|r", "|cff7fd35b"
 VERB = {
@@ -18,6 +22,8 @@ VERB = {
     "train": "Train",
     "level": "Level",
     "note": "Do",
+    "fp": "Learn flight path",
+    "home": "Set hearth",
 }
 
 
@@ -34,6 +40,8 @@ def line(n, st):
         main = f"{Y}{VERB[d]}:{R} {st['name']}" + (f" ({st['npc']})" if st.get("npc") else "")
     elif d in ("fly", "hearth"):
         main = f"{Y}{VERB[d]}{R} {st.get('to', '')}"
+    elif d in ("fp", "home"):
+        main = f"{Y}{VERB[d]}:{R} {st.get('to', '')}" + (f" ({st['npc']})" if st.get("npc") else "")
     elif d == "level":
         main = f"{Y}Level {st['level']}{R} {st.get('text', '')}"
     elif d == "train":
@@ -92,6 +100,11 @@ def main(route_path, guide_path, updated, you_lines):
     with open(guide_path, "w", encoding="utf-8") as f:
         json.dump(g, f, ensure_ascii=False, indent=1)
     print(f"{n} steps in {len(route['sections'])} sections")
+    errors, warnings = route_check.check(route)
+    for e in errors:
+        print("travel: " + e)
+    if warnings:
+        print(f"travel: {len(warnings)} notes; run tools/route_check.py with --home/--flights from the save")
 
 
 if __name__ == "__main__":

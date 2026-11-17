@@ -772,11 +772,42 @@ def train_trip(cur, level):
     return best
 
 
+def _town_in(text):
+    """The town named in a piece of text (longest name first, so 'Stormwind' doesn't eat 'Stormwind City')."""
+    t = (text or "").lower()
+    for n in sorted(towns(), key=len, reverse=True):
+        if n.lower() in t:
+            return n
+    return None
+
+
+def _town_at(p, radius=300):
+    """The town whose centre is within `radius` yards of point p, if any."""
+    if not p:
+        return None
+    n, d = nearest_town(p)
+    return n if d is not None and d <= radius else None
+
+
 def simulate(plan, trace=False):
     mins = []
-    levels, trained, forms, visits, penalty_min, home, rank_lag = [], 1, set(), 0, 0.0, None, []
-    done, accepted, total, minutes, problems, cur = set(), set(), 0.0, 0.0, [], None
+    start = plan.get("start") or {}
+    levels, trained, forms, visits, penalty_min, rank_lag = [], 1, set(), 0, 0.0, []
+    home = _town_in(start.get("home")) if start.get("home") else None
+    known = {n for n in (_town_in(f) for f in start.get("flights", [])) if n}
+    visited_fm, learned, last_hearth = {}, [], None
+    cd = TRAVEL.get("hearth_cooldown_min", 60)
+    done, accepted = set(start.get("done", [])), set(start.get("accepted", []))
+    total, minutes, problems, cur = 0.0, 0.0, [], None
+    if start.get("level"):
+        total = xp_at(float(start["level"]))
+    if start.get("at"):
+        t = towns().get(_town_in(start["at"]) or "")
+        cur = (t["zone"], t["x"], t["y"]) if t else None
     for i, e in enumerate(plan["events"]):
+        here = _town_at(cur)
+        if here and towns()[here].get("fm") and here not in known:
+            visited_fm.setdefault(here, i)
         k, qid = e.get("kind"), e.get("q")
         lvl = level_of(total)
         levels.append(round(lvl, 2))
@@ -826,10 +857,38 @@ def simulate(plan, trace=False):
             rank_lag.append(missed_ranks(lvl, trained))
             trained = int(lvl)
         elif k == "home":
+            town = _town_in(e.get("at") or e.get("text"))
+            if town and cur and _town_at(cur) not in (None, town):
+                problems.append(f"#{i} set hearth to {town} while you are in {_town_at(cur)}: go there first")
+            home = town or home
+        elif k == "fp":
+            town = _town_in(e.get("at") or e.get("text"))
+            if town and not towns()[town].get("fm"):
+                problems.append(f"#{i} {town} has no flight master in the travel data")
+            if town and town not in known:
+                known.add(town)
+                learned.append(town)
+                t = towns()[town]
+                minutes += (move_min(cur, (t["zone"], t["x"], t["y"])) if cur else 0) + 0.5
+                cur = (t["zone"], t["x"], t["y"])
+        elif k == "travel":
             txt = (e.get("text") or "").lower()
-            home = next((n for n in towns() if n.lower() in txt), home)
+            if "fly" in txt or "flight" in txt:
+                dest = _town_in(txt.split(" to ", 1)[1] if " to " in txt else txt)
+                if dest and towns()[dest].get("fm") and dest not in known:
+                    problems.append(
+                        f"#{i} flight to {dest} before its flight path is learned (add an fp event "
+                        "when you first walk there, or walk/boat instead)"
+                    )
         elif k == "hearth":
             minutes += 0.3
+            if not home:
+                problems.append(f"#{i} hearth with no hearthstone set: add a home event in the town you'll return to")
+            elif _town_in(e.get("text")) not in (None, home):
+                problems.append(f"#{i} hearth to {_town_in(e.get('text'))}, but the hearthstone is set to {home}")
+            if last_hearth is not None and minutes - last_hearth < cd:
+                problems.append(f"#{i} hearth on cooldown ({minutes - last_hearth:.0f} of {cd} min since the last one)")
+            last_hearth = minutes
             if home:
                 t = towns()[home]
                 cur = (t["zone"], t["x"], t["y"])
@@ -841,7 +900,16 @@ def simulate(plan, trace=False):
         "untrained_ranks_now": missed_ranks(level_of(total), trained),
         "slowdown_from_missed_training_min": round(penalty_min, 1),
         "forms": [FORM_QUESTS[q][0] for q in sorted(forms)],
-        "problems": problems[:30],
+        "flight_paths_learned": learned,
+        "home_at_end": home,
+        "problems": (
+            problems
+            + [
+                f"#{i} walked through {t} (flight master) without learning its flight path: add an fp event there"
+                for t, i in visited_fm.items()
+                if t not in known
+            ]
+        )[:30],
     }
     reach = next((m for lv_, m in zip(levels, mins, strict=True) if lv_ >= 20), None)
     out["hours_to_20"] = round(reach / 60, 1) if reach is not None else None

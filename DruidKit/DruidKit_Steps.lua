@@ -1,6 +1,6 @@
 -- Druid Kit: step tracker.
 -- One action at a time from DruidKitRoute (generated into DruidKit_Guide.lua): accept, hand in,
--- do objectives, go somewhere, fly, train. Steps tick themselves off from quest and zone events,
+-- do objectives, go somewhere, fly, train, learn a flight path (fp), set the hearthstone (home). Steps tick themselves off from quest and zone events,
 -- the navigation arrow follows the current step, and the guide's own quests are accepted and
 -- handed in for you (hold Shift at a quest giver to do it yourself).
 -- Words carry every state; colour is only a second signal.
@@ -111,6 +111,32 @@ local function placeMatches(to)
   return false
 end
 
+-- Flight paths and hearthstone ----------------------------------------------------------------
+-- Known flight paths come from the flight map (ClaudeProgress records them); the hearth from GetBindLocation.
+local function sameName(a, b)
+  if type(a) ~= "string" or type(b) ~= "string" or a == "" or b == "" then return false end
+  a, b = a:lower(), b:lower()
+  return a:find(b, 1, true) ~= nil or b:find(a, 1, true) ~= nil
+end
+
+local function homeName() return safe(GetBindLocation) end
+
+local function knownFlights()
+  local db = ClaudeProgressDB and ClaudeProgressDB.flights
+  if type(db) ~= "table" then return nil end
+  local key = (safe(UnitName, "player") or "") .. "-" .. (safe(GetRealmName) or "")
+  return db[key]
+end
+
+local function knowsFlight(to)
+  local k = knownFlights()
+  if not k then return nil end            -- unknown until you open a flight map once
+  for name in pairs(k) do
+    if sameName(name:match("^([^,]+)") or name, to) then return true end
+  end
+  return false
+end
+
 local function isDone(i)
   local st = steps[i]
   if not st then return true end
@@ -130,6 +156,10 @@ local function isDone(i)
     return placeMatches(st.to) or arrived[i] == true
   elseif d == "level" then
     return (UnitLevel("player") or 0) >= (st.level or 999)
+  elseif d == "home" then
+    return sameName(homeName(), st.to)
+  elseif d == "fp" then
+    return knowsFlight(st.to) == true
   end
   return false   -- note, train: you tick them (train also ticks when you close the trainer)
 end
@@ -221,7 +251,7 @@ end
 
 -- Text -----------------------------------------------------------------------------------------
 local VERB = { accept = "Accept", turnin = "Hand in", complete = "Do", ["goto"] = "Go to", fly = "Fly to",
-  hearth = "Hearth to", train = "Train", level = "Level", note = "Do" }
+  hearth = "Hearth to", train = "Train", level = "Level", note = "Do", fp = "Learn flight path", home = "Set hearth" }
 
 local function mainLine(st)
   local d = st["do"]
@@ -229,6 +259,8 @@ local function mainLine(st)
     return Y .. VERB[d] .. ":" .. R .. " " .. W .. st.name .. R .. (st.npc and (G .. "  (" .. st.npc .. ")" .. R) or "")
   elseif d == "fly" or d == "hearth" then
     return Y .. VERB[d] .. R .. " " .. W .. (st.to or "?") .. R
+  elseif d == "fp" or d == "home" then
+    return Y .. VERB[d] .. ":" .. R .. " " .. W .. (st.to or "?") .. R .. (st.npc and (G .. "  (" .. st.npc .. ")" .. R) or "")
   elseif d == "train" then
     return Y .. "Train" .. R .. " " .. W .. (st.npc or "new spells") .. R
   elseif d == "level" then
@@ -248,6 +280,14 @@ local function detailLines(st)
     if how then table.insert(out, "Quest says: " .. how) end
   end
   if st.pick then table.insert(out, "Reward: " .. st.pick) end
+  if st["do"] == "hearth" then
+    local h = homeName()
+    if h and h ~= "" and not sameName(h, st.to) then
+      table.insert(out, "WARNING: your hearth is set to " .. h .. ", not " .. (st.to or "?") .. ". Walk or fly there instead, then press Done.")
+    end
+  elseif st["do"] == "fly" and knowsFlight(st.to) == false then
+    table.insert(out, "WARNING: you have not learned the " .. (st.to or "?") .. " flight path. Walk there instead, then press Done.")
+  end
   if st.tip then table.insert(out, "Tip: " .. st.tip) end
   return table.concat(out, "\n")
 end
@@ -266,7 +306,7 @@ end
 shortLineFull = function(st)
   local d = st["do"]
   if d == "accept" or d == "turnin" then return VERB[d] .. " " .. st.name end
-  if d == "fly" or d == "hearth" then return VERB[d] .. " " .. (st.to or "") end
+  if d == "fly" or d == "hearth" or d == "fp" or d == "home" then return VERB[d] .. " " .. (st.to or "") end
   if d == "level" then return "Level " .. (st.level or "") end
   if d == "train" then return "Train" end
   return st.text or st.name or ""
@@ -532,7 +572,8 @@ end
 local ev = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN", "QUEST_REMOVED",
   "ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED_INDOORS", "PLAYER_LEVEL_UP", "TRAINER_CLOSED",
-  "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "GOSSIP_SHOW", "QUEST_GREETING", "PLAYER_DEAD" }) do
+  "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "GOSSIP_SHOW", "QUEST_GREETING", "PLAYER_DEAD",
+  "TAXIMAP_OPENED", "CHAT_MSG_SYSTEM", "HEARTHSTONE_BOUND" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 
@@ -576,6 +617,11 @@ ev:SetScript("OnEvent", function(_, e, a1)
     local t = a1 and C_QuestLog and C_QuestLog.GetTitleForQuestID and safe(C_QuestLog.GetTitleForQuestID, a1)
     if t then titleDone[t] = true end
     soon()
+  elseif e == "TAXIMAP_OPENED" then
+    -- Talking to a flight master learns its flight path, so an "fp" step here is done.
+    local st = steps[pos]
+    if st and st["do"] == "fp" then DB.manual[pos] = true end
+    C_Timer.After(0.5, soon)
   elseif e == "TRAINER_CLOSED" then
     local st = steps[pos]
     if st and st["do"] == "train" then DB.manual[pos] = true end

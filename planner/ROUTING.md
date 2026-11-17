@@ -11,6 +11,9 @@ Source studied: the public RXPGuides repo (CC BY-NC-SA 4.0), Forever Alliance 11
    Deadmines quests, then Lakeshire.
 3. **Hearth = free teleport.** Set the hearthstone in the hub you will come back to (Auberdine, later Lakeshire).
    Hearth only after the far end of a cluster; check the cooldown first.
+   It is only free if it was set: the setting is its own step, done before you leave the hub.
+3b. **Flight paths are collected on foot.** Each first visit to a flight master is a step of its own; a route that
+   flies somewhere must have walked there once before.
 4. **Batch at hubs.** Accept everything a hub offers in one visit and hand everything in in one visit, so
    each NPC is visited as few times as possible.
 

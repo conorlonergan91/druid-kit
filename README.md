@@ -38,7 +38,8 @@ reflects where the character actually is.
 - **Accessibility first.** Every alert is a word, letter or icon; colour is only ever a second signal.
 - **Guide as data.** `tools/make_guide.py` turns a JSON guide into `DruidKit_Guide.lua`, so content changes never
   touch addon code. Routes are plain Python data (`tools/example_route.py`); `tools/build_now.py` turns one into the
-  step tracker's route and the guide's Now tab.
+  step tracker's route and the guide's Now tab. `tools/route_check.py` checks the route's travel against the save: no hearth
+  that isn't set, no flight that isn't learned, and an `fp` step at every flight master the route passes.
 
 ## Repository layout
 

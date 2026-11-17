@@ -30,11 +30,16 @@ Its usual loop: `hubs` -> `available` -> `cluster` -> `loop` per hub, keeping `d
 
 On "update": read the game save (level, XP, zone, quest log, bags, skills) and the addon's step log, then:
 
-1. Re-plan from where the player is with `rk.py hubs` / `available` / `loop` and RULES.md.
+1. Re-plan from where the player is with `rk.py hubs` / `available` / `loop` and RULES.md. Read the save's
+   `travel` block first: where the hearthstone is set, its cooldown, and the known flight paths. The plan may only
+   use those, plus flight paths it learns (`fp` steps) and hearths it sets (`home` steps) on the way.
 2. Pick quests to abandon (far below level, far away, needs a group that isn't there, items with unknown sources).
 3. Write the route as one-action steps (`tools/example_route.py` format) with `est` (projected minutes from
    `quest_minutes`) and `party` (worth grouping) on kill steps.
-4. `build_now.py` + `make_guide.py`, Lua syntax check, `tests/run_all.sh`, deploy.
+4. `tools/route_check.py ROUTE --home <travel.home> --flights "<travel.flights joined by ;>"`: fix every ERROR
+   (hearth or flight the player can't use) and every warning (a flight master passed without an `fp` step, a note
+   that should be a `home`/`fp` step). Then `build_now.py` + `make_guide.py`, Lua syntax check, `tests/run_all.sh`,
+   deploy.
 5. Run `rk.py calibrate` and `rk.py paths` on the addon's saved variables: add the suggested `via` waypoints to
    steps that go back to those places, and favour denser kill hubs if travel took most of the time.
 6. Next time, the step log closes the loop: each step records play time, deaths and XP against `est`, and Skip marks
