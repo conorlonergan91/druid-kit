@@ -7,3 +7,8 @@ __pycache__/
 guide.json
 *.bak
 WTF/
+# planner data built from QuestieDB (GPLv3) and local eval artefacts
+planner/db.json
+planner/data/
+planner/eval/reference.json
+planner/eval/quests.csv

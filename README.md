@@ -14,11 +14,12 @@ reflects where the character actually is.
 
 | Area | What it does |
 | --- | --- |
-| Step tracker (`/dk steps`) | RestedXP-style route window: one action at a time (accept, do, hand in, go, fly, train), ticked off automatically from quest, zone and level events. The arrow follows the current step, and the route's quests are accepted and handed in with the right reward picked (hold Shift to do it yourself). |
+| Step tracker (`Alt+N`, `/dk steps`) | RestedXP-style route window: one action at a time (accept, do, hand in, go, fly, train), ticked off automatically from quest, zone and level events. The arrow follows the current step, and the route's quests are accepted and handed in with the right reward picked (hold Shift to do it yourself). Each step shows time spent against the plan and deaths; after 2 deaths or a long overrun it suggests grouping up or **Skip**, which sets the quest aside and logs it for the next re-plan. |
+| Route planner (`planner/`) | An LLM agent plans the route; a Python toolkit does the maths: hub ranking by XP/hour, travelling-salesman stop order with precedence, objective clustering, group value, and a simulator that models travel, XP, training and class forms. A blind eval loop scores plans against a reference route. See [planner/README.md](planner/README.md). |
 | Guide (`Shift+J`, `Alt+1-8`) | Tabbed guide window with a jump bar and **Go** buttons that start the navigation arrow. Content is data, generated from JSON. |
 | Action bars (`/dk bars`) | Lays out caster, Bear, Cat and Prowl bars by how easy each key is to reach. Melee abilities are placed as small `/startattack` macros so auto attack never drops. New spells go onto their key the moment they're learned. |
 | Healing mode (`Alt+H`) | Swaps bars and gear between questing and healing sets in one keypress. |
-| Bag check (`Alt+B`) | Upgrades to equip, what to sell or bank, and a safe **Sell junk** that never sells quest items, library books or Waylaid Crates. |
+| Bag check (`Alt+B`) | Upgrades to equip, what to sell or bank, and a safe **Sell junk** that never sells quest items, library books or Waylaid Crates. Keeps your best two food and drink stacks and offers the rest; recipes are checked against your profession rank (learn now, bank for later, or sell). |
 | Bank check | Opens with the bank: what to take out and what to store, including gear for later levels. |
 | Loot rolls | NEED / GREED / PASS advice that weighs your gear, the item's value, what Druids can wear and which party members wear that armour type. |
 | Navigation (`Alt+G`, `/way`) | Click anywhere on the world map, a trainer pin or a guide step to get an on-screen arrow with distance in yards and turn directions. |
@@ -53,7 +54,8 @@ DruidKit/          the addon (Lua 5.1, loaded in toc order)
   DruidKit_Style.lua   shared window styling
   DruidKit_Guide.lua   generated guide content (do not edit by hand)
 ClaudeProgress/    character-state exporter
-tools/             guide generator and an example guide
+tools/             guide generator, route builder and examples
+planner/           route-planning toolkit (rk.py), agent rules and task, eval tools
 tests/             tests that run the real addon code against a mocked WoW API
 ```
 
@@ -62,12 +64,12 @@ tests/             tests that run the real addon code against a mocked WoW API
 The tests load the addon's Lua files into a **Lua 5.1** runtime (the version WoW uses) via
 [lupa](https://github.com/scoder/lupa), with the WoW API mocked in `tests/mocks/`. They cover bag and sell rules,
 quest-item protection, roll advice, bar layouts and macros, healing mode, the guide window, trainer pins, navigation
-maths, the step tracker and the exporter.
+maths, the step tracker (skip, hide, struggling advice), food and recipe rules, the planner's maths and the exporter.
 
 ```sh
 pip install -r requirements-dev.txt
 sh tests/run_all.sh          # one line per test, non-zero exit on failure
-ruff check tools tests
+ruff check .
 ```
 
 CI runs a Lua 5.1 syntax check, ruff and the full test suite on every push.
