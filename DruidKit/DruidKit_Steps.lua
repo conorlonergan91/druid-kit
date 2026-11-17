@@ -144,6 +144,9 @@ local function isDone(i)
   local key = st.q or st.name
   if key and DB.skipQ[key] then return true end
   local d = st["do"]
+  -- A quest the route passed while you were further on (catch-up) stays behind unless it's in your log.
+  if st.q and DB.passedQ and DB.passedQ[st.q] and (d == "accept" or d == "complete" or d == "turnin")
+    and not logEntry(st.q, st.name) then return true end
   if d == "accept" then
     return logEntry(st.q, st.name) ~= nil or turnedIn(st.q, st.name)
   elseif d == "turnin" then
@@ -160,6 +163,11 @@ local function isDone(i)
     return sameName(homeName(), st.to)
   elseif d == "fp" then
     return knowsFlight(st.to) == true
+  elseif d == "abandon" then
+    for _, q in ipairs(st.qs or { st.q }) do
+      if logEntry(q) then return false end
+    end
+    return true
   end
   return false   -- note, train: you tick them (train also ticks when you close the trainer)
 end
@@ -251,7 +259,8 @@ end
 
 -- Text -----------------------------------------------------------------------------------------
 local VERB = { accept = "Accept", turnin = "Hand in", complete = "Do", ["goto"] = "Go to", fly = "Fly to",
-  hearth = "Hearth to", train = "Train", level = "Level", note = "Do", fp = "Learn flight path", home = "Set hearth" }
+  hearth = "Hearth to", train = "Train", level = "Level", note = "Do", fp = "Learn flight path", home = "Set hearth",
+  abandon = "Abandon" }
 
 local function mainLine(st)
   local d = st["do"]
@@ -332,6 +341,17 @@ local function pointArrow()
     DruidKit_GoTo(v[1], v[2], v[3], ("Way %d/%d: %s  >  %s"):format(n + 1, #st.via, v[4] or "waypoint", final), true)
   elseif st.at and DruidKit_GoTo then
     DruidKit_GoTo(st.at[1], st.at[2], st.at[3], final, true)
+  elseif DruidKit_GoTo and (function()
+      -- No spot on this step (a walk, a boat, a note): point at the next step that has one.
+      for j = pos + 1, math.min(#steps, pos + 4) do
+        local nx = steps[j]
+        if nx.at then
+          DruidKit_GoTo(nx.at[1], nx.at[2], nx.at[3], "Next: " .. (nx.npc or nx.text or nx.name or nx.to or "step"), true)
+          return true
+        end
+      end
+    end)() then
+    return
   elseif DruidKit_NavTarget and DruidKit_NavTarget() and DruidKit_NavClear then
     DruidKit_NavClear(true)   -- an old arrow would point the wrong way
   end
@@ -451,6 +471,39 @@ local function evaluate()
   draw()
 end
 DruidKit_StepsEvaluate = function() pcall(evaluate) end
+
+-- Catch-up: when the route is (re)loaded behind where you really are, jump to just after the last quest you've
+-- handed in. Steps passed on the way are logged "passed"; their quests stay behind unless they're in your log,
+-- and the next update re-plans them.
+local function catchUp()
+  local last = 0
+  for i = #steps, 1, -1 do
+    local st = steps[i]
+    if st["do"] == "turnin" and st.q and turnedIn(st.q) then last = i; break end
+  end
+  if last < pos then return 0 end
+  local n = 0
+  for i = pos, last do
+    local st = steps[i]
+    if not isDone(i) then
+      if st.q and (st["do"] == "accept" or st["do"] == "complete" or st["do"] == "turnin") then
+        if not logEntry(st.q, st.name) then DB.passedQ[st.q] = true; n = n + 1; logStep(i, "passed") end
+      else
+        DB.manual[i] = true; n = n + 1; logStep(i, "passed")
+      end
+    end
+  end
+  return n
+end
+DruidKit_StepsCatchUp = function()
+  local before = pos
+  local ok, n = pcall(catchUp)
+  pcall(evaluate)
+  if ok and n and n > 0 then
+    say(("caught up with you: %d step%s behind you passed (from step %d to %d). The Back button goes back one step.")
+      :format(n, n == 1 and "" or "s", before, pos))
+  end
+end
 
 function DruidKit_StepDone()
   if not steps[pos] then return end
@@ -595,11 +648,14 @@ ev:SetScript("OnEvent", function(_, e, a1)
     titleDone = DB.titleDone
     flatten()
     local id = DruidKitRoute and DruidKitRoute.id
+    DB.passedQ = DB.passedQ or {}
     if DB.routeId ~= id then
-      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.cur = nil
+      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.passedQ = {}; DB.cur = nil
     end
     pos = DB.routeStep or 1
     DruidKit_ToggleSteps(not DB.stepsHidden and #steps > 0)
+    -- The quest log isn't ready at login; catch up a few seconds later.
+    C_Timer.After(4, function() DruidKit_StepsCatchUp() end)
     return
   end
   if not DB then return end
@@ -689,7 +745,7 @@ end)
 function DruidKit_StepsCommand(arg)
   arg = (arg or ""):lower()
   if arg == "reset" then
-    DB.manual = {}; pos = 1; DB.routeStep = 1; arrived = {}; lastArrowFor = nil
+    DB.manual = {}; DB.passedQ = {}; pos = 1; DB.routeStep = 1; arrived = {}; lastArrowFor = nil
     DruidKit_ToggleSteps(true)
     say("route restarted: finished steps skip themselves.")
   elseif arg == "unskip" then

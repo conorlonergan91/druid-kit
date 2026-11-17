@@ -24,6 +24,7 @@ VERB = {
     "note": "Do",
     "fp": "Learn flight path",
     "home": "Set hearth",
+    "abandon": "Abandon",
 }
 
 

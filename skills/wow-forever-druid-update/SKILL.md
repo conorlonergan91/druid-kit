@@ -31,12 +31,13 @@ details) lives in `HANDOFF.md` on the player's Mac, never in this skill or the p
 
 ## The route (step tracker)
 `build/route_vN.py` holds ROUTE: sections of one-action steps (accept / turnin / complete / goto / fly / hearth /
-train / level / note / fp / home; `fp` = learn the flight path in town `to`, `home` = set the hearthstone in `to`;
+train / level / note / fp / home / abandon (`qs`=[ids]); `fp` = learn the flight path in town `to`, `home` = set the hearthstone in `to`;
 both tick themselves) with `q`, `name`, `npc`, `where`, `goto [zone, x, y]`, `to`, `pick`, `tip`, plus `est`
 (projected minutes), `party=True` on kill steps worth a group, `how` (the item to use, the way in) and `via`
 (waypoints the arrow takes first: `[zone or map id, x, y, "label"]`). Keep headlines short; detail goes in `where`/`tip`.
 `build_now.py` puts it into guide.json and the Now tab; `make_guide.py` emits `DruidKitRoute`. Same route `id` keeps
-the player's progress; a new id restarts it (finished steps skip themselves).
+the player's progress; a new id starts over but catches up a few seconds after login to just past the last quest
+the player has handed in (steps passed on the way are logged `passed` for the next re-plan).
 
 ## Planner: let code do the maths
 - `rk.py hubs --level L --from TOWN --current ZONE --done done.json`: XP/hour per hub over the stay, with a grind

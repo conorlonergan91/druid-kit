@@ -146,3 +146,6 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   the trip time, and where you get off. `rk.py travel` lists the boarding spot and wait for each boat leg.
 - Every walk between zones gets a `how` too: the road, the pass, what to avoid off the road.
 - `tools/route_check.py` flags a fly step with no direct flight (error) and a transport step without `how`.
+- Quests to drop are an `abandon` step (`qs=[ids]`), not a note: it ticks itself when they leave the log.
+- Every walk or transport step has a `goto` or is followed within 4 steps by one; the arrow then points at the
+  next spot. A new route id no longer restarts the player: the tracker catches up to the last handed-in quest.

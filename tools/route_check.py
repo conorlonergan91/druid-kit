@@ -106,6 +106,7 @@ def check(route, home=None, flights=None):
     start_unknown = flights is None
     warned = set()
     last_town = None
+    flat = [st for sec in route["sections"] for st in sec["steps"]]
     route_fp = {town_of(st.get("to")) for sec in route["sections"] for st in sec["steps"] if st.get("do") == "fp"}
     n = 0
     for sec in route["sections"]:
@@ -116,6 +117,8 @@ def check(route, home=None, flights=None):
             text = (st.get("text") or "").lower()
             if d == "note" and "hearth" in text and ("set" in text or "bind" in text):
                 warnings.append(f"{label}: sets the hearth in a note; use do='home', to='<town>' so it ticks itself")
+            if d == "note" and text.startswith("abandon"):
+                warnings.append(f"{label}: abandons quests in a note; use do='abandon', qs=[ids] so it ticks itself")
             if d == "note" and "flight path" in text and ("learn" in text or "pick up" in text):
                 warnings.append(f"{label}: learns a flight path in a note; use do='fp', to='<town>'")
             if d == "home":
@@ -159,6 +162,8 @@ def check(route, home=None, flights=None):
                             "when the route first passes it, or walk/boat)"
                         )
             words = " ".join(str(st.get(k) or "") for k in ("text", "where")).lower()
+            if d == "goto" and not st.get("goto") and not any(nx.get("goto") for nx in flat[n : n + 4]):
+                warnings.append(f"{label}: no map spot here or in the next 4 steps: the arrow has nothing to show")
             if d == "goto" and any(w in words for w in TRANSPORT) and not st.get("how"):
                 warnings.append(
                     f"{label}: transport step without how: say where to board (pier or platform, with goto "

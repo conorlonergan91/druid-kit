@@ -1,7 +1,7 @@
 """Example route: Sentinel Hill (18) -> Defias chain -> Deadmines -> Aquatic Form -> south Darkshore (20).
 
 Step fields:
-  do     accept | turnin | complete | goto | fly | hearth | train | level | note | fp | home
+  do     accept | turnin | complete | goto | fly | hearth | train | level | note | fp | home | abandon (qs = [quest ids])
   q      quest ID (verified) ; name = quest title (also used to match when the ID is unsure)
   npc    who to talk to ; where = plain-words place ; goto = [zone, x, y] (verified only)
   to     fly/hearth destination (zone or subzone text); for fp/home the town (fp = learn its flight path,
