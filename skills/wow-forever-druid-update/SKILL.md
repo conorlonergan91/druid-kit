@@ -58,6 +58,8 @@ the player's progress; a new id restarts it (finished steps skip themselves).
    and drink (best two stacks each) and recipes (profession rank); name concrete items to sell or bank from the save.
 4. Edit the route file. Travel must be real (RULES v10): an `fp` step at every flight master the route passes
    for the first time, a `home` step before any trip that hearths back, no `fly`/`hearth` the save doesn't support.
+   Every flight leg is its own `fly` step (check with `rk.py travel FROM TO --flights ...`), and every boat, tram,
+   portal or cross-zone walk has a `how` (where to board, which ship, the wait, where you get off; RULES v11).
    Run `tools/route_check.py <route> --home <travel.home> --flights "<a;b;...>"` and fix every ERROR and warning.
    If `travel.flightsKnown` is false, ask the player to open any flight master's map once. Then run `build_now.py`
    (You lines) then `make_guide.py`; Lua 5.1 `loadstring` check on every

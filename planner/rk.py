@@ -16,7 +16,8 @@ CLI (python3 rk.py <cmd> ...):
   calibrate DruidKit.lua               actual vs projected from the addon's step log: fight vs travel share
   cluster --quests ID... [--radius YD]  group quests whose objective areas are close; do each group in one visit
   party --level L --quests ID...      which kill quests save the most time in a group (kills shared, drops per player)
-  travel FROM TO                       minutes between two towns (boats, flights, roads)
+  travel FROM TO [--flights "A;B"]     minutes and legs between two towns (boats with where to board, each
+                                       flight hop, trams, roads); --flights = known flight-path towns
 Done file: JSON list of quest IDs already handed in.
 """
 
@@ -146,34 +147,56 @@ def towns():
     return TRAVEL["towns"]
 
 
-def _graph():
+def _graph(flights=None):
+    """Town graph. flights = set of known flight-path towns: flight edges need both ends known (None = all)."""
     g = {}
     for e in TRAVEL["edges"]:
         a, b, m = e["a"], e["b"], e["min"]
-        g.setdefault(a, []).append((b, m))
+        if e.get("how") == "flight" and flights is not None and not (a in flights and b in flights):
+            continue
+        wait = (e.get("board") or {}).get("wait_min", 0)
+        g.setdefault(a, []).append((b, m + wait, e))
         if not e.get("oneway"):
-            g.setdefault(b, []).append((a, m))
+            g.setdefault(b, []).append((a, m + wait, e))
     return g
 
 
-def travel_min(a, b):
-    """Minutes between two towns (Dijkstra over walks, boats, flights, portals)."""
+def travel_route(a, b, flights=None):
+    """(minutes, legs) between two towns over walks, boats, flights, trams, portals; each leg says how and where to
+    board. Every change of flight is its own leg, so "two flights" shows as two legs."""
     if a == b:
-        return 0.0
-    g = _graph()
-    dist, pq = {a: 0.0}, [(0.0, a)]
+        return 0.0, []
+    g = _graph(flights)
+    dist, prev, pq = {a: 0.0}, {}, [(0.0, a)]
     while pq:
         d, u = heapq.heappop(pq)
         if u == b:
-            return d
+            legs, n = [], b
+            while n != a:
+                p, e = prev[n]
+                leg = {"from": p, "to": n, "how": e.get("how") or e.get("note", "?"), "min": e["min"]}
+                if e.get("board"):
+                    leg["board"] = e["board"].get(p)
+                    leg["wait_min"] = e["board"].get("wait_min")
+                if e.get("note"):
+                    leg["note"] = e["note"]
+                legs.append(leg)
+                n = p
+            return d, legs[::-1]
         if d > dist.get(u, 1e9):
             continue
-        for v, m in g.get(u, []):
+        for v, m, e in g.get(u, []):
             nd = d + m
             if nd < dist.get(v, 1e9):
                 dist[v] = nd
+                prev[v] = (u, e)
                 heapq.heappush(pq, (nd, v))
-    return float("inf")
+    return float("inf"), []
+
+
+def travel_min(a, b, flights=None):
+    """Minutes between two towns (Dijkstra over walks, boats, flights, portals)."""
+    return travel_route(a, b, flights)[0]
 
 
 def nearest_town(p):
@@ -998,7 +1021,9 @@ def main(argv):
         for r in party_savings(qids, _opt(args, "--level", 10, float)):
             print(json.dumps(r, ensure_ascii=False))
     elif cmd == "travel":
-        print(travel_min(args[0], args[1]))
+        known = _opt(args, "--flights")
+        m, legs = travel_route(args[0], args[1], set(known.split(";")) if known else None)
+        print(json.dumps({"min": m, "legs": legs}, ensure_ascii=False, indent=1))
     else:
         print(__doc__)
 

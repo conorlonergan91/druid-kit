@@ -101,4 +101,27 @@ check(any("never learns that flight path" in w for w in warn), "warns about the 
 ROUTE["sections"][0]["steps"][1:1] = [{"do": "fp", "to": "Thelsamar"}, {"do": "home", "to": "Thelsamar"}]
 err, warn = route_check.check(ROUTE, home="Stormwind", flights=["Stormwind, Elwynn", "Ironforge, Dun Morogh"])
 check(err == [] and warn == [], "with fp and home steps the route is clean", (err, warn))
+# Transport: Nighthaven only flies to Rut'theran; boats say where to board.
+m, legs = rk.travel_route("Nighthaven", "Menethil")
+check(
+    [leg["how"] for leg in legs] == ["flight", "flight", "boat"] and legs[2].get("board"),
+    "Nighthaven -> Menethil is two flights and a boat, with where to board",
+    legs,
+)
+m2, legs2 = rk.travel_route("Nighthaven", "Auberdine", flights={"Nighthaven", "Rut'theran"})
+check(legs2[-1]["how"] == "boat", "without the Auberdine flight path the second leg is the boat", legs2)
+TR = {
+    "sections": [
+        {
+            "title": "T",
+            "steps": [
+                {"do": "fly", "to": "Auberdine", "where": "Nighthaven flight master"},
+                {"do": "goto", "text": "Boat to Menethil Harbor", "to": "Menethil Harbor"},
+            ],
+        }
+    ]
+}
+err, warn = route_check.check(TR, home="Lakeshire", flights=["Nighthaven", "Rut'theran", "Auberdine"])
+check(any("no direct flight Nighthaven -> Auberdine" in e for e in err), "two-hop flight in one step is an error", err)
+check(any("transport step without how" in w for w in warn), "a boat step without directions is flagged", warn)
 done("planner_test")

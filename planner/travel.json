@@ -1,5 +1,5 @@
 {
- "_note": "Approximate: zone sizes from classic map data, travel minutes estimated (walk/boat/flight incl. waits). Town spots from QuestieDB NPC spawns. fm = the town has an Alliance-usable flight master (classic geography; Ratchet is neutral).",
+ "_note": "Approximate: zone sizes from classic map data, travel minutes estimated (walk/boat/flight incl. waits). Town spots from QuestieDB NPC spawns. fm = the town has an Alliance-usable flight master (classic geography; Ratchet is neutral). Edge how = walk | flight | boat | tram | portal; flights need both flight paths learned; boats list where to board (board) and the usual wait.",
  "towns": {
   "Shadowglen": {
    "zone": "Teldrassil",
@@ -150,112 +150,154 @@
   {
    "a": "Shadowglen",
    "b": "Dolanaar",
-   "min": 3
+   "min": 3,
+   "how": "walk"
   },
   {
    "a": "Dolanaar",
    "b": "Darnassus",
-   "min": 3
+   "min": 3,
+   "how": "walk"
   },
   {
    "a": "Darnassus",
    "b": "Rut'theran",
-   "min": 1
+   "min": 1,
+   "how": "portal"
   },
   {
    "a": "Dolanaar",
    "b": "Rut'theran",
-   "min": 6
+   "min": 6,
+   "how": "walk"
   },
   {
    "a": "Rut'theran",
    "b": "Auberdine",
-   "min": 4
+   "min": 4,
+   "how": "boat",
+   "board": {
+    "Rut'theran": [
+     "Teldrassil",
+     54.9,
+     96.8,
+     "Rut'theran dock, south of the village"
+    ],
+    "Auberdine": [
+     "Darkshore",
+     33.2,
+     40.2,
+     "Auberdine pier: the ship to Rut'theran Village (unverified spot)"
+    ],
+    "wait_min": 4
+   }
   },
   {
    "a": "Auberdine",
    "b": "Menethil",
-   "min": 7
+   "min": 7,
+   "how": "boat",
+   "board": {
+    "Auberdine": [
+     "Darkshore",
+     32.4,
+     43.7,
+     "end of the Auberdine pier, west of the town: the ship to Menethil Harbor (unverified spot; two ships use this pier, check the destination)"
+    ],
+    "Menethil": [
+     "Wetlands",
+     4.6,
+     57.2,
+     "end of the long Menethil pier, west of the town (unverified spot)"
+    ],
+    "wait_min": 4
+   }
   },
   {
    "a": "Auberdine",
    "b": "Astranaar",
-   "min": 4
+   "min": 4,
+   "how": "flight"
   },
   {
-   "a": "Rut'theran",
-   "b": "Nighthaven",
-   "min": 7
-  },
-  {
-   "a": "Auberdine",
-   "b": "Nighthaven",
-   "min": 5
+   "a": "Nighthaven",
+   "b": "Rut'theran",
+   "min": 7,
+   "oneway": true,
+   "how": "flight",
+   "note": "druid-only flight; Nighthaven's only Alliance link, and it can't be flown TO (use Teleport: Moonglade)"
   },
   {
    "a": "Menethil",
    "b": "Thelsamar",
-   "min": 9
+   "min": 9,
+   "how": "walk"
   },
   {
    "a": "Menethil",
    "b": "Ironforge",
-   "min": 4
+   "min": 4,
+   "how": "flight"
   },
   {
    "a": "Thelsamar",
    "b": "Ironforge",
-   "min": 3
+   "min": 3,
+   "how": "flight"
   },
   {
    "a": "Ironforge",
    "b": "Stormwind",
-   "min": 3
+   "min": 3,
+   "how": "tram"
   },
   {
    "a": "Stormwind",
    "b": "Goldshire",
-   "min": 3
+   "min": 3,
+   "how": "walk"
   },
   {
    "a": "Stormwind",
    "b": "Sentinel Hill",
-   "min": 3
+   "min": 3,
+   "how": "flight"
   },
   {
    "a": "Goldshire",
    "b": "Sentinel Hill",
-   "min": 6
+   "min": 6,
+   "how": "walk"
   },
   {
    "a": "Stormwind",
    "b": "Lakeshire",
-   "min": 3
+   "min": 3,
+   "how": "flight"
   },
   {
    "a": "Goldshire",
    "b": "Lakeshire",
-   "min": 7
+   "min": 7,
+   "how": "walk"
   },
   {
    "a": "Lakeshire",
    "b": "Darkshire",
-   "min": 8
+   "min": 8,
+   "how": "walk"
   },
   {
    "a": "Stormwind",
    "b": "Darkshire",
-   "min": 3
+   "min": 3,
+   "how": "flight"
   },
   {
    "a": "Astranaar",
    "b": "Stonetalon Peak",
-   "min": 10
-  },
-  {
-   "a": "Auberdine",
-   "b": "Astranaar",
-   "min": 4
+   "min": 10,
+   "how": "walk"
   },
   {
    "a": "Shadowglen",
@@ -363,28 +405,25 @@
    "note": "Teleport: Moonglade"
   },
   {
-   "a": "Stormwind",
-   "b": "Darkshire",
-   "min": 4,
-   "how": "flight (Duskwood FP after discovery)"
-  },
-  {
    "a": "Darkshire",
    "b": "Rebel Camp",
    "min": 7,
-   "how": "run through Duskwood west road"
+   "how": "walk",
+   "note": "run through Duskwood west road"
   },
   {
    "a": "Rebel Camp",
    "b": "Booty Bay",
    "min": 10,
-   "how": "run south"
+   "how": "walk",
+   "note": "run south"
   },
   {
    "a": "Stormwind",
    "b": "Booty Bay",
    "min": 6,
-   "how": "flight after discovery"
+   "how": "flight",
+   "note": "flight after discovery"
   },
   {
    "a": "Booty Bay",
@@ -396,43 +435,56 @@
    "a": "Menethil",
    "b": "Southshore",
    "min": 9,
-   "how": "run through Thandol Span / flight after discovery"
+   "how": "walk",
+   "note": "run through Thandol Span / flight after discovery"
   },
   {
    "a": "Ironforge",
    "b": "Southshore",
    "min": 5,
-   "how": "flight after discovery"
+   "how": "flight",
+   "note": "flight after discovery"
   },
   {
    "a": "Southshore",
    "b": "Refuge Pointe",
    "min": 4,
-   "how": "flight after discovery / run"
+   "how": "flight",
+   "note": "flight after discovery / run"
   },
   {
    "a": "Stonetalon Peak",
    "b": "Nijel's Point",
    "min": 4,
-   "how": "flight after discovery"
+   "how": "flight",
+   "note": "flight after discovery"
   },
   {
    "a": "Astranaar",
    "b": "Forest Song",
    "min": 6,
-   "how": "run east"
+   "how": "walk",
+   "note": "run east"
   },
   {
    "a": "Shimmering Flats",
    "b": "Booty Bay",
    "min": 12,
-   "how": "Ratchet boat + run (rough)"
+   "how": "boat",
+   "note": "Ratchet boat + run (rough)"
   },
   {
    "a": "Ratchet",
    "b": "Shimmering Flats",
    "min": 10,
-   "how": "run (rough)"
+   "how": "walk",
+   "note": "run (rough)"
+  },
+  {
+   "a": "Rut'theran",
+   "b": "Auberdine",
+   "min": 3,
+   "how": "flight"
   }
  ],
  "zone_yards": {

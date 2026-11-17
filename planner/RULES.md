@@ -135,3 +135,14 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 - No hearth or flight path: plan the walk honestly (road, minutes, danger), never "hearth back" as a placeholder.
 - `rk.py sim` now reports `flight_paths_learned`, `home_at_end` and problems for: flying to an unlearned path,
   hearthing with no or the wrong home, hearth on cooldown, and walking through a flight-master town without `fp`.
+
+## Added in v11: transport the player can follow (from play: two flights where the route said one; boat with no directions)
+- Flights go only along direct links. Run `rk.py travel FROM TO --flights "<known>"`: every flight leg in its output
+  is its own `fly` step ("Fly to Rut'theran", then "Fly to Auberdine"), with the flight master named. Never write a
+  `fly` straight to a town two links away. Nighthaven (druid flight) only flies to Rut'theran, and nothing flies
+  to Nighthaven: arrive there by Teleport: Moonglade.
+- Boats, trams, portals and zeppelins get a `how`: where to board (pier, platform or tree, with `goto` only when
+  the spot is verified), how to tell the right ship (its destination; two ships share some piers), the usual wait,
+  the trip time, and where you get off. `rk.py travel` lists the boarding spot and wait for each boat leg.
+- Every walk between zones gets a `how` too: the road, the pass, what to avoid off the road.
+- `tools/route_check.py` flags a fly step with no direct flight (error) and a transport step without `how`.
