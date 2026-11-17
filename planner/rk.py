@@ -12,6 +12,7 @@ CLI (python3 rk.py <cmd> ...):
                                        best order of stops (accept, objectives, hand-in) by travel-salesman with
                                        precedence; prints stops, yards walked, minutes, XP
   sim PLAN.json                        replay a plan: levels, XP, minutes, prereq/min-level problems
+  paths DruidKit.lua                   walked paths from the step log -> suggested via waypoints for routes
   calibrate DruidKit.lua               actual vs projected from the addon's step log: fight vs travel share
   cluster --quests ID... [--radius YD]  group quests whose objective areas are close; do each group in one visit
   party --level L --quests ID...      which kill quests save the most time in a group (kills shared, drops per player)
@@ -648,6 +649,61 @@ def calibrate(saved_vars):
     }
 
 
+def _simplify(pts, eps):
+    """Douglas-Peucker on (x, y) map points: keep the corners of a walked path, drop the straight bits."""
+    if len(pts) < 3:
+        return pts
+    (ax, ay), (bx, by) = pts[0], pts[-1]
+    dx, dy = bx - ax, by - ay
+    norm = (dx * dx + dy * dy) ** 0.5 or 1e-9
+    far, idx = 0.0, 0
+    for i, (x, y) in enumerate(pts[1:-1], 1):
+        d = abs(dy * (x - ax) - dx * (y - ay)) / norm
+        if d > far:
+            far, idx = d, i
+    if far <= eps:
+        return [pts[0], pts[-1]]
+    return _simplify(pts[: idx + 1], eps)[:-1] + _simplify(pts[idx:], eps)
+
+
+def learned_paths(saved_vars, eps=0.012):
+    """Walked paths from the addon's step log -> suggested `via` waypoints and how much longer than a straight
+    line the real path was. Only steps where the walk bent noticeably are suggested."""
+    from lupa.lua51 import LuaRuntime
+
+    lua = LuaRuntime()
+    lua.execute(Path(saved_vars).read_text(encoding="utf-8"))
+    db_ = lua.globals().DruidKitDB
+    out = []
+    for i in range(1, len(db_.stepLog) + 1 if db_ and db_.stepLog else 1):
+        e = db_.stepLog[i]
+        if not e.trail:
+            continue
+        pts = [p.split(":") for p in e.trail.split(";")]
+        mid = int(pts[-1][0])
+        xy = [tuple(float(v) for v in p[1].split(",")) for p in pts if int(p[0]) == mid]
+        if len(xy) < 3:
+            continue
+        walked = sum(
+            ((xy[k][0] - xy[k - 1][0]) ** 2 + (xy[k][1] - xy[k - 1][1]) ** 2) ** 0.5 for k in range(1, len(xy))
+        )
+        straight = ((xy[-1][0] - xy[0][0]) ** 2 + (xy[-1][1] - xy[0][1]) ** 2) ** 0.5
+        ratio = walked / straight if straight > 0.01 else None
+        corners = _simplify(xy, eps)[1:-1]
+        if ratio and ratio > 1.25 and corners:
+            out.append(
+                {
+                    "step": e.i,
+                    "q": e.q,
+                    "name": e.name,
+                    "target": e.target,
+                    "path_factor": round(ratio, 2),
+                    "via": [[mid, round(x * 100, 1), round(y * 100, 1)] for x, y in corners[:6]],
+                }
+            )
+    return out
+
+
 def clusters(qids, radius=400):
     """Group quests whose objective areas lie within `radius` yards (single-link). Do each group in one visit."""
     pts = []
@@ -856,6 +912,9 @@ def main(argv):
         print(json.dumps({k: v for k, v in res.items() if k != "stops"}))
     elif cmd == "sim":
         print(json.dumps(simulate(json.loads(Path(args[0]).read_text(encoding="utf-8"))), indent=1))
+    elif cmd == "paths":
+        for r in learned_paths(args[0]):
+            print(json.dumps(r, ensure_ascii=False))
     elif cmd == "calibrate":
         print(json.dumps(calibrate(args[0]), indent=1))
     elif cmd == "cluster":

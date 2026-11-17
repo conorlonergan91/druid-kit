@@ -32,7 +32,8 @@ details) lives in `HANDOFF.md` on the player's Mac, never in this skill or the p
 ## The route (step tracker)
 `build/route_vN.py` holds ROUTE: sections of one-action steps (accept / turnin / complete / goto / fly / hearth /
 train / level / note) with `q`, `name`, `npc`, `where`, `goto [zone, x, y]`, `to`, `pick`, `tip`, plus `est`
-(projected minutes) and `party=True` on kill steps worth a group. Keep headlines short; detail goes in `where`/`tip`.
+(projected minutes), `party=True` on kill steps worth a group, `how` (the item to use, the way in) and `via`
+(waypoints the arrow takes first: `[zone or map id, x, y, "label"]`). Keep headlines short; detail goes in `where`/`tip`.
 `build_now.py` puts it into guide.json and the Now tab; `make_guide.py` emits `DruidKitRoute`. Same route `id` keeps
 the player's progress; a new id restarts it (finished steps skip themselves).
 
@@ -49,7 +50,8 @@ the player's progress; a new id restarts it (finished steps skip themselves).
    If the save is older than the last update, say so instead of re-planning.
 2. Read `DruidKitDB.stepLog` (secs, deaths, xp against `est`; how = done / ticked / skipped) and `DruidKitDB.skipQ`.
    For each skipped quest decide: drop it, or come back stronger or with a group. Recalibrate `est` where actuals
-   differ a lot.
+   differ a lot. Run `rk.py calibrate <DruidKit.lua>` (fight vs travel share) and `rk.py paths <DruidKit.lua>`
+   (walked paths -> `via` waypoints for caves, ramps and other hard-to-find places).
 3. Re-plan from where the player is with the planner tools and RULES.md. Quest log: list exactly which quests to
    abandon (far below level, far away, needs an absent group, unknown item sources). Bags: Bag check handles food
    and drink (best two stacks each) and recipes (profession rank); name concrete items to sell or bank from the save.

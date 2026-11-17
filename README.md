@@ -22,7 +22,7 @@ reflects where the character actually is.
 | Bag check (`Alt+B`) | Upgrades to equip, what to sell or bank, and a safe **Sell junk** that never sells quest items, library books or Waylaid Crates. Keeps your best two food and drink stacks and offers the rest; recipes are checked against your profession rank (learn now, bank for later, or sell). |
 | Bank check | Opens with the bank: what to take out and what to store, including gear for later levels. |
 | Loot rolls | NEED / GREED / PASS advice that weighs your gear, the item's value, what Druids can wear and which party members wear that armour type. |
-| Navigation (`Alt+G`, `/way`) | Click anywhere on the world map, a trainer pin or a guide step to get an on-screen arrow with distance in yards and turn directions. |
+| Navigation (`Alt+G`, `/way`) | Click anywhere on the world map, a trainer pin or a guide step to get an on-screen arrow with distance in yards and turn directions. Route steps can chain waypoints (cave entrance, ramp, bridge); the arrow warns when you stop getting closer, and the path you actually walk is recorded so the planner can turn it into waypoints for next time. |
 | Party view | Health shown in words and symbols, heal buttons that mirror the action bar, HoT timers. |
 | Helpers | HUD (food buff, rested XP), catch-up tracker towards a friend's level, profession training reminders. |
 

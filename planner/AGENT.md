@@ -35,7 +35,9 @@ On "update": read the game save (level, XP, zone, quest log, bags, skills) and t
 3. Write the route as one-action steps (`tools/example_route.py` format) with `est` (projected minutes from
    `quest_minutes`) and `party` (worth grouping) on kill steps.
 4. `build_now.py` + `make_guide.py`, Lua syntax check, `tests/run_all.sh`, deploy.
-5. Next time, the step log closes the loop: each step records play time, deaths and XP against `est`, and Skip marks
+5. Run `rk.py calibrate` and `rk.py paths` on the addon's saved variables: add the suggested `via` waypoints to
+   steps that go back to those places, and favour denser kill hubs if travel took most of the time.
+6. Next time, the step log closes the loop: each step records play time, deaths and XP against `est`, and Skip marks
    quests the player gave up on. The re-plan decides per skipped quest: drop it, or come back stronger / in a group.
 
 ## Data sources and licences

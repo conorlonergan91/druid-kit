@@ -1,6 +1,8 @@
 """Route planner maths (planner/rk.py) without the quest database: travel, training model, clustering."""
 
 import sys
+import tempfile
+from pathlib import Path
 
 from expect import check, done
 from wowenv import ROOT
@@ -30,4 +32,17 @@ FAKE = {
 rk.quest = lambda q: FAKE.get(q)
 groups = rk.clusters([1, 2, 3])
 check(len(groups) == 2 and len(groups[0]["quests"]) == 2, "nearby objectives share one outing", groups)
+corners = rk._simplify([(0.30, 0.86), (0.33, 0.86), (0.36, 0.86), (0.36, 0.83), (0.36, 0.80), (0.34, 0.80)], 0.012)
+check(
+    corners == [(0.30, 0.86), (0.36, 0.86), (0.36, 0.80), (0.34, 0.80)], "a walked path keeps only its corners", corners
+)
+
+sv = Path(tempfile.mkdtemp()) / "DruidKit.lua"
+trail = ";".join(
+    f"1432:{x:.3f},{y:.3f}"
+    for x, y in [(0.30, 0.86), (0.33, 0.86), (0.36, 0.86), (0.36, 0.83), (0.36, 0.80), (0.34, 0.80)]
+)
+sv.write_text(f'DruidKitDB = {{ stepLog = {{ {{ i = 3, q = 86585, name = "Banner", trail = "{trail}" }} }} }}')
+learned = rk.learned_paths(str(sv))
+check(len(learned) == 1 and learned[0]["via"][0] == [1432, 36.0, 86.0], "a bent walk becomes via waypoints", learned)
 done("planner_test")

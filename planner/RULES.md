@@ -114,3 +114,7 @@ Speed comes from power as much as from routing. `sim` now models it and reports 
   travelling (city errands, deliveries, tram rides) is grouped into one visit and kept short.
 - Calibrate with `rk.py calibrate DruidKit.lua` after each session: if travel is over ~60% of play time, the next
   plan favours denser kill hubs and fewer errands.
+- Paths: steps can carry `via` waypoints (cave entrances, ramps, bridges) that the arrow takes in order. The addon
+  records the path actually walked on every step; `rk.py paths DruidKit.lua` turns bent walks into `via` lists, so
+  each place you had to find the way to gets waypoints in the next route. The arrow also says when you've stopped
+  getting closer for 30 seconds.

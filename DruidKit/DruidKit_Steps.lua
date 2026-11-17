@@ -143,7 +143,31 @@ end
 
 local function startStats()
   local lv, xp, mx = xpNow()
-  DB.cur = { i = pos, secs = 0, deaths = 0, lv = lv, xp = xp, mx = mx }
+  DB.cur = { i = pos, secs = 0, deaths = 0, lv = lv, xp = xp, mx = mx, trail = {} }
+end
+
+-- Breadcrumbs: where you actually walked during a step (map id, x, y every few yards). The planner reads
+-- them to learn real paths (cave entrances, ramps) and turn them into waypoints for next time.
+local function recordTrail()
+  local c = DB.cur
+  if not c or c.i ~= pos or not C_Map or not C_Map.GetBestMapForUnit then return end
+  local m = safe(C_Map.GetBestMapForUnit, "player")
+  local p = m and safe(C_Map.GetPlayerMapPosition, m, "player")
+  if not p then return end
+  local x, y = p:GetXY()
+  if not x then return end
+  c.trail = c.trail or {}
+  local last = c.trail[#c.trail]
+  if last and last[1] == m and math.abs(last[2] - x) + math.abs(last[3] - y) < 0.004 then return end
+  if #c.trail >= 240 then return end
+  table.insert(c.trail, { m, math.floor(x * 1000 + 0.5) / 1000, math.floor(y * 1000 + 0.5) / 1000 })
+end
+
+local function trailString(t)
+  if not t or #t == 0 then return nil end
+  local out = {}
+  for _, p in ipairs(t) do table.insert(out, ("%d:%.3f,%.3f"):format(p[1], p[2], p[3])) end
+  return table.concat(out, ";")
 end
 
 local function xpGained(c)
@@ -159,8 +183,11 @@ local function logStep(i, how)
   table.insert(DB.stepLog, { route = DruidKitRoute and DruidKitRoute.id, i = i, ["do"] = st["do"], q = st.q,
     name = st.name or st.text, est = st.est, secs = mine and math.floor(c.secs) or 0,
     deaths = mine and c.deaths or 0, xp = mine and xpGained(c) or 0, lv = (xpNow()),
-    how = how, at = date and date("%Y-%m-%d %H:%M") })
+    how = how, at = date and date("%Y-%m-%d %H:%M"), trail = mine and trailString(c.trail) or nil,
+    target = st.at and (st.at[1] .. ":" .. st.at[2] .. "," .. st.at[3]) or nil })
   while #DB.stepLog > 400 do table.remove(DB.stepLog, 1) end
+  local n = #DB.stepLog
+  if n > 80 and DB.stepLog[n - 80] then DB.stepLog[n - 80].trail = nil end   -- keep trails for the last 80 steps
 end
 
 local function clock(secs)
@@ -246,13 +273,25 @@ shortLineFull = function(st)
 end
 
 -- Arrow ----------------------------------------------------------------------------------------
+-- A step can list waypoints on the way ("via": cave entrance, ramp, bridge). The arrow takes them in
+-- order, then the step's own spot. viaAt[pos] = how many waypoints are already reached.
+local viaAt = {}
+local function nextVia(st)
+  local n = viaAt[pos] or 0
+  return st.via and st.via[n + 1], n
+end
+
 local function pointArrow()
   local st = steps[pos]
   if not st or lastArrowFor == pos then return end
   lastArrowFor = pos
   if DB.arrowOff then return end
-  if st.at and DruidKit_GoTo then
-    DruidKit_GoTo(st.at[1], st.at[2], st.at[3], st.npc or st.text or st.name or "Next step", true)
+  local v, n = nextVia(st)
+  local final = st.npc or st.text or st.name or "Next step"
+  if v and DruidKit_GoTo then
+    DruidKit_GoTo(v[1], v[2], v[3], ("Way %d/%d: %s  >  %s"):format(n + 1, #st.via, v[4] or "waypoint", final), true)
+  elseif st.at and DruidKit_GoTo then
+    DruidKit_GoTo(st.at[1], st.at[2], st.at[3], final, true)
   elseif DruidKit_NavTarget and DruidKit_NavTarget() and DruidKit_NavClear then
     DruidKit_NavClear(true)   -- an old arrow would point the wrong way
   end
@@ -387,6 +426,7 @@ function DruidKit_StepBack()
   pos = pos - 1
   DB.manual[pos] = nil
   arrived[pos] = nil
+  viaAt[pos] = nil
   DB.routeStep = pos
   lastArrowFor = nil
   pointArrow(); draw()
@@ -565,9 +605,23 @@ ev:SetScript("OnEvent", function(_, e, a1)
   end
 end)
 
+DruidKit_OnNavStuck = function(label)
+  local st = steps[pos]
+  if st and DB.cur and DB.cur.i == pos then DB.cur.stuck = (DB.cur.stuck or 0) + 1 end
+  say(("not getting closer to %s. The way may be blocked: go round, or open the map (M). If you find the way in, "
+    .. "the route learns it from your path."):format(label or "the target"))
+end
+
 -- Arrival at the current step's spot (from the navigation arrow).
 DruidKit_OnArrive = function()
   local st = steps[pos]
+  local v = st and nextVia(st)
+  if v then
+    viaAt[pos] = (viaAt[pos] or 0) + 1
+    lastArrowFor = nil
+    pointArrow(); pcall(draw)
+    return
+  end
   if st and st.at and (st["do"] == "goto" or st["do"] == "fly" or st["do"] == "hearth") then
     arrived[pos] = true
     soon()
@@ -581,6 +635,7 @@ ev:SetScript("OnUpdate", function(_, el)
   tick = tick + el
   if tick < 2 then return end
   tick = 0
+  pcall(recordTrail)
   if frame and frame:IsShown() and steps[pos] then pcall(draw) end
 end)
 

@@ -693,6 +693,17 @@ function DruidKit_NavUpdate()
   if not (tx and ty and w) then arrowF.tex:Hide(); arrowF.info:SetText("") return end
   local east, south = (tx - px) * w, (ty - py) * h
   local dist = math.sqrt(east * east + south * south)
+  nav.dist = dist
+  -- Not getting closer for a while (a wall, a cliff, the wrong side of a river): say so.
+  local now = GetTime and GetTime() or 0
+  if not nav.best or dist < nav.best - 10 then nav.best, nav.bestT = dist, now end
+  local stuck = dist > 40 and nav.bestT and (now - nav.bestT) > 30
+  if stuck and not nav.stuckSaid then
+    nav.stuckSaid = true
+    if DruidKit_OnNavStuck then pcall(DruidKit_OnNavStuck, nav.label, dist) end
+  elseif not stuck then
+    nav.stuckSaid = nil
+  end
   if dist < 12 then
     navSay("you've arrived: " .. nav.label .. ".")
     if DruidKit_OnArrive then pcall(DruidKit_OnArrive, nav.label) end
@@ -706,7 +717,8 @@ function DruidKit_NavUpdate()
     local rel = bearing - facing
     rel = (rel + math.pi) % (2 * math.pi) - math.pi
     arrowF.tex:SetRotation(rel)
-    arrowF.info:SetText(("%d yards, %s"):format(math.floor(dist + 0.5), turnWord(rel)))
+    arrowF.info:SetText(("%d yards, %s"):format(math.floor(dist + 0.5), turnWord(rel))
+      .. (stuck and "\nNot getting closer: go round, or check the map (M)" or ""))
   else
     arrowF.tex:SetRotation(bearing)
     arrowF.info:SetText(("%d yards (arrow points north-up)"):format(math.floor(dist + 0.5)))
@@ -734,7 +746,9 @@ end
 -- Waypoint from a zone name and map numbers (as written in the guide): DruidKit_GoTo("Westfall", 56.2, 47.6, "Gryan")
 -- quiet = true: no chat line (the step tracker sets the arrow on every step).
 function DruidKit_GoTo(zone, x, y, label, quiet)
-  local mapID = zone and findMap(zone) or (C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player"))
+  -- zone may be a name ("Loch Modan") or a map id (1432, as recorded in walked paths)
+  local mapID = type(zone) == "number" and zone or (zone and findMap(zone))
+    or (C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player"))
   if not mapID then
     if not quiet then navSay("can't find the map for " .. tostring(zone) .. ".") end
     return false
