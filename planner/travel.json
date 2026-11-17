@@ -29,7 +29,9 @@
    "zone": "Moonglade",
    "x": 44.2,
    "y": 45.2,
-   "fm": true
+   "fm": true,
+   "always_known": true,
+   "note": "druid-only flight master: never listed among known flight paths; usable by any druid"
   },
   "Auberdine": {
    "zone": "Darkshore",

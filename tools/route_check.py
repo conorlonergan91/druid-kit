@@ -103,6 +103,7 @@ def check(route, home=None, flights=None):
     errors, warnings = [], []
     home = town_of(home) if home else None
     known = {town_of(f) for f in (flights or []) if town_of(f)}
+    known |= {n for n, v in TRAVEL["towns"].items() if v.get("always_known")}
     start_unknown = flights is None
     warned = set()
     last_town = None

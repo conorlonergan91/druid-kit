@@ -818,6 +818,7 @@ def simulate(plan, trace=False):
     levels, trained, forms, visits, penalty_min, rank_lag = [], 1, set(), 0, 0.0, []
     home = _town_in(start.get("home")) if start.get("home") else None
     known = {n for n in (_town_in(f) for f in start.get("flights", [])) if n}
+    known |= {n for n, v in towns().items() if v.get("always_known")}
     visited_fm, learned, last_hearth = {}, [], None
     cd = TRAVEL.get("hearth_cooldown_min", 60)
     done, accepted = set(start.get("done", [])), set(start.get("accepted", []))
