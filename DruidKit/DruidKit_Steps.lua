@@ -347,6 +347,13 @@ local function detailLines(st)
   if st.tip then table.insert(out, "Tip: " .. st.tip) end
   local bl = bagLine()
   if bl then table.insert(out, bl) end
+  local starters = DruidKit_QuestStarters and DruidKit_QuestStarters() or {}
+  if #starters > 0 then
+    local names = {}
+    for i = 1, math.min(2, #starters) do names[i] = starters[i].name end
+    table.insert(out, "QUEST TO START in your bags: " .. table.concat(names, ", ")
+      .. (#starters > 2 and (" +" .. (#starters - 2)) or "") .. ". Right-click it in your bags.")
+  end
   return table.concat(out, "\n")
 end
 

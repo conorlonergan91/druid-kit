@@ -228,6 +228,41 @@ local function questItems()
 end
 DruidKit_QuestItems = function() local ok, r = pcall(questItems); return ok and r or {} end
 
+-- Everything your quests and the route say, in lower case: titles, objective lines (delivery quests carry their
+-- whole sentence there: "take the strange smelling powder to ..."), and the route's step texts. A quest item whose
+-- name appears nowhere in it belongs to no quest you have.
+local blob, blobAt = "", -10
+local function questBlob()
+  if GetTime() - blobAt < 3 then return blob end
+  blobAt = GetTime()
+  local parts = {}
+  if C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetInfo then
+    for i = 1, (C_QuestLog.GetNumQuestLogEntries() or 0) do
+      local q = C_QuestLog.GetInfo(i)
+      if q and not q.isHeader then
+        table.insert(parts, q.title or "")
+        for _, o in ipairs((q.questID and C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(q.questID)) or {}) do
+          table.insert(parts, o.text or "")
+        end
+      end
+    end
+  end
+  local route = DruidKitRoute
+  for _, sec in ipairs((route and route.sections) or {}) do
+    for _, st in ipairs(sec.steps or {}) do
+      table.insert(parts, (st.name or "") .. " " .. (st.text or "") .. " " .. (st.how or "") .. " " .. (st.tip or ""))
+    end
+  end
+  blob = table.concat(parts, " | "):lower()
+  return blob
+end
+local function questMentions(name)
+  if not name then return false end
+  local b = questBlob()
+  local n = name:lower()
+  return b:find(n, 1, true) ~= nil or b:find((n:gsub("s$", "")), 1, true) ~= nil
+end
+
 -- Library books (Forever): hand in to Garion Wendell, top of the Wizard's Sanctum, Stormwind Mage Quarter.
 -- Never sell or destroy: a deleted book may not be lootable again.
 local BOOKS = {}
@@ -265,11 +300,20 @@ local function protectedReason(link, bag, slot)
   if questNeeds(name) then return "your quest needs this" end
   if isBook(name) then return "library book: hand it in at the Stormwind library" end
   if name and name:find("Waylaid") then return "Waylaid Crate" end
-  if classID == 12 or bindType == 4 then return "quest item" end
-  if bag and slot then
-    local isQuest = questInfo(bag, slot)
-    if isQuest then return "quest item" end
+  local isQuestFlag, starterID = false, nil
+  if bag and slot then isQuestFlag, starterID = questInfo(bag, slot) end
+  if classID == 12 or bindType == 4 or isQuestFlag then
+    if starterID then return nil end                 -- quest starters: handled in the scan
+    if questMentions(name) then return "quest item" end
+    if name and name:find("Hearthstone") then return "your hearthstone" end
+    return nil                                       -- quest item for no quest you have: the scan offers it
   end
+end
+local function orphanQuestItem(link, bag, slot)
+  local name, _, _, _, _, _, _, _, _, _, _, classID, _, bindType = getInfo(link)
+  local isQuestFlag, starterID = false, nil
+  if bag and slot then isQuestFlag, starterID = questInfo(bag, slot) end
+  return (classID == 12 or bindType == 4 or isQuestFlag) and not starterID and not questMentions(name)
 end
 DruidKit_Protected = function(link, bag, slot) local ok, r = pcall(protectedReason, link, bag, slot); return ok and r or nil end
 
@@ -347,8 +391,18 @@ DruidKit_GearKeep = function(link) local ok, a, b = pcall(keepReason, link); if 
 -- Scan ------------------------------------------------------------------------------
 local results = { upgrades = {}, junk = {}, unusable = {}, use = {}, junkValue = 0 }
 
+-- Auction House price from Auctionator (installed), or nil when it has no price for the item.
+local function ahPrice(link)
+  local api = Auctionator and Auctionator.API and Auctionator.API.v1
+  if not (api and api.GetAuctionPriceByItemLink and link) then return end
+  local ok, p = pcall(api.GetAuctionPriceByItemLink, "DruidKit", link)
+  if ok and type(p) == "number" and p > 0 then return p end
+end
+DruidKit_AHPrice = ahPrice
+
 local function scan()
   local up, junk, unusable, use, poles, spare, kept, bank = {}, {}, {}, {}, {}, {}, {}, {}
+  local starterSeen = {}
   local meals = { Food = {}, Drink = {} }
   local junkValue = 0
   for bag = 0, 4 do
@@ -368,9 +422,25 @@ local function scan()
         elseif name then
           local entry = { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1 }
           local limit = (classID ~= 4 and classID ~= 2 and classID ~= 9) and restriction(link)
-          if questID and not active then
-            entry.why = "starts a quest: right-click it"
-            table.insert(use, entry)
+          local doneQ = questID and ((C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted
+            and C_QuestLog.IsQuestFlaggedCompleted(questID)) or (IsQuestFlaggedCompleted and IsQuestFlaggedCompleted(questID)))
+          if questID and doneQ then
+            entry.why, entry.value = "starts a quest you've already done: destroy it", (price or 0) * (count or 1)
+            table.insert(unusable, entry)
+          elseif questID and not active then
+            if not starterSeen[questID] then
+              starterSeen[questID] = entry
+              entry.why = "starts a quest: open your bags and right-click it"
+              table.insert(use, entry)
+            else
+              local first = starterSeen[questID]
+              first.copies = (first.copies or 1) + (count or 1)
+              first.why = ("starts a quest: right-click one (you have %d; check the quest log after)"):format(first.copies)
+            end
+          elseif orphanQuestItem(link, bag, slot) then
+            entry.why, entry.value = "quest item for no quest in your log (abandoned or done): destroy it unless "
+              .. "you'll take that quest again", (price or 0) * (count or 1)
+            table.insert(unusable, entry)
           elseif limit then
             -- Another class's book or scroll, another profession's item: sell, never "use" or "learn".
             entry.why, entry.value = limit, (price or 0) * (count or 1)
@@ -511,11 +581,33 @@ local function scan()
         value = e.value or 0, why = why or e.why })
     end
   end
+  -- Auction House: anything you'd sell or drop that Auctionator's last scan prices well above the vendor
+  -- (after the 5% cut). Bind on Pickup and quest items can't be listed.
+  local auction = {}
+  local function moveToAuction(list)
+    for i = #list, 1, -1 do
+      local e = list[i]
+      local ah = ahPrice(e.link)
+      local _, _, _, _, _, _, _, _, _, _, vend, _, _, bindType = getInfo(e.link)
+      vend = vend or 0
+      if ah and bindType ~= 1 and bindType ~= 4 and ah * 0.95 >= math.max(vend * 2, vend + 100) then
+        e.ah, e.vendor = ah, vend
+        table.insert(auction, e)
+        table.remove(list, i)
+      end
+    end
+  end
+  moveToAuction(unusable)
+  moveToAuction(spare)
+  table.sort(auction, function(a, b) return (a.ah or 0) * (a.count or 1) > (b.ah or 0) * (b.count or 1) end)
+
   add(junk, "grey junk")
   for _, e in ipairs(unusable) do e.value = e.value or 0 end
   add(unusable)
   add(spare)
-  results = { upgrades = up, junk = junk, unusable = unusable, use = use, junkValue = junkValue, drop = drop, kept = kept, bank = bank }
+  add(auction, "worth more at the Auction House: drop it last")
+  results = { upgrades = up, junk = junk, unusable = unusable, use = use, junkValue = junkValue, drop = drop, kept = kept,
+    bank = bank, auction = auction }
   return results
 end
 
@@ -593,6 +685,17 @@ refresh = function()
     S.note(panel, "Keep them, but they don't need a bag slot now. Bank check stores them at any banker.")
     for _, e in ipairs(r.bank) do
       S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)))
+    end
+  end
+
+  if r.auction and #r.auction > 0 then
+    S.header(panel, "Auction House", "Interface\\Icons\\INV_Misc_Coin_01", #r.auction)
+    S.note(panel, "Worth more there than at a vendor (prices from Auctionator's last scan). Any Auction House: "
+      .. "Stormwind, Ironforge or Darnassus. Sales arrive in your mailbox.")
+    for _, e in ipairs(r.auction) do
+      local n = e.count or 1
+      S.item(panel, e.link, e.icon, qualityOf(e.link), e.name,
+        ("About %s at the AH; a vendor pays %s"):format(money(e.ah * n), money(e.vendor * n)))
     end
   end
 
@@ -737,8 +840,33 @@ end
 -- Events ------------------------------------------------------------------------------
 local known = {}
 local loggedIn = false
+-- Quest starters you haven't used: told once per session when they reach your bags, and listed for the step
+-- window ("Quest to start in your bags").
+local startersSaid = {}
+local function startersWaiting(r)
+  local out = {}
+  for _, e in ipairs(r.use or {}) do
+    if e.why and e.why:find("^starts a quest") then table.insert(out, e) end
+  end
+  return out
+end
+DruidKit_QuestStarters = function()
+  local ok, r = pcall(function() return startersWaiting(results) end)
+  return ok and r or {}
+end
+
 local function announceNewUpgrades()
   local r = scan()
+  for _, e in ipairs(startersWaiting(r)) do
+    if not startersSaid[e.name] and loggedIn then
+      startersSaid[e.name] = true
+      local msg = ("Starts a quest: %s. Open your bags and right-click it."):format(e.name)
+      if RaidNotice_AddMessage and RaidWarningFrame then
+        pcall(RaidNotice_AddMessage, RaidWarningFrame, msg, { r = 1, g = 0.82, b = 0 })
+      end
+      say(msg)
+    end
+  end
   for _, e in ipairs(r.upgrades) do
     if not known[e.link] and loggedIn then
       known[e.link] = true
