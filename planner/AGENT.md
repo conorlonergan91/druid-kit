@@ -42,16 +42,36 @@ did everything else. Most problems in play came from that last role doing too ma
 | guide-writer | Now tab, Commands tab, Quest Guide doc | writing |
 | feedback-triager | Player feedback -> owned tickets with acceptance tests + rules | triage |
 | rules-tuner | Blind planner runs and scoring for rule changes | eval |
+| forever-watch | Patch notes, stale facts, tickets for everything a changed fact touches | upkeep |
+| gear-advisor | Stat weights, upgrades, roll advice, quest reward picks | domain |
+| talent-advisor | Talent plan, next point, respec, Talents/Combat tabs | domain |
+| professions-advisor | Training, crafts from bags/bank, profession stops | domain |
+| combat-coach | Rotation and forms, bar layout, deaths -> fixes | domain |
+| dungeon-advisor | Dungeons in reach, quests, roles, groups, loot | domain |
+| world-systems | Food, Camping, Legacy, crates, riding/gold, PvP, books | domain |
+
+## Keeping up with WoW Forever
+
+`knowledge/facts.json` is the one place for what we believe about the game: each fact has sources, the date it was
+verified, a confidence, a review interval and **which files and rules depend on it** (`used_by`). Rules:
+
+- Any agent that relies on a fact records it there (new fact, or its file added to `used_by`).
+- `low` confidence means unverified: wherever it is used, it is shown as unverified.
+- forever-watch, **quick mode at the start of every update** (`tools/facts.py stale --level L`), **weekly mode**
+  for patch notes: a changed fact becomes a ticket for every owner in `used_by` (talents -> talent-advisor, stat
+  changes -> gear-advisor, a new flight path -> data-keeper, ...). Changes are logged in `knowledge/CHANGES.md`.
 
 ## Flows
 
 **"update"** (the player played since the last save)
 
 ```
-save-reader -> log-analyst -> route-tidier
+forever-watch (quick) -> save-reader -> log-analyst -> route-tidier
    -> [route still right?] yes: step-writer edits in place
                            no:  hub-strategist -> loop-sequencer -> step-writer
    -> travel-checker + bag-advisor -> plan-reviewer -> qa-gatekeeper -> deployer -> guide-writer -> reply
+   (domain advisors as needed: level-up with points -> talent-advisor; new spells -> combat-coach; skill near a
+    cap -> professions-advisor; dungeon in the band -> dungeon-advisor; upgrades/rolls -> gear-advisor)
 ```
 
 **Feedback or a feature request**
@@ -60,6 +80,8 @@ save-reader -> log-analyst -> route-tidier
 feedback-triager -> (wow-researcher | data-keeper | addon-engineer | step-writer rule)
    -> qa-gatekeeper (new test fails on old code, passes now) -> deployer -> guide-writer -> reply
 ```
+
+**Weekly upkeep** — forever-watch (weekly) -> tickets -> owners -> qa-gatekeeper -> deployer.
 
 **Rule change** — rules-tuner runs 3 blind planners per version and compares averages before RULES.md changes.
 

@@ -21,6 +21,8 @@ details) lives in `HANDOFF.md` on the player's Mac, never in this skill or the p
 
 ## Hard rules
 - Verify every quest, levelling, talent and fight tip against WoW Forever sources. Say plainly what is unverified.
+- Facts live in `knowledge/facts.json` (sources, verified date, confidence, `used_by`). Record every fact you rely
+  on; run `tools/facts.py stale --level L` at the start of each update and re-verify what's due (forever-watch).
 - Accessibility per HANDOFF: alerts are words, letters or icons, never colour alone.
 - Bars and gear swap only on the player's key (Alt+H). Nothing automatic.
 - Action bars: never call SetBinding/SaveBindings at login, never write Blizzard globals; code that changes slots or
