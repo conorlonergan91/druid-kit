@@ -172,6 +172,51 @@ local function isDone(i)
   return false   -- note, train: you tick them (train also ticks when you close the trainer)
 end
 
+-- Bags: when they fill up, name the nearest vendor (DruidKitVendors, generated from the quest data) ---------
+local BAGS_LOW = 3
+local function bagsFree()
+  local free = 0
+  for bag = 0, 4 do
+    free = free + ((C_Container and C_Container.GetContainerNumFreeSlots and safe(C_Container.GetContainerNumFreeSlots, bag))
+      or (GetContainerNumFreeSlots and safe(GetContainerNumFreeSlots, bag)) or 0)
+  end
+  return free
+end
+
+local function nearestVendor()
+  local list = DruidKitVendors
+  if type(list) ~= "table" or not C_Map or not C_Map.GetBestMapForUnit then return end
+  local map = safe(C_Map.GetBestMapForUnit, "player")
+  local p = map and safe(C_Map.GetPlayerMapPosition, map, "player")
+  if not p then return end
+  local px, py = p:GetXY()
+  local w, h = 1000, 667
+  if DruidKit_MapYards then
+    local a, b = DruidKit_MapYards(map)
+    if a then w, h = a, b end
+  end
+  local best, bd
+  for _, v in ipairs(list) do
+    if DruidKit_FindMap and DruidKit_FindMap(v[1]) == map then
+      local d = math.sqrt(((v[2] / 100 - px) * w) ^ 2 + ((v[3] / 100 - py) * h) ^ 2)
+      if not bd or d < bd then best, bd = v, d end
+    end
+  end
+  return best, bd
+end
+
+local lastBagSay = -1000
+local vendorNav = false
+local function bagLine()
+  local free = bagsFree()
+  if free > BAGS_LOW then return nil end
+  local v, d = nearestVendor()
+  local head = free == 0 and "BAGS FULL." or ("BAGS: " .. free .. " free.")
+  if not v then return head .. " No vendor known in this zone: sell at the next town." end
+  return ("%s Nearest vendor: %s%s, %d yards%s. /dk steps vendor sets the arrow."):format(head, v[4],
+    v[5] ~= "" and (" (" .. v[5] .. ")") or "", math.floor(d + 0.5), v[6] and ", repairs too" or "")
+end
+
 -- Projected vs actual ------------------------------------------------------------------------
 -- DB.cur tracks the step you're on: play time, deaths and XP. When it ends (done, skipped or
 -- ticked) a line goes into DB.stepLog, which the next "update" reads to re-plan.
@@ -298,6 +343,8 @@ local function detailLines(st)
     table.insert(out, "WARNING: you have not learned the " .. (st.to or "?") .. " flight path. Walk there instead, then press Done.")
   end
   if st.tip then table.insert(out, "Tip: " .. st.tip) end
+  local bl = bagLine()
+  if bl then table.insert(out, bl) end
   return table.concat(out, "\n")
 end
 
@@ -626,7 +673,7 @@ local ev = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN", "QUEST_REMOVED",
   "ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED_INDOORS", "PLAYER_LEVEL_UP", "TRAINER_CLOSED",
   "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "GOSSIP_SHOW", "QUEST_GREETING", "PLAYER_DEAD",
-  "TAXIMAP_OPENED", "CHAT_MSG_SYSTEM", "HEARTHSTONE_BOUND" }) do
+  "TAXIMAP_OPENED", "CHAT_MSG_SYSTEM", "HEARTHSTONE_BOUND", "BAG_UPDATE_DELAYED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 
@@ -673,6 +720,11 @@ ev:SetScript("OnEvent", function(_, e, a1)
     local t = a1 and C_QuestLog and C_QuestLog.GetTitleForQuestID and safe(C_QuestLog.GetTitleForQuestID, a1)
     if t then titleDone[t] = true end
     soon()
+  elseif e == "BAG_UPDATE_DELAYED" then
+    local now = (GetTime and GetTime()) or 0
+    local bl = bagLine()
+    if bl and now - lastBagSay > 300 then lastBagSay = now; say(bl) end
+    pcall(draw)
   elseif e == "TAXIMAP_OPENED" then
     -- Talking to a flight master learns its flight path, so an "fp" step here is done.
     local st = steps[pos]
@@ -716,6 +768,10 @@ end
 
 -- Arrival at the current step's spot (from the navigation arrow).
 DruidKit_OnArrive = function()
+  if vendorNav then   -- reached the vendor: back to the route
+    vendorNav = false; lastArrowFor = nil; pointArrow()
+    return
+  end
   local st = steps[pos]
   local v = st and nextVia(st)
   if v then
@@ -763,6 +819,16 @@ function DruidKit_StepsCommand(arg)
   elseif arg == "auto" then
     DB.autoQuests = DB.autoQuests == false
     say("automatic quest accept and hand-in " .. (DB.autoQuests == false and "OFF." or "ON (hold Shift to do it yourself)."))
+  elseif arg == "vendor" then
+    local v = nearestVendor()
+    if v and DruidKit_GoTo then
+      DruidKit_GoTo(v[1], v[2], v[3], "Vendor: " .. v[4], true)
+      lastArrowFor = pos   -- keep the vendor arrow until you arrive or the step changes
+      vendorNav = true
+      say("arrow set to " .. v[4] .. (v[5] ~= "" and (" (" .. v[5] .. ")") or "") .. ". Sell, then carry on.")
+    else
+      say("no vendor known in this zone. Sell at the next town.")
+    end
   elseif arg == "arrow" then
     DB.arrowOff = not DB.arrowOff
     say("route arrow " .. (DB.arrowOff and "OFF." or "ON."))

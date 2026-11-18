@@ -16,6 +16,8 @@ CLI (python3 rk.py <cmd> ...):
   calibrate DruidKit.lua               actual vs projected from the addon's step log: fight vs travel share
   cluster --quests ID... [--radius YD]  group quests whose objective areas are close; do each group in one visit
   party --level L --quests ID...      which kill quests save the most time in a group (kills shared, drops per player)
+  vendors --zones "Z1,Z2"              Alliance vendors in those zones (bags-full prompt):
+                                       [zone, x, y, name, what, repair]
   travel FROM TO [--flights "A;B"]     minutes and legs between two towns (boats with where to board, each
                                        flight hop, trams, roads); --flights = known flight-path towns
 Done file: JSON list of quest IDs already handed in.
@@ -942,6 +944,40 @@ def simulate(plan, trace=False):
     return out
 
 
+VENDOR_FLAG, REPAIR_FLAG = 4, 16384  # QuestieDB npcFlags (classic layout)
+
+
+def vendors(zones):
+    """Alliance-friendly vendors in the zones: [zone, x, y, name, what, repair]. For the bags-full prompt."""
+    want = set(zones)
+    out = []
+    for rec in db()["npcs"].values():
+        flags = rec.get("npcFlags") or 0
+        if not flags & VENDOR_FLAG or "A" not in (rec.get("friendlyToFaction") or ""):
+            continue
+        sp = rec.get("spawns") or {}
+        if isinstance(sp, list):
+            sp = {i + 1: v for i, v in enumerate(sp) if v}
+        for zid, pts in sp.items():
+            z = zone_name(zid)
+            if z not in want:
+                continue
+            for p in pts or []:
+                if isinstance(p, list) and len(p) >= 2 and p[0] is not None and p[0] >= 0:
+                    out.append(
+                        [
+                            z,
+                            round(float(p[0]), 1),
+                            round(float(p[1]), 1),
+                            rec.get("name"),
+                            rec.get("subName") or "",
+                            bool(flags & REPAIR_FLAG),
+                        ]
+                    )
+                    break
+    return sorted(out)
+
+
 # ---------------------------------------------------------------- CLI
 def _done(args):
     if "--done" in args:
@@ -1021,6 +1057,12 @@ def main(argv):
         qids = [int(x) for x in args[args.index("--quests") + 1 :] if x.isdigit()]
         for r in party_savings(qids, _opt(args, "--level", 10, float)):
             print(json.dumps(r, ensure_ascii=False))
+    elif cmd == "vendors":
+        print(
+            json.dumps(
+                vendors([z.strip() for z in _opt(args, "--zones", "").split(",") if z.strip()]), ensure_ascii=False
+            )
+        )
     elif cmd == "travel":
         known = _opt(args, "--flights")
         m, legs = travel_route(args[0], args[1], set(known.split(";")) if known else None)

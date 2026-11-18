@@ -101,6 +101,13 @@ def main(src: str, dest: str) -> None:
     out.append("  },")
     out.append("}")
     out.extend(route_lua(g.get("route")))
+    # Vendors near the route (rk.py vendors): the step tracker names the nearest one when your bags fill up.
+    vendors = g.get("vendors") or []
+    out.append("DruidKitVendors = {")
+    for z, x, y, name, what, repair in vendors:
+        row = [lua_str(z), str(float(x)), str(float(y)), lua_str(name), lua_str(what), lua_value(bool(repair))]
+        out.append("  { " + ", ".join(row) + " },")
+    out.append("}")
     with open(dest, "w", encoding="utf-8") as f:
         f.write("\n".join(out) + "\n")
 

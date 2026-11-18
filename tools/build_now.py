@@ -64,6 +64,9 @@ def main(route_path, guide_path, updated, you_lines):
     with open(guide_path, encoding="utf-8") as f:
         g = json.load(f)
     g["route"] = route
+    vendors_file = Path(route_path).with_name("vendors.json")
+    if vendors_file.exists():
+        g["vendors"] = json.loads(vendors_file.read_text(encoding="utf-8"))
     g["updated"] = updated
     now = g["tabs"][0]
     secs = [

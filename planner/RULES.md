@@ -156,3 +156,11 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 - Collect-items steps (objects on the ground) get a `via` chain over every known spawn of the object, in walking
   order, from the QuestieDB object spawns; the step names the quest giver and hand-in NPC too. (Player: "the NPC
   and individual collectable waypoints helped a lot".)
+
+## Added in v12: bag space (from play: bags filled up with a vendor nearby, the player dropped loot)
+- On update, if the save has fewer than 8 free bag slots, the first step is a sell stop at the nearest vendor on the
+  way (`rk.py vendors --zones ...`), with the items to sell named from the save.
+- Every hub visit and every long kill stretch (~45 min) ends at a vendor: add a "Sell grey items and spare
+  food" note at a town or camp vendor on the path (camps count: e.g. the clothier at Ironband's Excavation).
+- The step tracker names the nearest vendor itself when bags drop to 3 free; build `vendors.json` for every zone the
+  route visits so it knows them (`rk.py vendors --zones "A,B" > build/vendors.json`).
