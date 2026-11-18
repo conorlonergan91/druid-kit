@@ -774,10 +774,41 @@ local function lootVerdict(link, qty, isQuest, cheapest)
 end
 
 local lootBox
+-- Gear worth stopping for while the bags are full: an upgrade, a piece for your other set, or a green or better
+-- item worth more than what you'd drop. Shouted on screen (with a sound as second signal), and again if you
+-- walk away and leave it on the corpse.
+local lootPending = {}      -- loot slot -> { name, link, why } for items worth taking that are still in the loot
+local lootShouted = {}      -- link -> time of the last shout
+local function clearPending() for k in pairs(lootPending) do lootPending[k] = nil end end
+local function important(link, why, verdict)
+  if verdict ~= "take" or not link then return false end
+  local _, _, q, _, _, _, _, _, equipLoc = getInfo(link)
+  if upgradeFor(link) or keepReason(link) then return true end
+  return equipLoc ~= nil and equipLoc ~= "" and (q or 0) >= 2 and (why or ""):find("^sells for") ~= nil
+end
+local function bigAlert(msg)
+  if RaidNotice_AddMessage and RaidWarningFrame then
+    pcall(RaidNotice_AddMessage, RaidWarningFrame, msg, { r = 1, g = 0.82, b = 0 })
+  end
+  if PlaySound and SOUNDKIT and SOUNDKIT.RAID_WARNING then pcall(PlaySound, SOUNDKIT.RAID_WARNING) end
+  say(msg)
+end
+local function lootLeftBehind()
+  local left = {}
+  for _, it in pairs(lootPending) do table.insert(left, it) end
+  clearPending()
+  if #left == 0 then return end
+  local it = left[1]
+  bigAlert(("LEFT ON THE CORPSE: %s (%s). Make room (Alt+B shows what to drop), then loot the corpse again.")
+    :format(it.name, it.why) .. (#left > 1 and (" +" .. (#left - 1) .. " more.") or ""))
+end
+DruidKit_LootLeftBehind = lootLeftBehind
+
 local function showLootHelp()
   if InCombatLockdown() and false then return end
   local free = bagFree()
-  if free > 0 then if lootBox then lootBox:Hide() end return end
+  if free > 0 then if lootBox then lootBox:Hide() end return end   -- room now: you can click it
+  clearPending()
   lootBox = lootBox or box("DruidKitLootHelp", 330)
   lootBox.title:SetText("Bags full: what to take")
   for _, r in ipairs(lootBox.rows) do r:Hide() end
@@ -803,6 +834,15 @@ local function showLootHelp()
       else
         local link = GetLootSlotLink and GetLootSlotLink(i)
         if link then verdict, why = lootVerdict(link, qty, isQuest, cheapest) else verdict, why = "take", "" end
+        if important(link, why, verdict) then
+          lootPending[i] = { name = name, link = link, why = why }
+          local now = (GetTime and GetTime()) or 0
+          if not lootShouted[link] or now - lootShouted[link] > 60 then
+            lootShouted[link] = now
+            bigAlert(("BAGS FULL, but this loot is worth taking: %s (%s).%s"):format(name, why or "",
+              cheapest and (" Destroy " .. cheapest.name .. " to make room.") or ""))
+          end
+        end
       end
       row.verdict:SetText((verdict == "take" and "|cff7fd35bTAKE|r  " or "|cffff6060SKIP|r  ") .. name)
       row.why:SetText(why or ""); row:Show()
@@ -962,10 +1002,12 @@ end
 local lev = CreateFrame("Frame")
 for _, e in ipairs({ "LOOT_OPENED", "LOOT_SLOT_CLEARED", "LOOT_CLOSED", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL" }) do pcall(lev.RegisterEvent, lev, e) end
 lev:SetScript("OnEvent", function(_, e, a1)
+  if e == "LOOT_SLOT_CLEARED" and a1 then lootPending[a1] = nil end
   if e == "LOOT_OPENED" or e == "LOOT_SLOT_CLEARED" then
     C_Timer.After(0.05, function() local ok, err = pcall(showLootHelp); if not ok then say("loot helper: " .. tostring(err)) end end)
   elseif e == "LOOT_CLOSED" then
     if lootBox then lootBox:Hide() end
+    pcall(lootLeftBehind)
   elseif e == "START_LOOT_ROLL" then
     local ok, err = pcall(onStartRoll, a1); if not ok then say("roll advice: " .. tostring(err)) end
   elseif e == "CANCEL_LOOT_ROLL" then
