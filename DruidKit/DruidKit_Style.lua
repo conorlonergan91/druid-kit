@@ -188,7 +188,7 @@ end
 local function keyText(binding)
   local k = GetBindingKey and kmSafe(GetBindingKey, binding)
   if not k then return nil end
-  return (k:gsub("CTRL%-", "Ctrl+"):gsub("ALT%-", "Alt+"):gsub("SHIFT%-", "Shift+"))
+  return (k:gsub("META%-", "Cmd+"):gsub("CTRL%-", "Ctrl+"):gsub("ALT%-", "Alt+"):gsub("SHIFT%-", "Shift+"))
 end
 
 local function slotAction(slot)
