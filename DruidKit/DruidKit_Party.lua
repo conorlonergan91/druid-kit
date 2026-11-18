@@ -12,7 +12,7 @@
 local ORANGE, LEAF = { 1, 0.49, 0.04 }, { 0.5, 0.83, 0.36 }
 local PORTRAIT, BTN, BTN_GAP, MAX_BTNS = 84, 34, 3, 7
 local CARD_W = 12 + PORTRAIT + 8 + 12 + MAX_BTNS * BTN + (MAX_BTNS - 1) * BTN_GAP + 12
-local CARD_H, PET_H, GAP = 112, 18, 8
+local CARD_H, PET_H, GAP = 116, 20, 8
 local SIZES = { small = 0.8, normal = 1.0, big = 1.2 }
 local COLS, ROWS, HEADER_H = 2, 3, 26        -- you top-left, then your party; fits on screen
 local BARK, GOLD = { 0.45, 0.32, 0.16 }, { 0.85, 0.68, 0.3 }
@@ -126,7 +126,7 @@ local function makeHot(parent, size)
   f:SetSize(size, size)
   f.edge = f:CreateTexture(nil, "BACKGROUND"); f.edge:SetPoint("TOPLEFT", -1, 1); f.edge:SetPoint("BOTTOMRIGHT", 1, -1); f.edge:SetColorTexture(0, 0, 0, 1)
   f.tex = f:CreateTexture(nil, "ARTWORK"); f.tex:SetAllPoints(); f.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-  f.txt = text(f, 12); f.txt:SetPoint("BOTTOMRIGHT", 2, -1)
+  f.txt = text(f, 13); f.txt:SetPoint("BOTTOMRIGHT", 2, -1)
   f:Hide()
   return f
 end
@@ -227,7 +227,7 @@ local function makeCard(i, unit)
   local a = b.pulse:CreateAnimation("Alpha"); a:SetFromAlpha(0.15); a:SetToAlpha(0.8); a:SetDuration(0.55); a:SetSmoothing("IN_OUT")
   b.selEdge = CreateFrame("Frame", nil, b, "BackdropTemplate"); b.selEdge:SetPoint("TOPLEFT", -3, 3); b.selEdge:SetPoint("BOTTOMRIGHT", 3, -3)
   if b.selEdge.SetBackdrop then b.selEdge:SetBackdrop({ edgeFile = BAR_TEX, edgeSize = 3 }); b.selEdge:SetBackdropBorderColor(ORANGE[1], ORANGE[2], ORANGE[3], 1) end
-  b.selEdge.t = text(b.selEdge, 11); b.selEdge.t:SetPoint("BOTTOMRIGHT", -8, 4); b.selEdge.t:SetText("TARGET"); b.selEdge.t:SetTextColor(ORANGE[1], ORANGE[2], ORANGE[3])
+  b.selEdge.t = text(b.selEdge, 13); b.selEdge.t:SetPoint("BOTTOMRIGHT", -8, 4); b.selEdge.t:SetText("TARGET"); b.selEdge.t:SetTextColor(ORANGE[1], ORANGE[2], ORANGE[3])
   b.selEdge:Hide()
 
   -- portrait: gold ring, dark ring, round face (the game draws faces round already)
@@ -236,10 +236,10 @@ local function makeCard(i, unit)
   b.ring = b:CreateTexture(nil, "ARTWORK", nil, 1); b.ring:SetSize(PORTRAIT + 2, PORTRAIT + 2); b.ring:SetPoint("CENTER", b.ringGold)
   b.ring:SetTexture(MASK); b.ring:SetVertexColor(0.02, 0.02, 0.02, 1)
   b.portrait = b:CreateTexture(nil, "ARTWORK", nil, 2); b.portrait:SetSize(PORTRAIT, PORTRAIT); b.portrait:SetPoint("CENTER", b.ringGold)
-  b.level = CreateFrame("Frame", nil, b, "BackdropTemplate"); b.level:SetSize(30, 20); b.level:SetPoint("BOTTOM", b.ringGold, "BOTTOM", 0, -4)
+  b.level = CreateFrame("Frame", nil, b, "BackdropTemplate"); b.level:SetSize(34, 22); b.level:SetPoint("BOTTOM", b.ringGold, "BOTTOM", 0, -4)
   if b.level.SetBackdrop then b.level:SetBackdrop({ bgFile = BAR_TEX, edgeFile = BAR_TEX, edgeSize = 1 }); b.level:SetBackdropColor(0, 0, 0, 0.9); b.level:SetBackdropBorderColor(0.85, 0.68, 0.3, 1) end
   b.level:SetFrameLevel(b:GetFrameLevel() + 6)
-  b.level.t = text(b.level, 12); b.level.t:SetPoint("CENTER", 0, 0)
+  b.level.t = text(b.level, 13); b.level.t:SetPoint("CENTER", 0, 0)
   b.big = text(b, 26); b.big:SetPoint("CENTER", b.portrait, "CENTER", 0, 4)   -- DEAD / !! over the face
 
   local x0 = 12 + PORTRAIT + 8 + 12
@@ -267,10 +267,10 @@ local function makeCard(i, unit)
   b.aggro:Hide()
   -- mana bar with numbers
   b.mp = CreateFrame("StatusBar", nil, b)
-  b.mp:SetPoint("TOPLEFT", b.hp, "BOTTOMLEFT", 0, -3); b.mp:SetPoint("TOPRIGHT", b.hp, "BOTTOMRIGHT", 0, -3); b.mp:SetHeight(10)
+  b.mp:SetPoint("TOPLEFT", b.hp, "BOTTOMLEFT", 0, -3); b.mp:SetPoint("TOPRIGHT", b.hp, "BOTTOMRIGHT", 0, -3); b.mp:SetHeight(14)
   b.mp:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar"); b.mp:SetStatusBarColor(0.2, 0.5, 1)
   b.mp.bg = b.mp:CreateTexture(nil, "BACKGROUND"); b.mp.bg:SetAllPoints(); b.mp.bg:SetColorTexture(0.05, 0.07, 0.16, 0.95)
-  b.mpText = text(b.mp, 9); b.mpText:SetPoint("RIGHT", -4, 0)
+  b.mpText = text(b.mp, 13); b.mpText:SetPoint("RIGHT", -4, 0)
   -- your spells, bottom row
   b.btns = {}
   for n = 1, MAX_BTNS do
@@ -321,8 +321,8 @@ local function makePet(i, unit, owner)
   p.hp = CreateFrame("StatusBar", nil, p); p.hp:SetAllPoints()
   p.hp:SetStatusBarTexture(BAR_TEX); p.hp:SetStatusBarColor(LEAF[1], LEAF[2], LEAF[3], 0.9)
   p.hp.bg = p.hp:CreateTexture(nil, "BACKGROUND"); p.hp.bg:SetAllPoints(); p.hp.bg:SetColorTexture(0.05, 0.05, 0.05, 0.9)
-  p.name = text(p.hp, 12); p.name:SetPoint("LEFT", 6, 0)
-  p.tag = text(p.hp, 10); p.tag:SetPoint("RIGHT", -6, 0); p.tag:SetText("PET")
+  p.name = text(p.hp, 13); p.name:SetPoint("LEFT", 6, 0)
+  p.tag = text(p.hp, 13); p.tag:SetPoint("RIGHT", -6, 0); p.tag:SetText("PET")
   return p
 end
 
@@ -606,7 +606,7 @@ local function build()
   end
   local ic = hd:CreateTexture(nil, "ARTWORK"); ic:SetSize(16, 16); ic:SetPoint("LEFT", 8, 0); ic:SetTexture("Interface\\Icons\\Spell_Nature_Rejuvenation"); ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   local tt = text(hd, 13); tt:SetPoint("LEFT", ic, "RIGHT", 6, 0); tt:SetText("Party"); tt:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-  local hint = text(hd, 12); hint:SetPoint("RIGHT", -10, 0); hint:SetText("click a button to cast it on that person"); hint:SetTextColor(0.75, 0.75, 0.65)
+  local hint = text(hd, 13); hint:SetPoint("RIGHT", -10, 0); hint:SetText("click a button to cast it on that person"); hint:SetTextColor(0.75, 0.75, 0.65)
   local p = DB.partyPos3       -- grid layout: new saved position
   if p then container:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else container:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 20, -130) end
   container:SetMovable(true); container:SetClampedToScreen(true)

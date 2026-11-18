@@ -416,7 +416,7 @@ end
 -- Window ---------------------------------------------------------------------------------------
 -- Layout, top to bottom: header row (step count + section on the left, time/deaths on the right),
 -- the action in large text, its details, the next two steps, then a row of buttons.
-local WIDTH, PAD = 360, 10
+local WIDTH, PAD = 380, 10
 
 local function build()
   frame = CreateFrame("Frame", "DruidKitSteps", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
@@ -446,19 +446,19 @@ local function build()
     f:SetTextColor(r, g, b)
     return f
   end
-  frame.head = fs(11, 0.62, 0.62, 0.62, WIDTH - 2 * PAD - 110); frame.head:SetPoint("TOPLEFT", PAD, -8)
+  frame.head = fs(13, 0.75, 0.75, 0.75, WIDTH - 2 * PAD - 110); frame.head:SetPoint("TOPLEFT", PAD, -8)
   if frame.head.SetWordWrap then frame.head:SetWordWrap(false) end
-  frame.stats = fs(11, 0.62, 0.62, 0.62, 110, "RIGHT"); frame.stats:SetPoint("TOPRIGHT", -PAD, -8)
-  frame.main = fs(15, 1, 1, 1);           frame.main:SetPoint("TOPLEFT", frame.head, "BOTTOMLEFT", 0, -6)
-  frame.detail = fs(12, 0.85, 0.85, 0.85); frame.detail:SetPoint("TOPLEFT", frame.main, "BOTTOMLEFT", 0, -4)
-  frame.next = fs(11, 0.62, 0.62, 0.62);  frame.next:SetPoint("TOPLEFT", frame.detail, "BOTTOMLEFT", 0, -6)
+  frame.stats = fs(13, 0.75, 0.75, 0.75, 110, "RIGHT"); frame.stats:SetPoint("TOPRIGHT", -PAD, -8)
+  frame.main = fs(16, 1, 1, 1);           frame.main:SetPoint("TOPLEFT", frame.head, "BOTTOMLEFT", 0, -6)
+  frame.detail = fs(13, 0.9, 0.9, 0.9); frame.detail:SetPoint("TOPLEFT", frame.main, "BOTTOMLEFT", 0, -4)
+  frame.next = fs(13, 0.75, 0.75, 0.75);  frame.next:SetPoint("TOPLEFT", frame.detail, "BOTTOMLEFT", 0, -6)
 
   local x, row = PAD, 32
   local function btn(label, tip, onClick)
     local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    b:SetSize(54, 20); b:SetText(label)
+    b:SetSize(64, 20); b:SetText(label)
     b:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, row)
-    x = x + 58
+    x = x + 68
     b:SetScript("OnClick", onClick)
     b:SetScript("OnEnter", function(s) GameTooltip:SetOwner(s, "ANCHOR_TOP"); GameTooltip:SetText(tip, 1, 1, 1, 1, true); GameTooltip:Show() end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)

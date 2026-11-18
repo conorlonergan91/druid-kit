@@ -2,14 +2,10 @@
  "note": "Known UI findings (backlog). tests/ui_test.py fails on any finding not in this list; remove lines as they are fixed.",
  "findings": [
   "DruidKit.lua: non-standard button sizes [(44, 20), (160, 26), (260, 44)]",
-  "DruidKit_Bags.lua: text sizes [11] are below 13",
   "DruidKit_Bags.lua: non-standard button sizes [(74, 22), (300, 22)]",
   "DruidKit_Bags.lua: 1 panel(s) with their own backdrop, not DruidKit_Style",
   "DruidKit_Helpers.lua: 1 panel(s) with their own backdrop, not DruidKit_Style",
-  "DruidKit_Party.lua: text sizes [9, 10, 11, 12] are below 13",
   "DruidKit_Party.lua: 5 panel(s) with their own backdrop, not DruidKit_Style",
-  "DruidKit_Steps.lua: text sizes [11, 12] are below 13",
-  "DruidKit_Steps.lua: non-standard button sizes [(54, 20)]",
   "DruidKit_Steps.lua: 1 panel(s) with their own backdrop, not DruidKit_Style",
   "DruidKit_Style.lua: non-standard button sizes [(70, 22), (72, 20)]"
  ]

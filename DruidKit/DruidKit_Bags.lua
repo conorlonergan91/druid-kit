@@ -1085,7 +1085,7 @@ local function showLootHelp()
         row = CreateFrame("Frame", nil, lootBox); row:SetSize(310, 40)
         row.icon = row:CreateTexture(nil, "ARTWORK"); row.icon:SetSize(30, 30); row.icon:SetPoint("LEFT", 0, 0)
         row.verdict = txt(row, 13); row.verdict:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 0); row.verdict:SetWidth(270)
-        row.why = txt(row, 11); row.why:SetPoint("TOPLEFT", row.verdict, "BOTTOMLEFT", 0, -2); row.why:SetWidth(270)
+        row.why = txt(row, 13); row.why:SetPoint("TOPLEFT", row.verdict, "BOTTOMLEFT", 0, -2); row.why:SetWidth(270)
         lootBox.rows[n] = row
       end
       row:SetPoint("TOPLEFT", 10, y); row.icon:SetTexture(icon)
@@ -1111,7 +1111,7 @@ local function showLootHelp()
   end
   if not lootBox.drop then
     lootBox.drop = button(lootBox, "Make room", 300)
-    lootBox.dropText = txt(lootBox, 11)
+    lootBox.dropText = txt(lootBox, 13)
   end
   if cheapest then
     lootBox.dropText:ClearAllPoints(); lootBox.dropText:SetPoint("TOPLEFT", 10, y - 2); lootBox.dropText:SetWidth(310)
@@ -1225,7 +1225,7 @@ local function drawRolls()
       row = CreateFrame("Frame", nil, rollBox); row:SetSize(340, 70)
       row.icon = row:CreateTexture(nil, "ARTWORK"); row.icon:SetSize(32, 32); row.icon:SetPoint("TOPLEFT", 0, 0)
       row.name = txt(row, 13); row.name:SetPoint("TOPLEFT", row.icon, "TOPRIGHT", 8, 0); row.name:SetWidth(300)
-      row.why = txt(row, 11); row.why:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -2); row.why:SetWidth(300)
+      row.why = txt(row, 13); row.why:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -2); row.why:SetWidth(300)
       row.need = button(row, "Need", 74); row.need:SetPoint("BOTTOMLEFT", 40, 0)
       row.greed = button(row, "Greed", 74); row.greed:SetPoint("LEFT", row.need, "RIGHT", 6, 0)
       row.pass = button(row, "Pass", 74); row.pass:SetPoint("LEFT", row.greed, "RIGHT", 6, 0)
