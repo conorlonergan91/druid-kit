@@ -114,13 +114,25 @@ local function restriction(link)
   for _, t in ipairs(tooltipLines(link)) do
     local classes = t:match("^" .. classLabel .. ": (.+)$")
     if classes and not classes:find(me, 1, true) then return "for " .. classes .. " only" end
-    local sk, n = t:match("^Requires ([%a ]+) %((%d+)%)")
-    if sk and PROFESSIONS[sk] then
+    if t:find("Comprehension", 1, true) and me ~= "Mage" then
+      return "mage scroll (needs Comprehension): sell it, or list it on the Auction House for a mage"
+    end
+    local sk, n = t:match("^Requires ([%a' ]+) %((%d+)%)")
+    if sk then
       local have = skillRank(sk)
       if not have then return "needs " .. sk .. ", which you don't have" end
-      if have < tonumber(n) then return ("needs %s %s (you're %d)"):format(sk, n, have) end
+      if have < tonumber(n) and PROFESSIONS[sk] then return ("needs %s %s (you're %d)"):format(sk, n, have) end
     end
   end
+end
+
+-- Extra words for the sell list: Bind on Equip greens and better often fetch more on the Auction House.
+local function boeHint(link, q)
+  if (q or 0) < 2 then return "" end
+  for _, t in ipairs(tooltipLines(link)) do
+    if t == (ITEM_BIND_ON_EQUIP or "Binds when equipped") then return " (binds when equipped: may sell for more on the Auction House)" end
+  end
+  return ""
 end
 DruidKit_ItemRestriction = function(link) local ok, why = pcall(restriction, link); if ok then return why end end
 
@@ -134,7 +146,7 @@ local function recipeCheck(link)
   end
   if known then return "known" end
   local why = restriction(link)
-  if why and why:find("^for ") then return "noclass", why end
+  if why and not why:find("you're", 1, true) then return "noclass", why end   -- other class, mage scroll, no skill
   if not skill then return "learn" end
   local have = skillRank(skill)
   if not have then return "noskill", skill, need end
@@ -154,6 +166,22 @@ end
 local function numSlots(bag)
   if C_Container and C_Container.GetContainerNumSlots then return C_Container.GetContainerNumSlots(bag) end
   return GetContainerNumSlots(bag)
+end
+
+-- Bags: how many slots a bag item has ("10 Slot Bag"), and your smallest equipped bag.
+local function bagItemSlots(link)
+  for _, t in ipairs(tooltipLines(link)) do
+    local n = t:match("^(%d+) Slot") or t:match("(%d+) Slot Bag")
+    if n then return tonumber(n) end
+  end
+end
+local function smallestBag()
+  local small, which
+  for bag = 1, 4 do
+    local n = numSlots(bag) or 0
+    if not small or n < small then small, which = n, bag end
+  end
+  return small or 0, which
 end
 local function slotInfo(bag, slot)
   if C_Container and C_Container.GetContainerItemInfo then
@@ -339,9 +367,27 @@ local function scan()
           end
         elseif name then
           local entry = { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1 }
+          local limit = (classID ~= 4 and classID ~= 2 and classID ~= 9) and restriction(link)
           if questID and not active then
             entry.why = "starts a quest: right-click it"
             table.insert(use, entry)
+          elseif limit then
+            -- Another class's book or scroll, another profession's item: sell, never "use" or "learn".
+            entry.why, entry.value = limit, (price or 0) * (count or 1)
+            table.insert(unusable, entry)
+          elseif classID == 1 and (subID or 0) == 0 and bagItemSlots(link) then
+            local have, small = bagItemSlots(link), smallestBag()
+            entry.value = (price or 0) * (count or 1)
+            if small == 0 then
+              entry.why = ("bag: you have an empty bag slot, so this adds %d slots. Drag it onto the bag bar."):format(have)
+              table.insert(use, entry)
+            elseif have > small then
+              entry.why = ("bag: %d slots, more than your %d-slot bag. Empty that bag, then swap them."):format(have, small)
+              table.insert(use, entry)
+            else
+              entry.why = ("%d-slot bag: no bigger than the bags you use"):format(have)
+              table.insert(unusable, entry)
+            end
           elseif lootable then
             entry.why = "has loot inside: right-click to open"
             table.insert(use, entry)
@@ -397,10 +443,10 @@ local function scan()
               entry.value = (price or 0) * (count or 1)
               local why = restriction(link)
               if not usable(classID, subID, equipLoc) or why then
-                entry.why = why or "druids can't use this"
+                entry.why = (why or "druids can't use this") .. boeHint(link, q)
                 table.insert(unusable, entry)
               elseif (minLevel or 0) <= UnitLevel("player") then
-                entry.why = "worse than what you're wearing"
+                entry.why = "worse than what you're wearing" .. boeHint(link, q)
                 table.insert(unusable, entry)
               else
                 local later, laterSlot = upgradeFor(link, nil, true)
