@@ -30,7 +30,9 @@ local LAYOUT = {
   { slot = 6,   spell = "Entangling Roots" },
   { slot = 7,   spell = "Faerie Fire" },
   { slot = 8,   spell = "Hibernate" },
-  { slot = 9,   spell = "Cure Poison" },
+  { slot = 9,   spell = "Omen of Clarity" },     -- self buff (level 20): refresh now and then
+  { slot = 11,  spell = "Starfire" },            -- level 20, key -
+  { slot = 12,  spell = "Rebirth" },             -- level 20, key =
   -- Bear Form bar, keys 1-8
   { slot = 99,  spell = "Maul", melee = true },  -- key 3
   { slot = 98,  spell = "Swipe", melee = true }, -- key 2
@@ -57,6 +59,7 @@ local LAYOUT = {
   { slot = 85,  spell = "Tiger's Fury" },
   -- bottom-left bar: R, then Shift+1..8
   { slot = 61,  spell = "Attack" },
+  { slot = 62,  spell = "Cure Poison" },         -- bottom-left, no key: click it
   { slot = 63,  spell = "Mark of the Wild" },
   { slot = 64,  spell = "Thorns" },
   { slot = 66,  item = 6948 },               -- Hearthstone
@@ -334,6 +337,10 @@ knownLayoutSpells = function()
   return set
 end
 
+-- /dk newspells: put every spell you know onto its empty layout key (out of combat, caster form). Fixes bars when
+-- the layout gained spells you had already learned (level 20: Starfire, Rebirth, Omen of Clarity).
+local fillEmptySlots
+
 local function addNewSpells()
   if InCombatLockdown() then pending = addNewSpells; return end
   if GetShapeshiftForm and GetShapeshiftForm() ~= 0 then return end  -- spell lists change in forms; only check in caster form
@@ -352,6 +359,18 @@ local function addNewSpells()
     say("new skill on your bars: " .. table.concat(added, ", ") .. ". /dk load backup to undo.")
     askReload()
   end
+end
+
+fillEmptySlots = function()
+  if GetShapeshiftForm and GetShapeshiftForm() ~= 0 then return nil end
+  local list = {}
+  for _, e in ipairs(currentLayout()) do
+    if e.spell and not hasAction(e.slot) and isKnown(e.spell) then
+      if pickupEntry(e) then place(e.slot); table.insert(list, e.spell .. " (" .. slotKey(e.slot) .. ")") else ClearCursor() end
+    end
+  end
+  DruidKitDB.knownSpells = knownLayoutSpells()
+  return list
 end
 
 -- ---------------------------------------------------------------------------
@@ -514,6 +533,13 @@ SlashCmdList["DRUIDKIT"] = function(msg)
   cmd = (cmd or ""):lower()
   if cmd == "bars" then
     outOfCombat(applyGuideLayout, "Bar layout")
+  elseif cmd == "newspells" then
+    outOfCombat(function()
+      local list = fillEmptySlots()
+      if not list then say("change to caster form first, then /dk newspells again.")
+      elseif #list == 0 then say("every spell you know already has its key.")
+      else say("on your bars now: " .. table.concat(list, ", ") .. "."); askReload() end
+    end, "Placing new spells")
   elseif cmd == "heal" then
     switchMode("heal")
   elseif cmd == "quest" or cmd == "bear" then

@@ -365,6 +365,26 @@
    "used_by": [
     "DruidKit/DruidKit_Bags.lua ahPrice"
    ]
+  },
+  {
+   "id": "druid-spells-20",
+   "topic": "class",
+   "statement": "Druid new spells: 18 Faerie Fire, Hibernate; 20 Cat Form (quest), Claw, Prowl, Rip, Shred, Starfire, Rebirth, Omen of Clarity, Feral Charge (talent); 22 Soothe Animal; 24 Ferocious Bite, Rake, Remove Curse.",
+   "sources": [
+    "https://www.method.gg/wow-forever/all-class-spells/druid"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "DruidKit/DruidKit.lua LAYOUT",
+    "keybind-manager",
+    "combat-coach"
+   ],
+   "levels": [
+    18,
+    26
+   ]
   }
  ]
 }

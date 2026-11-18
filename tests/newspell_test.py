@@ -44,6 +44,15 @@ print([p for p in g.printed.values() if "new skill" in p])
 from expect import check, done
 
 placed = dict(g.PLACED)
-check(placed.get(9) == 5, "newly learned Cure Poison lands on key 9", placed)
+check(placed.get(62) == 5, "newly learned Cure Poison lands on its bottom-left slot", placed)
 check(placed.get(102) == 3, "newly learned Bash lands on bear key 6", placed)
+
+# /dk newspells: spells already known but never placed (layout gained them later) go onto their empty keys.
+L.execute(r"""
+PLACED = {}; IDS.Starfire = 6; IDS.Rebirth = 7; KNOWN.Starfire = true; KNOWN.Rebirth = true
+SlashCmdList.DRUIDKIT("newspells")
+""")
+placed = dict(L.globals().PLACED)
+check(placed.get(11) == 6 and placed.get(12) == 7, "/dk newspells puts Starfire on - and Rebirth on =", placed)
+check(any("on your bars now" in p for p in L.globals().printed.values()), "and says which keys", "")
 done("newspell_test")
