@@ -149,3 +149,7 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 - Quests to drop are an `abandon` step (`qs=[ids]`), not a note: it ticks itself when they leave the log.
 - Every walk or transport step has a `goto` or is followed within 4 steps by one; the arrow then points at the
   next spot. A new route id no longer restarts the player: the tracker catches up to the last handed-in quest.
+- Quests started by an item (`start_item: true` in `rk.py quest`): the step says "open your bags and right-click
+  <item> (This item begins a quest)". Picking the item up does not start the quest.
+- When the quest text names a different hand-in NPC than the data, name both in the step and point at the one
+  the quest text names.
