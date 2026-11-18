@@ -533,6 +533,8 @@ SlashCmdList["DRUIDKIT"] = function(msg)
   cmd = (cmd or ""):lower()
   if cmd == "bars" then
     outOfCombat(applyGuideLayout, "Bar layout")
+  elseif cmd == "keymap" then
+    if DruidKit_ShowKeymap then DruidKit_ShowKeymap() end
   elseif cmd == "newspells" then
     outOfCombat(function()
       local list = fillEmptySlots()

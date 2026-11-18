@@ -73,9 +73,11 @@ combat; a change ends with the reload prompt (taint rules).
 | Option+W (or Ctrl+W) | TOGGLEAUTORUN | autorun (set by /dk keys) |
 | Shift+1 … Shift+8, Shift+F | action bar slots | bar layouts (/dk bars) |
 
-Step window buttons: Back · Done · Skip · Hide (row 1); < Prev · Next > · Go · Now · Vendor (row 2).
+Step window buttons: Back · Done · Skip · Keys · Hide (row 1); < Prev · Next > · Go · Now · Vendor (row 2).
 
-Slash commands: `/dk steps` (`reset`, `unskip`, `log`, `vendor`, `vendorprompt`), `/dk auto`, `/dk arrow`,
+Key map window (live bindings for forms, every bar and Druid Kit): `/dk keymap` or the Keys button.
+
+Slash commands: `/dk keymap`, `/dk newspells`, `/dk steps` (`reset`, `unskip`, `log`, `vendor`, `vendorprompt`), `/dk auto`, `/dk arrow`,
 `/dk bars`, `/dk keys`, `/dk heal`, `/dk quest`, `/dk healset`, `/dk questset`, `/dk save|load|list`, `/dk herbs`,
 `/dk go`, `/way`, `/guide`, `/claude`.
 

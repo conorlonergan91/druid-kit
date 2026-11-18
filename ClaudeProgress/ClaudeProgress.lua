@@ -361,6 +361,8 @@ local BAR_BINDINGS = {
   { first = 25,  prefix = "MULTIACTIONBAR3BUTTON",  bar = "Right bar" },
   { first = 37,  prefix = "MULTIACTIONBAR4BUTTON",  bar = "Right bar 2" },
   { first = 97,  prefix = "ACTIONBUTTON",           bar = "Bear Form bar" },
+  { first = 73,  prefix = "ACTIONBUTTON",           bar = "Cat Form bar" },
+  { first = 85,  prefix = "ACTIONBUTTON",           bar = "Cat Form prowling bar" },
 }
 
 local function actionName(slot)

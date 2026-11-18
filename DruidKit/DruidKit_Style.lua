@@ -173,3 +173,99 @@ function S.finish(f)
   end
   f.list:SetHeight(-f.y + 8)
 end
+
+-- ---------------------------------------------------------------------------------------------
+-- Key map: every key you have, read live from the game (bindings and what sits on each button),
+-- per bar: forms, caster, Bear, Cat, Prowl, the two bottom bars, and Druid Kit's own keys.
+-- Open with /dk keymap or the Keys button on the step window.
+-- ---------------------------------------------------------------------------------------------
+local function kmSafe(fn, ...)
+  if type(fn) ~= "function" then return end
+  local ok, a, b, c, d = pcall(fn, ...)
+  if ok then return a, b, c, d end
+end
+
+local function keyText(binding)
+  local k = GetBindingKey and kmSafe(GetBindingKey, binding)
+  if not k then return nil end
+  return (k:gsub("CTRL%-", "Ctrl+"):gsub("ALT%-", "Alt+"):gsub("SHIFT%-", "Shift+"))
+end
+
+local function slotAction(slot)
+  local has = (C_ActionBar and C_ActionBar.HasAction and kmSafe(C_ActionBar.HasAction, slot))
+    or (HasAction and kmSafe(HasAction, slot))
+  if not has then return nil end
+  local kind, id
+  if C_ActionBar and C_ActionBar.GetActionInfo then kind, id = kmSafe(C_ActionBar.GetActionInfo, slot) end
+  if not kind and GetActionInfo then kind, id = kmSafe(GetActionInfo, slot) end
+  if kind == "spell" and id then
+    return (C_Spell and C_Spell.GetSpellName and kmSafe(C_Spell.GetSpellName, id)) or (GetSpellInfo and kmSafe(GetSpellInfo, id))
+  elseif kind == "item" and id then
+    return (C_Item and C_Item.GetItemNameByID and kmSafe(C_Item.GetItemNameByID, id)) or (GetItemInfo and kmSafe(GetItemInfo, id))
+  elseif kind == "macro" and id then
+    local name = GetMacroInfo and kmSafe(GetMacroInfo, id)
+    if name and name:find("^DK ") then return name:sub(4) .. " (keeps auto attack on)" end
+    return name and ("macro " .. name)
+  end
+  return kind
+end
+
+-- Bars: first action slot, binding prefix for its 12 keys, and when it is active.
+local KM_BARS = {
+  { "Caster (no form)", 1, "ACTIONBUTTON" },
+  { "Bear Form", 97, "ACTIONBUTTON" },
+  { "Cat Form", 73, "ACTIONBUTTON" },
+  { "Cat Form, prowling", 85, "ACTIONBUTTON" },
+  { "Bottom left bar", 61, "MULTIACTIONBAR1BUTTON" },
+  { "Bottom right bar", 49, "MULTIACTIONBAR2BUTTON" },
+}
+local KM_ADDON = { "DRUIDKIT_TOGGLEGUIDE", "DRUIDKIT_STEPS", "DRUIDKIT_BAGS", "DRUIDKIT_GOTO", "DRUIDKIT_TOGGLEMODE",
+  "DRUIDKIT_TAB1", "TOGGLEAUTORUN" }
+
+-- The key map as plain data (also what the test checks): { {title, { {key, what}, ... }}, ... }
+function DruidKit_KeymapData()
+  local out = {}
+  local forms = {}
+  for i = 1, ((GetNumShapeshiftForms and kmSafe(GetNumShapeshiftForms)) or 10) do
+    local r = { kmSafe(GetShapeshiftFormInfo, i) }
+    local name = type(r[2]) == "string" and r[2] or nil
+    if not name and type(r[4]) == "number" then
+      name = (C_Spell and C_Spell.GetSpellName and kmSafe(C_Spell.GetSpellName, r[4])) or (GetSpellInfo and kmSafe(GetSpellInfo, r[4]))
+    end
+    if name then table.insert(forms, { keyText("SHAPESHIFTBUTTON" .. i) or "no key", name, r[1] }) end
+  end
+  table.insert(out, { "Forms (shapeshift)", forms })
+  for _, b in ipairs(KM_BARS) do
+    local rows = {}
+    for i = 1, 12 do
+      local slot = b[2] + i - 1
+      local what = slotAction(slot)
+      local icon = GetActionTexture and kmSafe(GetActionTexture, slot)
+      if what then table.insert(rows, { keyText(b[3] .. i) or "no key (click)", what, icon }) end
+    end
+    if #rows > 0 then table.insert(out, { b[1], rows }) end
+  end
+  local addon = {}
+  for _, bind in ipairs(KM_ADDON) do
+    local label = _G["BINDING_NAME_" .. bind] or (bind == "TOGGLEAUTORUN" and "Autorun") or bind
+    if bind == "DRUIDKIT_TAB1" then label = "Guide tabs (Alt+1 to Alt+8)" end
+    table.insert(addon, { keyText(bind) or "no key", label, "Interface\\Icons\\INV_Misc_Key_03" })
+  end
+  table.insert(out, { "Druid Kit and movement", addon })
+  return out
+end
+
+local keymapWin
+function DruidKit_ShowKeymap()
+  keymapWin = keymapWin or S.window("DruidKitKeymap", "Your keys", "Interface\\Icons\\INV_Misc_Key_03", 420, 520)
+  if keymapWin:IsShown() then keymapWin:Hide(); return end
+  S.begin(keymapWin)
+  keymapWin.sub:SetText("Read live from your bindings and bars. Form bars use the same keys 1 to = while you're in that form.")
+  for _, sec in ipairs(DruidKit_KeymapData()) do
+    S.header(keymapWin, sec[1], "Interface\\Icons\\INV_Misc_Key_03", #sec[2])
+    for _, row in ipairs(sec[2]) do S.item(keymapWin, nil, row[3], 1, row[1] .. "   " .. row[2], nil) end
+  end
+  keymapWin.footer:SetText("/dk keymap or the Keys button opens this. /dk newspells fills empty keys.")
+  S.finish(keymapWin)
+  keymapWin:Show()
+end

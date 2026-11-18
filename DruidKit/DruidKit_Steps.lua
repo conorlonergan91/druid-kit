@@ -467,6 +467,9 @@ local function build()
   frame.backBtn = btn("Back", "Go back one step.", function() DruidKit_StepBack() end)
   frame.doneBtn = btn("Done", "Mark this step done and move on.", function() DruidKit_StepDone() end)
   frame.skipBtn = btn("Skip", "Leave this quest for now (dying a lot, or no group). The next update decides: drop it or come back later.", function() DruidKit_StepSkip() end)
+  frame.keysBtn = btn("Keys", "Every key you have: forms, caster, Bear, Cat, Prowl and Druid Kit keys.", function()
+    if DruidKit_ShowKeymap then DruidKit_ShowKeymap() end
+  end)
   frame.hideBtn = btn("Hide", "Hide the steps and the arrow. Alt+N or the Route button brings them back.", function() DruidKit_ToggleSteps(false) end)
   frame.hideBtn:ClearAllPoints(); frame.hideBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, 32)
   -- Second row: look around the route without changing it, point the arrow anywhere, find a vendor.
@@ -896,6 +899,8 @@ function DruidKit_StepsCommand(arg)
     else
       say("no vendor known in this zone. Sell at the next town.")
     end
+  elseif arg == "keymap" or arg == "keys" then
+    if DruidKit_ShowKeymap then DruidKit_ShowKeymap() end
   elseif arg == "vendorprompt" then
     DB.vendorPrompt = DB.vendorPrompt == false
     say("bags-full vendor message " .. (DB.vendorPrompt == false and "OFF (the Vendor button still works)." or "ON."))
