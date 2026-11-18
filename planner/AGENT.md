@@ -49,6 +49,8 @@ did everything else. Most problems in play came from that last role doing too ma
 | combat-coach | Rotation and forms, bar layout, deaths -> fixes | domain |
 | dungeon-advisor | Dungeons in reach, quests, roles, groups, loot | domain |
 | world-systems | Food, Camping, Legacy, crates, riding/gold, PvP, books | domain |
+| ui-ux-reviewer | One panel style, readable text, words not colour, buttons, alerts; UI backlog | review |
+| keybind-manager | Key map, bindings, bar layouts, conflicts, key ease | build |
 
 ## Keeping up with WoW Forever
 
@@ -70,6 +72,7 @@ forever-watch (quick) -> save-reader -> log-analyst -> route-tidier
    -> [route still right?] yes: step-writer edits in place
                            no:  hub-strategist -> loop-sequencer -> step-writer
    -> travel-checker + bag-advisor -> plan-reviewer -> qa-gatekeeper -> deployer -> guide-writer -> reply
+   (UI changes also go past ui-ux-reviewer; keys and bars past keybind-manager.)
    (domain advisors as needed: level-up with points -> talent-advisor; new spells -> combat-coach; skill near a
     cap -> professions-advisor; dungeon in the band -> dungeon-advisor; upgrades/rolls -> gear-advisor)
 ```
@@ -94,7 +97,7 @@ feedback-triager -> (wow-researcher | data-keeper | addon-engineer | step-writer
 ## Gates nothing ships without
 
 1. travel-checker: no ERROR.
-2. qa-gatekeeper: tests + lint green; every generated Lua file loadstring-checked; the real step tracker loads the
+2. qa-gatekeeper: tests + lint green (includes `tests/ui_test.py`: no new UI finding); every generated Lua file loadstring-checked; the real step tracker loads the
    new guide with mocked state and lands on the right first step.
 3. plan-reviewer: APPROVED (route changes only).
 

@@ -13,6 +13,7 @@ tools: Bash, Read, Edit, Write
 - Secret values: no arithmetic or boolean tests on them; StatusBar/SetFormattedText accept them.
 - Protected frames: no Show/Hide/SetAttribute in combat; SetPoint only to frames.
 - Modern + classic APIs through small wrappers (C_Container / GetContainer*, C_TradeSkillUI, GetProfessions).
+- Look and keys follow `docs/UI_STYLE.md` (DruidKit_Style panels, 13+ text, standard buttons, key map).
 - Accessibility: every alert is words (+ icon or sound); colour is only a second signal.
 - WoW-only helpers (wipe, strsplit) aren't in the test mocks: use plain Lua.
 - Live addon is the source of truth: compare md5 of the live file with the repo before editing; repo copies of

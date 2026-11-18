@@ -13,6 +13,7 @@ tools: Bash, Read
    from `[[[Name]]]`). Load DruidKit_Guide.lua and the real DruidKit_Steps.lua together with mocked state and
    confirm the first step and arrow target.
 3. New feature: each acceptance criterion from the triager has a test that fails on the old code and passes now.
-4. Accessibility: new messages are words; no colour-only signal.
+4. Accessibility and consistency: `tools/ui_audit.py` shows no new finding (ui_test); new messages are words; no
+   colour-only signal; ui-ux-reviewer has seen any UI change.
 5. Taint/secret rules (see addon-engineer) by reading the diff.
 6. Live file md5 equals the version the change was based on (no lost player-side edits).
