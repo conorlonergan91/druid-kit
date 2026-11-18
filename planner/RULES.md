@@ -171,3 +171,7 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 - Before telling the player to abandon a quest, check where its chain leads (`quest ID` -> next in chain, rewards).
   Object-started hidden chains (e.g. the Cozy Sleeping Bag: a Westfall cart note that leads across five zones) look
   like stray deliveries but pay off in XP, bags and a permanent XP buff.
+- Forever-new quests (ids 8xxxx-9xxxx) can have prerequisites QuestieDB doesn't list (player 18 Nov: Oslow offered
+  Alther's Mill only after The Everstill Bridge). When a giver has other quests, plan the new quest's accept after
+  those are handed in, and the step tip says it may need the earlier quest first. Record what play shows in
+  knowledge/facts.json.

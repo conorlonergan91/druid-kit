@@ -385,6 +385,25 @@
     18,
     26
    ]
+  },
+  {
+   "id": "althers-mill-prereq",
+   "topic": "quests",
+   "statement": "Alther's Mill (98386, Foreman Oslow, Lakeshire) was not offered while The Everstill Bridge (89) was in the log; likely needs 89 handed in first (QuestieDB lists no prerequisite).",
+   "sources": [
+    "player report 18 Nov 22:45"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "medium",
+   "review_days": 30,
+   "used_by": [
+    "build/route_vN.py",
+    "planner/RULES.md v12c"
+   ],
+   "levels": [
+    20,
+    24
+   ]
   }
  ]
 }
