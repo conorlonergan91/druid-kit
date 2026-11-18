@@ -58,6 +58,7 @@ ClaudeProgress/    character-state exporter
 tools/             guide generator, route builder and examples
 planner/           route-planning toolkit (rk.py), agent rules and task, eval tools
 skills/            the Claude skill that runs updates (personal details stay in a private handoff file)
+.claude/agents/    one small agent per job (research, data, planning, steps, bags, review, QA, deploy)
 tests/             tests that run the real addon code against a mocked WoW API
 ```
 

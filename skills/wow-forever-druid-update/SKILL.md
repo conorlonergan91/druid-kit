@@ -46,6 +46,13 @@ the player has handed in (steps passed on the way are logged `passed` for the ne
 - Rules: `planner/RULES.md`. Routing lessons: `planner/ROUTING.md`. Agents and eval loop: `planner/AGENT.md`.
 - Rule changes are tested with blind planner subagents (3 runs per version, averaged) and `eval/score.py --cut20`.
 
+## Agents
+Each job below has an owner in `.claude/agents/` (overview and flows: `planner/AGENT.md`). Run the script-first
+ones (save-reader, route-tidier, travel-checker, qa gates) as plain commands; spawn subagents for big judgement work
+(a full re-plan, a new feature). Player feedback always goes through feedback-triager -> owner -> qa-gatekeeper.
+Nothing ships without: travel-checker no ERROR, qa-gatekeeper GO (generated Lua loadstring-checked), plan-reviewer
+APPROVED for route changes.
+
 ## On "update"
 1. In one device_bash call: save mtime; `python3 tools/save_state.py ClaudeProgress.lua DruidKit.lua > state.json`
    (pure Python, runs on the Mac) and parse `ClaudeProgress.lua` (level, XP, zone, gold, skills, inventory, bank,

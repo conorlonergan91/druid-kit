@@ -1,51 +1,97 @@
 # Agents
 
-Three roles, each with a narrow job. Code does the maths; agents make judgement calls; a separate scorer checks them.
+Small agents with one job each. Code does the maths and the checks; agents make judgement calls; gates stop bad
+releases. Definitions live in `.claude/agents/` (one file per agent, usable as Claude Code / Cowork subagents).
 
-## 1. Planner subagent (blind)
+## Review of the old setup (17-18 Nov play)
 
-Works in a folder that holds only `TASK.md`, `RULES.md`, a quest pack (`quests.csv` from `eval/build_pack.py`)
-and a copy of the tools (`rk.py`, `db.json`, `travel.json`, `data/`). It may not read anything else or use the web,
-so it can't copy an existing route. Prompt:
+The old setup had three roles: a blind planner, an orchestrator for the eval loop, and one "route update" role that
+did everything else. Most problems in play came from that last role doing too many jobs at once:
+
+| What went wrong in play | Missing responsibility | Now owned by |
+|---|---|---|
+| Route said one flight Nighthaven -> Auberdine (it is two) | facts checked against Forever, flight data | wow-researcher, data-keeper |
+| No flight paths learned, hearth never set, player walked | travel gate | step-writer, travel-checker |
+| Boat step with no directions; collectables with no spots | step-writing standard | step-writer |
+| New route id threw the player back to step 1 | tidy + catch-up | route-tidier, addon-engineer |
+| Quest item that starts a quest never right-clicked | step `how`, addon notice | step-writer, addon-engineer |
+| Bags full, loot lost, mage scrolls offered to "use" | bag planning + item rules | bag-advisor, addon-engineer |
+| Generated guide broke the addon (`[[[Name]]]`) | release gate | qa-gatekeeper |
+| A reused deploy folder sent a stale file | release process | deployer |
+| Feedback fixed once but not turned into a rule | triage to owners + lessons | feedback-triager |
+| Quest Guide doc and Commands tab drifted | player-facing text | guide-writer |
+
+## The agents
+
+| Agent | One job | Kind |
+|---|---|---|
+| wow-researcher | Verify facts with sources; Forever vs Classic | research |
+| data-keeper | db.json, travel.json (links, boats, banks), vendors, corrections | data |
+| save-reader | Save -> state.json; stale save, Lua errors, flights, hearth, bags | script-first |
+| log-analyst | Step log, skips, walked paths, travel share -> findings | analysis |
+| route-tidier | Drop done/passed/skipped steps | script-first |
+| hub-strategist | Where next: hub order, class trips, training, horizon | planning |
+| loop-sequencer | Stop order inside a hub, party flags, timed quests | planning |
+| step-writer | Route file: one action per step, spots, `via`, `how`, fp/home/abandon, sell stops | writing |
+| travel-checker | Flights, hearth, boats usable by this character | gate (script) |
+| bag-advisor | Quest items later (bank/drop), vendors, sell stops | planning |
+| plan-reviewer | Checklist critic before release | review |
+| addon-engineer | Lua features and fixes, test first | build |
+| qa-gatekeeper | Tests, lint, Lua syntax of generated files, rules, accessibility, drift | gate |
+| deployer | Fresh deploy folder, md5 verify, HANDOFF, repo patch/push | release |
+| guide-writer | Now tab, Commands tab, Quest Guide doc | writing |
+| feedback-triager | Player feedback -> owned tickets with acceptance tests + rules | triage |
+| rules-tuner | Blind planner runs and scoring for rule changes | eval |
+
+## Flows
+
+**"update"** (the player played since the last save)
+
+```
+save-reader -> log-analyst -> route-tidier
+   -> [route still right?] yes: step-writer edits in place
+                           no:  hub-strategist -> loop-sequencer -> step-writer
+   -> travel-checker + bag-advisor -> plan-reviewer -> qa-gatekeeper -> deployer -> guide-writer -> reply
+```
+
+**Feedback or a feature request**
+
+```
+feedback-triager -> (wow-researcher | data-keeper | addon-engineer | step-writer rule)
+   -> qa-gatekeeper (new test fails on old code, passes now) -> deployer -> guide-writer -> reply
+```
+
+**Rule change** — rules-tuner runs 3 blind planners per version and compares averages before RULES.md changes.
+
+## Hand-off files (all under `build/`)
+
+`state.json` (save-reader) · `findings.json` (log-analyst) · `outline.json` (hub-strategist) · `loops.json`
+(loop-sequencer) · `route_vN.py` (step-writer) · `items.json`, `vendors.json` (bag-advisor, data-keeper) ·
+`research/*.json` (wow-researcher) · `tickets.json` (feedback-triager).
+
+## Gates nothing ships without
+
+1. travel-checker: no ERROR.
+2. qa-gatekeeper: tests + lint green; every generated Lua file loadstring-checked; the real step tracker loads the
+   new guide with mocked state and lands on the right first step.
+3. plan-reviewer: APPROVED (route changes only).
+
+## Cost
+
+Script-first agents (save-reader, route-tidier, travel-checker) and the gates can run as plain commands in the main
+session; spawn subagents for the judgement jobs only when the work is big (a full re-plan, a new feature). Small
+fixes go straight through the triage -> engineer -> qa -> deploy path.
+
+## Blind planner (eval)
+
+Works in a folder that holds only `TASK.md`, `RULES.md`, a quest pack (`quests.csv` from `eval/build_pack.py`) and
+a copy of the tools (`rk.py`, `db.json`, `travel.json`, `data/`). Prompt:
 
 > You are a levelling-route planner. Work ONLY inside `<folder>`. Read TASK.md and the rules file there and follow
 > them exactly. Do not read any other file or folder, and do not use web search or web fetch. Use `tools/rk.py`
 > heavily (hub choice at arrival level and ~3 levels later, clustering, stop order, training trips and the final
-> sim). You may write helper scripts inside the folder. Write `plan.json` in the format TASK.md gives, run
-> `python3 tools/rk.py sim plan.json`, fix every problem it reports, and keep `untrained_ranks_now` low throughout.
-> Reply with the summary field and the final sim output only.
-
-Its usual loop: `hubs` -> `available` -> `cluster` -> `loop` per hub, keeping `done.json` current, then `sim` and fix.
-
-## 2. Orchestrator (the main session)
-
-- Builds the blind folders, launches 3 planners per rules version in parallel, scores each plan with
-  `eval/score.py plan.json --cut20` (plans to 30, scored on 1-20) and `rk.py sim` (hours to 20, training).
-- Reads where plans diverge from the reference (zone runs, missed/extra quests) and changes the rules or the
-  tools in a *general* way (e.g. "judge a hub over your whole stay", "escorts are not a reason to enter a zone"),
-  never by naming the reference's choices.
-- Compares averages, not single runs: one run of the same rules varied by 5 points.
-
-## 3. Route update (for the player)
-
-On "update": read the game save (level, XP, zone, quest log, bags, skills) and the addon's step log, then:
-
-1. Re-plan from where the player is with `rk.py hubs` / `available` / `loop` and RULES.md. Read the save's
-   `travel` block first: where the hearthstone is set, its cooldown, and the known flight paths. The plan may only
-   use those, plus flight paths it learns (`fp` steps) and hearths it sets (`home` steps) on the way.
-1b. Tidy the route: `tools/save_state.py` -> `tools/prune_route.py` removes the steps the player has done,
-   passed or skipped, so the next login starts at the real next step.
-2. Pick quests to abandon (far below level, far away, needs a group that isn't there, items with unknown sources).
-3. Write the route as one-action steps (`tools/example_route.py` format) with `est` (projected minutes from
-   `quest_minutes`) and `party` (worth grouping) on kill steps.
-4. `tools/route_check.py ROUTE --home <travel.home> --flights "<travel.flights joined by ;>"`: fix every ERROR
-   (hearth or flight the player can't use) and every warning (a flight master passed without an `fp` step, a note
-   that should be a `home`/`fp` step). Then `build_now.py` + `make_guide.py`, Lua syntax check, `tests/run_all.sh`,
-   deploy.
-5. Run `rk.py calibrate` and `rk.py paths` on the addon's saved variables: add the suggested `via` waypoints to
-   steps that go back to those places, and favour denser kill hubs if travel took most of the time.
-6. Next time, the step log closes the loop: each step records play time, deaths and XP against `est`, and Skip marks
-   quests the player gave up on. The re-plan decides per skipped quest: drop it, or come back stronger / in a group.
+> sim). Write `plan.json` in the format TASK.md gives, run `python3 tools/rk.py sim plan.json`, fix every problem it
+> reports. Reply with the summary field and the final sim output only.
 
 ## Data sources and licences
 

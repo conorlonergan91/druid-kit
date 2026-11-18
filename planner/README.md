@@ -12,7 +12,7 @@ planner/
   travel.json     towns, boats, flights, portals with minutes; zone sizes in yards (hand-made estimates)
   RULES.md        the planning rules the agent follows (v8)
   TASK.md         the planner agent's task and output format
-  AGENT.md        how the agents fit together: planner subagent, harness, eval loop, update workflow
+  AGENT.md        the agents (one job each, defined in ../.claude/agents/), flows, hand-off files and gates
   ROUTING.md      routing decisions distilled from studying good routes (no route text copied)
   eval/           blind-eval tools: quest pack, reference builder, scorer
 ```
