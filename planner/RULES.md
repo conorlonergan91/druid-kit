@@ -153,3 +153,6 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   <item> (This item begins a quest)". Picking the item up does not start the quest.
 - When the quest text names a different hand-in NPC than the data, name both in the step and point at the one
   the quest text names.
+- Collect-items steps (objects on the ground) get a `via` chain over every known spawn of the object, in walking
+  order, from the QuestieDB object spawns; the step names the quest giver and hand-in NPC too. (Player: "the NPC
+  and individual collectable waypoints helped a lot".)
