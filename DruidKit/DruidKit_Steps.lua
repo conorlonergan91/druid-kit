@@ -206,14 +206,16 @@ local function nearestVendor()
 end
 
 local lastBagSay = -1000
-local vendorNav = false
+local customNav = false   -- the arrow points somewhere you chose (vendor, Go on another step) until you arrive
+local view                -- step being previewed with Prev/Next (nil = the current step)
 local function bagLine()
+  if DB and DB.vendorPrompt == false then return nil end
   local free = bagsFree()
   if free > BAGS_LOW then return nil end
   local v, d = nearestVendor()
   local head = free == 0 and "BAGS FULL." or ("BAGS: " .. free .. " free.")
   if not v then return head .. " No vendor known in this zone: sell at the next town." end
-  return ("%s Nearest vendor: %s%s, %d yards%s. /dk steps vendor sets the arrow."):format(head, v[4],
+  return ("%s Nearest vendor: %s%s, %d yards%s. The Vendor button sets the arrow."):format(head, v[4],
     v[5] ~= "" and (" (" .. v[5] .. ")") or "", math.floor(d + 0.5), v[6] and ", repairs too" or "")
 end
 
@@ -379,7 +381,7 @@ end
 
 local function pointArrow()
   local st = steps[pos]
-  if not st or lastArrowFor == pos then return end
+  if not st or lastArrowFor == pos or customNav then return end
   lastArrowFor = pos
   if DB.arrowOff then return end
   local v, n = nextVia(st)
@@ -444,11 +446,11 @@ local function build()
   frame.detail = fs(12, 0.85, 0.85, 0.85); frame.detail:SetPoint("TOPLEFT", frame.main, "BOTTOMLEFT", 0, -4)
   frame.next = fs(11, 0.62, 0.62, 0.62);  frame.next:SetPoint("TOPLEFT", frame.detail, "BOTTOMLEFT", 0, -6)
 
-  local x = PAD
+  local x, row = PAD, 32
   local function btn(label, tip, onClick)
     local b = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
     b:SetSize(54, 20); b:SetText(label)
-    b:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, 8)
+    b:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, row)
     x = x + 58
     b:SetScript("OnClick", onClick)
     b:SetScript("OnEnter", function(s) GameTooltip:SetOwner(s, "ANCHOR_TOP"); GameTooltip:SetText(tip, 1, 1, 1, 1, true); GameTooltip:Show() end)
@@ -459,7 +461,15 @@ local function build()
   frame.doneBtn = btn("Done", "Mark this step done and move on.", function() DruidKit_StepDone() end)
   frame.skipBtn = btn("Skip", "Leave this quest for now (dying a lot, or no group). The next update decides: drop it or come back later.", function() DruidKit_StepSkip() end)
   frame.hideBtn = btn("Hide", "Hide the steps and the arrow. Alt+N or the Route button brings them back.", function() DruidKit_ToggleSteps(false) end)
-  frame.hideBtn:ClearAllPoints(); frame.hideBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, 8)
+  frame.hideBtn:ClearAllPoints(); frame.hideBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, 32)
+  -- Second row: look around the route without changing it, point the arrow anywhere, find a vendor.
+  x, row = PAD, 8
+  frame.prevBtn = btn("< Prev", "Look at the step before. Nothing is marked done or undone.", function() DruidKit_StepView(-1) end)
+  frame.nextBtn = btn("Next >", "Look at the next step. Nothing is marked done or undone.", function() DruidKit_StepView(1) end)
+  frame.goBtn = btn("Go", "Point the arrow at the step you're looking at (do things in your own order). "
+    .. "The route arrow comes back when you arrive, or with Now.", function() DruidKit_StepGo() end)
+  frame.nowBtn = btn("Now", "Back to your current step and its arrow.", function() DruidKit_StepView(0) end)
+  frame.vendorBtn = btn("Vendor", "Point the arrow at the nearest vendor in this zone.", function() DruidKit_StepsCommand("vendor") end)
 end
 
 local function textH(f)
@@ -469,13 +479,14 @@ local function textH(f)
 end
 
 local function resize()
-  local h = 8 + 14 + 6 + textH(frame.main) + 4 + textH(frame.detail) + 6 + textH(frame.next) + 8 + 20 + 8
+  local h = 8 + 14 + 6 + textH(frame.main) + 4 + textH(frame.detail) + 6 + textH(frame.next) + 8 + 20 + 4 + 20 + 8
   frame:SetHeight(math.max(96, h))
 end
 
 local function draw()
   if not frame then return end
-  local st = steps[pos]
+  local cur = view or pos
+  local st = steps[cur]
   if not st then
     frame.head:SetText("Druid Kit route"); frame.stats:SetText("")
     frame.main:SetText(Y .. "Route finished." .. R .. " Say \"update\" for the next part.")
@@ -483,10 +494,14 @@ local function draw()
     resize()
     return
   end
-  frame.head:SetText(("Step %d/%d  ·  %s"):format(pos, #steps, st.sec or ""))
+  if view and view ~= pos then
+    frame.head:SetText(("Viewing %d/%d (you're on %d)  ·  %s"):format(view, #steps, pos, st.sec or ""))
+  else
+    frame.head:SetText(("Step %d/%d  ·  %s"):format(pos, #steps, st.sec or ""))
+  end
   local c = DB.cur
   local stats = ""
-  if c and c.i == pos and c.secs >= 30 then
+  if not view and c and c.i == pos and c.secs >= 30 then
     stats = clock(c.secs) .. (st.est and (" / ~" .. st.est .. "m") or "")
   end
   if c and c.i == pos and c.deaths > 0 then
@@ -498,7 +513,7 @@ local function draw()
   local det = detailLines(st)
   frame.detail:SetText(adv and ((det ~= "" and (det .. "\n") or "") .. adv) or det)
   local nxt = {}
-  for i = pos + 1, math.min(#steps, pos + 2) do table.insert(nxt, "Then: " .. shortLine(steps[i])) end
+  for i = cur + 1, math.min(#steps, cur + 2) do table.insert(nxt, "Then: " .. shortLine(steps[i])) end
   frame.next:SetText(table.concat(nxt, "\n"))
   resize()
 end
@@ -513,11 +528,41 @@ local function evaluate()
     pos = pos + 1; moved = true
   end
   DB.routeStep = pos
+  if view and view <= pos then view = nil end
+  if moved then customNav = false end
   if moved or not DB.cur or DB.cur.i ~= pos then lastArrowFor = nil; startStats() end
   pointArrow()
   draw()
 end
 DruidKit_StepsEvaluate = function() pcall(evaluate) end
+
+-- Prev / Next / Now: look through the route without changing it. d = -1, 1, or 0 (back to the current step).
+function DruidKit_StepView(d)
+  if d == 0 then
+    view = nil; customNav = false; lastArrowFor = nil
+    pointArrow(); draw()
+    return
+  end
+  local v = math.max(1, math.min(#steps, (view or pos) + d))
+  view = (v ~= pos) and v or nil
+  draw()
+end
+
+-- Go: point the arrow at the step you're looking at (its waypoints first, like the route would).
+function DruidKit_StepGo()
+  local st = steps[view or pos]
+  if not st then return end
+  local target = st.at or (st.via and st.via[1])
+  if not target or not DruidKit_GoTo then
+    say("this step has no map spot. Try the step after it.")
+    return
+  end
+  local label = st.npc or st.text or st.name or st.to or "step"
+  DruidKit_GoTo(target[1], target[2], target[3], (not st.at and (target[4] or "way") .. "  >  " or "") .. label, true)
+  customNav = (view ~= nil and view ~= pos)
+  if not customNav then lastArrowFor = nil; pointArrow() end
+  say("arrow set to " .. label .. (customNav and ". The route arrow comes back when you arrive there, or with Now." or "."))
+end
 
 -- Catch-up: when the route is (re)loaded behind where you really are, jump to just after the last quest you've
 -- handed in. Steps passed on the way are logged "passed"; their quests stay behind unless they're in your log,
@@ -768,8 +813,8 @@ end
 
 -- Arrival at the current step's spot (from the navigation arrow).
 DruidKit_OnArrive = function()
-  if vendorNav then   -- reached the vendor: back to the route
-    vendorNav = false; lastArrowFor = nil; pointArrow()
+  if customNav then   -- reached the vendor: back to the route
+    customNav = false; lastArrowFor = nil; pointArrow()
     return
   end
   local st = steps[pos]
@@ -824,11 +869,15 @@ function DruidKit_StepsCommand(arg)
     if v and DruidKit_GoTo then
       DruidKit_GoTo(v[1], v[2], v[3], "Vendor: " .. v[4], true)
       lastArrowFor = pos   -- keep the vendor arrow until you arrive or the step changes
-      vendorNav = true
+      customNav = true
       say("arrow set to " .. v[4] .. (v[5] ~= "" and (" (" .. v[5] .. ")") or "") .. ". Sell, then carry on.")
     else
       say("no vendor known in this zone. Sell at the next town.")
     end
+  elseif arg == "vendorprompt" then
+    DB.vendorPrompt = DB.vendorPrompt == false
+    say("bags-full vendor message " .. (DB.vendorPrompt == false and "OFF (the Vendor button still works)." or "ON."))
+    pcall(draw)
   elseif arg == "arrow" then
     DB.arrowOff = not DB.arrowOff
     say("route arrow " .. (DB.arrowOff and "OFF." or "ON."))
