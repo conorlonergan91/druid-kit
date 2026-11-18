@@ -65,10 +65,20 @@ local function isTool(classID, subID) return classID == 2 and KEEP_WEAPON[subID]
 
 -- Recipes: what skill and rank they need, read from the item tooltip ("Requires Cooking (75)").
 local function skillRank(skill)
-  if not GetNumSkillLines or not GetSkillLineInfo then return nil end
-  for i = 1, (GetNumSkillLines() or 0) do
-    local name, header, _, rank = GetSkillLineInfo(i)
-    if name == skill and not header then return rank or 0 end
+  if GetNumSkillLines and GetSkillLineInfo then
+    for i = 1, (GetNumSkillLines() or 0) do
+      local name, header, _, rank = GetSkillLineInfo(i)
+      if name == skill and not header then return rank or 0 end
+    end
+  end
+  -- Modern client: professions are listed by GetProfessions instead.
+  if GetProfessions and GetProfessionInfo then
+    for _, idx in pairs({ GetProfessions() }) do
+      if idx then
+        local name, _, rank = GetProfessionInfo(idx)
+        if name == skill then return rank or 0 end
+      end
+    end
   end
 end
 
@@ -93,6 +103,27 @@ local function tooltipLines(link)
   return out
 end
 
+-- Who an item is for, from its tooltip: "Classes: Rogue" (not a druid's) or "Requires Engineering (100)" (a
+-- profession you don't have, or not high enough). Returns a reason, or nil when you can use it.
+local PROFESSIONS = { Alchemy = true, Blacksmithing = true, Enchanting = true, Engineering = true, Herbalism = true,
+  Leatherworking = true, Mining = true, Skinning = true, Tailoring = true, Jewelcrafting = true, Inscription = true,
+  Cooking = true, ["First Aid"] = true, Fishing = true, Lockpicking = true }
+local function restriction(link)
+  local classLabel = (ITEM_CLASSES_ALLOWED and ITEM_CLASSES_ALLOWED:match("^([^:]+)")) or "Classes"
+  local me = (UnitClass and UnitClass("player")) or "Druid"
+  for _, t in ipairs(tooltipLines(link)) do
+    local classes = t:match("^" .. classLabel .. ": (.+)$")
+    if classes and not classes:find(me, 1, true) then return "for " .. classes .. " only" end
+    local sk, n = t:match("^Requires ([%a ]+) %((%d+)%)")
+    if sk and PROFESSIONS[sk] then
+      local have = skillRank(sk)
+      if not have then return "needs " .. sk .. ", which you don't have" end
+      if have < tonumber(n) then return ("needs %s %s (you're %d)"):format(sk, n, have) end
+    end
+  end
+end
+DruidKit_ItemRestriction = function(link) local ok, why = pcall(restriction, link); if ok then return why end end
+
 -- verdict for a recipe: "learn" | "later" | "known" | "noskill", plus skill, needed, have
 local function recipeCheck(link)
   local skill, need, known
@@ -102,6 +133,8 @@ local function recipeCheck(link)
     if t == ITEM_SPELL_KNOWN or t == "Already known" then known = true end
   end
   if known then return "known" end
+  local why = restriction(link)
+  if why and why:find("^for ") then return "noclass", why end
   if not skill then return "learn" end
   local have = skillRank(skill)
   if not have then return "noskill", skill, need end
@@ -249,6 +282,7 @@ local function upgradeFor(link, w, anyLevel)
   local _, _, _, _, minLevel, _, _, _, equipLoc, _, _, classID, subID = getInfo(link)
   if not equipLoc or not usable(classID, subID, equipLoc) then return end
   if not anyLevel and (minLevel or 0) > UnitLevel("player") then return end
+  if restriction(link) then return end
   local mine = score(link, w)
   if mine <= 0 then return end
   local slots = SLOTS[equipLoc]
@@ -330,6 +364,9 @@ local function scan()
             if verdict == "known" then
               entry.why = "you already know this recipe"
               table.insert(unusable, entry)
+            elseif verdict == "noclass" then
+              entry.why = skill   -- "for Rogue only"
+              table.insert(unusable, entry)
             elseif verdict == "noskill" then
               entry.why = ("needs %s, which you don't have"):format(skill)
               table.insert(unusable, entry)
@@ -358,8 +395,9 @@ local function scan()
               table.insert(kept, entry)
             elseif SLOTS[equipLoc] and (price or 0) > 0 then
               entry.value = (price or 0) * (count or 1)
-              if not usable(classID, subID, equipLoc) then
-                entry.why = "druids can't use this"
+              local why = restriction(link)
+              if not usable(classID, subID, equipLoc) or why then
+                entry.why = why or "druids can't use this"
                 table.insert(unusable, entry)
               elseif (minLevel or 0) <= UnitLevel("player") then
                 entry.why = "worse than what you're wearing"
