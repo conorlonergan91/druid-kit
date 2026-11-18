@@ -705,9 +705,11 @@ function DruidKit_NavUpdate()
     nav.stuckSaid = nil
   end
   if dist < 12 then
-    navSay("you've arrived: " .. nav.label .. ".")
-    if DruidKit_OnArrive then pcall(DruidKit_OnArrive, nav.label) end
+    -- Clear first: the step tracker may set the next waypoint (a via chain) from OnArrive.
+    local label = nav.label
+    navSay("you've arrived: " .. label .. ".")
     DruidKit_NavClear(true)
+    if DruidKit_OnArrive then pcall(DruidKit_OnArrive, label) end
     return
   end
   local bearing = (math.atan2 or math.atan)(-east, -south)          -- 0 = north, positive = towards west (same as facing)

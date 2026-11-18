@@ -53,6 +53,11 @@ DruidKit_NavTo(1,0.5,0.4,"North spot"); FACE=0; DruidKit_NavUpdate(); r[#r+1]="n
 DruidKit_NavTo(1,0.6,0.5,"East"); DruidKit_NavUpdate(); r[#r+1]="east: "..A.info.text.." rot "..string.format("%.2f",A.tex.rot)
 PX=0.6; DruidKit_NavUpdate(); r[#r+1]="arrived shown="..tostring(A.shown)
 SlashCmdList.DRUIDKITWAY("Westfall 52.7 53.8 Rumi book"); r[#r+1]="way: "..A.name.text
+-- a via chain: arriving sets the next waypoint from OnArrive, and it must stay set
+PX=0.5; DruidKit_NavTo(1,0.6,0.5,"tools 1")
+DruidKit_OnArrive = function() DruidKit_NavTo(1,0.7,0.5,"tools 2") end
+PX=0.6; DruidKit_NavUpdate()
+local t = DruidKit_NavTarget(); r[#r+1]="next: "..tostring(t and t.label).." shown="..tostring(A.shown)
 """)
 for x in g.r.values():
     print(x)
@@ -68,4 +73,5 @@ check("50 yards" in r[2], "distance uses the map's real size in yards", r[2])
 check("turn right" in r[3], "target to the east: turn right", r[3])
 check(r[4] == "arrived shown=false", "arrow hides on arrival", r[4])
 check("Westfall 52.7, 53.8" in r[5], "/way parses zone and coordinates", r[5])
+check("tools 2" in r[6] and "shown=true" in r[6], "arriving at a via point keeps the next waypoint and arrow", r[6])
 done("nav_test")
