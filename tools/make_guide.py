@@ -68,7 +68,8 @@ def route_lua(route) -> list:
     if items:
         out.append("  items = {")
         for name, it in items.items():
-            out.append(f"    [{lua_str(name)}] = {{ action = {lua_str(it['action'])}, why = {lua_str(it['why'])} }},")
+            # space after "[": a long string ([[...]]) right after "[" would read as "[[["
+            out.append(f"    [ {lua_str(name)} ] = {{ action = {lua_str(it['action'])}, why = {lua_str(it['why'])} }},")
         out.append("  },")
     out.append("}")
     return out

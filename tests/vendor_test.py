@@ -72,10 +72,12 @@ import make_guide  # noqa: E402
 tmp = Path(tempfile.mkdtemp())
 g = json.loads((ROOT / "tools" / "example_guide.json").read_text(encoding="utf-8"))
 g["vendors"] = [["Loch Modan", 64.8, 66.0, "Aldren Cordon", "Clothier", True]]
+g["route"] = {"id": "x", "sections": [], "items": {"Verner's Note": {"action": "bank", "why": "later"}}}
 (tmp / "g.json").write_text(json.dumps(g), encoding="utf-8")
 make_guide.main(str(tmp / "g.json"), str(tmp / "G.lua"))
 G = LuaRuntime()
 G.execute((tmp / "G.lua").read_text(encoding="utf-8"))
 v = G.globals().DruidKitVendors[1]
 check(v[4] == "Aldren Cordon" and v[6] is True, "make_guide writes DruidKitVendors", list(v.values()))
+check(G.globals().DruidKitRoute["items"]["Verner's Note"]["action"] == "bank", "make_guide writes the item plan", "")
 done("vendor_test")
