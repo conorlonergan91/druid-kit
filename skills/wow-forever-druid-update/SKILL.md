@@ -47,14 +47,18 @@ the player has handed in (steps passed on the way are logged `passed` for the ne
 - Rule changes are tested with blind planner subagents (3 runs per version, averaged) and `eval/score.py --cut20`.
 
 ## On "update"
-1. In one device_bash call: save mtime; parse `ClaudeProgress.lua` (level, XP, zone, gold, skills, inventory, bank,
+1. In one device_bash call: save mtime; `python3 tools/save_state.py ClaudeProgress.lua DruidKit.lua > state.json`
+   (pure Python, runs on the Mac) and parse `ClaudeProgress.lua` (level, XP, zone, gold, skills, inventory, bank,
    recipes, quests, completed, travel = hearth home + cooldown + known flight paths) with a small Lua-table reader; grep `Logs/General.log` for "Lua Error" / "tainted".
    If the save is older than the last update, say so instead of re-planning.
 2. Read `DruidKitDB.stepLog` (secs, deaths, xp against `est`; how = done / ticked / skipped) and `DruidKitDB.skipQ`.
    For each skipped quest decide: drop it, or come back stronger or with a group. Recalibrate `est` where actuals
    differ a lot. Run `rk.py calibrate <DruidKit.lua>` (fight vs travel share) and `rk.py paths <DruidKit.lua>`
    (walked paths -> `via` waypoints for caves, ramps and other hard-to-find places).
-3. Re-plan from where the player is with the planner tools and RULES.md. Quest log: list exactly which quests to
+3. Tidy first, every update: `python3 tools/prune_route.py route_vN.py state.json route_vN.py` (keep a copy
+   as `route_vN.prev.py`). It drops every step already done, passed or skipped and every empty section, and gives
+   the route a new id, so the player logs in to a clean step window that starts at the real next step. Then
+   re-plan from where the player is with the planner tools and RULES.md. Quest log: list exactly which quests to
    abandon (far below level, far away, needs an absent group, unknown item sources). Bags: Bag check handles food
    and drink (best two stacks each) and recipes (profession rank); name concrete items to sell or bank from the save.
 4. Edit the route file. Travel must be real (RULES v10): an `fp` step at every flight master the route passes

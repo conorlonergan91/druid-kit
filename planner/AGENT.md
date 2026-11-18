@@ -33,6 +33,8 @@ On "update": read the game save (level, XP, zone, quest log, bags, skills) and t
 1. Re-plan from where the player is with `rk.py hubs` / `available` / `loop` and RULES.md. Read the save's
    `travel` block first: where the hearthstone is set, its cooldown, and the known flight paths. The plan may only
    use those, plus flight paths it learns (`fp` steps) and hearths it sets (`home` steps) on the way.
+1b. Tidy the route: `tools/save_state.py` -> `tools/prune_route.py` removes the steps the player has done,
+   passed or skipped, so the next login starts at the real next step.
 2. Pick quests to abandon (far below level, far away, needs a group that isn't there, items with unknown sources).
 3. Write the route as one-action steps (`tools/example_route.py` format) with `est` (projected minutes from
    `quest_minutes`) and `party` (worth grouping) on kill steps.
