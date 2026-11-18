@@ -8,7 +8,7 @@ CLI (python3 rk.py <cmd> ...):
   available --level L [--done F]      quests a Night Elf Druid can take now (min level met, prereqs done), by zone
   hubs --level L [--done F] [--party N]   XP per hour for every hub at that arrival level (band -4..+1, plus +2/+3 in
                                        the current zone), with travel from --from TOWN
-  loop --zone Z --quests ID... [--from TOWN] [--level L] [--party N]
+  loop --zone Z --quests ID... [--from TOWN] [--level L] [--party N] [--accepted ID,ID]
                                        best order of stops (accept, objectives, hand-in) by travel-salesman with
                                        precedence; prints stops, yards walked, minutes, XP
   sim PLAN.json                        replay a plan: levels, XP, minutes, prereq/min-level problems
@@ -1096,7 +1096,8 @@ def main(argv):
         if town:
             t = towns()[town]
             start = (t["zone"], t["x"], t["y"])
-        res = loop_plan(qids, start, _opt(args, "--level", 10, float), _opt(args, "--party", 1, int))
+        acc = {int(x) for x in (_opt(args, "--accepted", "") or "").split(",") if x.strip().isdigit()}
+        res = loop_plan(qids, start, _opt(args, "--level", 10, float), _opt(args, "--party", 1, int), accepted=acc)
         for s in res["stops"]:
             p = s["point"]
             print(f"{s['kind']:8} {s['q']:>6}  {p[0]} ({p[1]:.1f}, {p[2]:.1f})  {s['label']}")
