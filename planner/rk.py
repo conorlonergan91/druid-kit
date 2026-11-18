@@ -16,6 +16,8 @@ CLI (python3 rk.py <cmd> ...):
   calibrate DruidKit.lua               actual vs projected from the addon's step log: fight vs travel share
   cluster --quests ID... [--radius YD]  group quests whose objective areas are close; do each group in one visit
   party --level L --quests ID...      which kill quests save the most time in a group (kills shared, drops per player)
+  itemplan STATE.json ROUTE.py         quest items needed much later: bank (bank on the way) or drop (starter that
+                                       drops again) -> build/items.json
   vendors --zones "Z1,Z2"              Alliance vendors in those zones (bags-full prompt):
                                        [zone, x, y, name, what, repair]
   travel FROM TO [--flights "A;B"]     minutes and legs between two towns (boats with where to board, each
@@ -24,6 +26,7 @@ Done file: JSON list of quest IDs already handed in.
 """
 
 import heapq
+import importlib.util
 import json
 import math
 import os
@@ -944,6 +947,66 @@ def simulate(plan, trace=False):
     return out
 
 
+BANK_ZONES = {"Stormwind City", "Ironforge", "Darnassus"}
+
+
+def item_plan(state, route, soon=20, bank_within=30):
+    """Quest items in the bags that the route won't need for a while: bank them if a bank is on the way, or drop a
+    quest-start item that drops again (when its quest isn't in the route). -> {item name: {action, why}}."""
+    d = db()
+    log = {int(k) for k in state.get("log", {})}
+    done = set(state.get("done", []))
+    flat = [st for sec in route["sections"] for st in sec["steps"]]
+    by_item = {}
+    for qid, q in d["quests"].items():
+        src = q.get("sourceItemId")
+        if src:
+            by_item.setdefault(int(src), set()).add(int(qid))
+        for group in (q.get("objectives") or {}).values() if isinstance(q.get("objectives"), dict) else []:
+            for o in group or []:
+                if isinstance(o, list) and o and isinstance(o[0], int):
+                    by_item.setdefault(o[0], set()).add(int(qid))
+    bank = next(
+        (
+            (i, st["goto"][0])
+            for i, st in enumerate(flat[:bank_within])
+            if st.get("goto") and st["goto"][0] in BANK_ZONES
+        ),
+        None,
+    )
+    out = {}
+    for name, inv in (state.get("inventory") or {}).items():
+        iid = inv.get("id")
+        item = d["items"].get(str(iid)) or {}
+        quests = set(by_item.get(iid, set())) | set(item.get("relatedQuests") or [])
+        start = item.get("startQuest")
+        if start:
+            quests.add(int(start))
+        live = sorted(q for q in quests if q in log or (q == start and q not in done))
+        if not live:
+            continue
+        q = live[0]
+        title = (d["quests"].get(str(q)) or {}).get("name", f"quest {q}")
+        ahead = next((i for i, st in enumerate(flat) if st.get("q") == q), None)
+        if ahead is not None:
+            continue  # the route does this quest: keep it in the bags
+        when = f"about {ahead} steps away" if ahead is not None else "not in your current route"
+        # Only bank what the current route won't ask for: a bank is passed before the quest comes up again.
+        can_bank = bank and ahead is None
+        sources = [((d["objects"].get(str(o)) or {}).get("name") or "") for o in item.get("objectDrops") or []]
+        sources += [((d["npcs"].get(str(n)) or {}).get("name") or "") for n in item.get("npcDrops") or []]
+        sources = [x for x in dict.fromkeys(sources) if x][:2]
+        if start == q and q not in log and sources and ahead is None:
+            from_ = " and ".join(sources)
+            out[name] = {"action": "drop", "why": f"starts {title} ({when}); it drops again from {from_}"}
+        elif can_bank:
+            out[name] = {
+                "action": "bank",
+                "why": f"needed later for {title} ({when}); bank it in {bank[1]} (in about {bank[0]} steps)",
+            }
+    return out
+
+
 VENDOR_FLAG, REPAIR_FLAG = 4, 16384  # QuestieDB npcFlags (classic layout)
 
 
@@ -1057,6 +1120,12 @@ def main(argv):
         qids = [int(x) for x in args[args.index("--quests") + 1 :] if x.isdigit()]
         for r in party_savings(qids, _opt(args, "--level", 10, float)):
             print(json.dumps(r, ensure_ascii=False))
+    elif cmd == "itemplan":
+        state = json.loads(Path(args[0]).read_text(encoding="utf-8"))
+        spec = importlib.util.spec_from_file_location("route", args[1])
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        print(json.dumps(item_plan(state, mod.ROUTE), ensure_ascii=False, indent=1))
     elif cmd == "vendors":
         print(
             json.dumps(

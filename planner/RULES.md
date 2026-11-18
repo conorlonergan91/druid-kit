@@ -164,3 +164,7 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   food" note at a town or camp vendor on the path (camps count: e.g. the clothier at Ironband's Excavation).
 - The step tracker names the nearest vendor itself when bags drop to 3 free; build `vendors.json` for every zone the
   route visits so it knows them (`rk.py vendors --zones "A,B" > build/vendors.json`).
+- Quest items needed much later (RULES v12b, player request): `rk.py itemplan state.json route.py >
+  build/items.json` on every update. An item for a quest the route doesn't do goes to the bank at the next bank on
+  the route; a quest-start item that drops again (QuestieDB objectDrops/npcDrops) is dropped instead when its quest
+  isn't planned. Items the route still uses stay in the bags. The bag check and bank check show the advice.

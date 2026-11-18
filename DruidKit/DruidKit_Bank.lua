@@ -108,6 +108,11 @@ local function classify()
             why = "library book: safe here until you visit the Stormwind library" })
           name = nil
         end
+        local later = name and DruidKit_BankLater and DruidKit_BankLater(name)
+        if later then
+          table.insert(deposit, { bag = bag, slot = slot, link = link, icon = icon, count = count or 1, why = later })
+          name = nil
+        end
         if name and DruidKit_Protected and DruidKit_Protected(link, bag, slot) then name = nil end  -- quest needs it: keep in bags
         if name and classID == 9 and DruidKit_RecipeCheck then
           local verdict, skill, need, have = DruidKit_RecipeCheck(link)

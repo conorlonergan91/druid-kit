@@ -124,4 +124,55 @@ TR = {
 err, warn = route_check.check(TR, home="Lakeshire", flights=["Nighthaven", "Rut'theran", "Auberdine"])
 check(any("no direct flight Nighthaven -> Auberdine" in e for e in err), "two-hop flight in one step is an error", err)
 check(any("transport step without how" in w for w in warn), "a boat step without directions is flagged", warn)
+# Item plan: quest items for quests the route won't do soon -> bank (bank on the way) or drop (starter that drops).
+saved_db = rk._DB
+rk._DB = {
+    "quests": {
+        "161": {"name": "A Dark Threat Looms", "sourceItemId": 2563},
+        "129": {"name": "A Free Lunch", "sourceItemId": 5534},
+        "86613": {"name": "Excavation Tools"},
+    },
+    "items": {
+        "2563": {"name": "Strange Smelling Powder"},
+        "5534": {"name": "Parker's Lunch"},
+        "278049": {"name": "Excavation Tools", "startQuest": 86613, "objectDrops": [665282]},
+    },
+    "objects": {"665282": {"name": "Excavation Tools pile"}},
+    "npcs": {},
+}
+STATE = {
+    "log": {"161": {}, "129": {}},
+    "done": [],
+    "inventory": {
+        "Strange Smelling Powder": {"id": 2563},
+        "Parker's Lunch": {"id": 5534},
+        "Excavation Tools": {"id": 278049},
+    },
+}
+ROUTE_IP = {
+    "sections": [
+        {
+            "title": "T",
+            "steps": [
+                {"do": "note", "text": "Teleport"},
+                {"do": "turnin", "q": 5061, "name": "Aquatic Form", "goto": ["Darnassus", 35.4, 8.4]},
+                {"do": "turnin", "q": 129, "name": "A Free Lunch", "goto": ["Redridge Mountains", 10.2, 71.5]},
+            ],
+        }
+    ]
+}
+plan = rk.item_plan(STATE, ROUTE_IP)
+rk._DB = saved_db
+check(
+    plan.get("Strange Smelling Powder", {}).get("action") == "bank"
+    and "Darnassus" in plan["Strange Smelling Powder"]["why"],
+    "a quest item for a quest not in the route is banked at the next bank",
+    plan,
+)
+check("Parker's Lunch" not in plan, "an item the route still needs stays in the bags", plan)
+check(
+    plan.get("Excavation Tools", {}).get("action") == "drop" and "drops again" in plan["Excavation Tools"]["why"],
+    "a quest starter that drops again is dropped when the route doesn't do it",
+    plan,
+)
 done("planner_test")

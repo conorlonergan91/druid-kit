@@ -145,6 +145,11 @@ def state(claude_progress, druidkit, char=None):
         "y": b.get("y"),
         "gold": b.get("gold"),
         "bags_free": (me.get("bags") or {}).get("free"),
+        "inventory": {
+            name: {"id": v.get("id"), "count": v.get("count")}
+            for name, v in ((me.get("inventory") or {}).get("items") or {}).items()
+            if isinstance(v, dict)
+        },
         "log": log,
         "done": done,
         "travel": {

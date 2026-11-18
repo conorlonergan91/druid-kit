@@ -69,7 +69,9 @@ the player has handed in (steps passed on the way are logged `passed` for the ne
    If `travel.flightsKnown` is false, ask the player to open any flight master's map once.
    Bags (RULES v12): under 8 free slots -> first step is a sell stop at the nearest vendor. Refresh
    `build/vendors.json` (`rk.py vendors --zones "<every zone the route visits>"`); build_now puts it in the guide
-   and the tracker names the nearest vendor when bags drop to 3 free (`/dk steps vendor` sets the arrow). Then run `build_now.py`
+   and the tracker names the nearest vendor when bags drop to 3 free (`/dk steps vendor` sets the arrow).
+   Quest items needed much later: `rk.py itemplan state.json route_vN.py > build/items.json` (bank at the next
+   bank on the route, or drop a quest-start item that drops again); build_now puts it in the guide. Then run `build_now.py`
    (You lines) then `make_guide.py`; Lua 5.1 `loadstring` check on every
    file; `test/run_all.sh`.
 5. Update the Quest Guide doc (ids in HANDOFF). Read it first; one heading plus ordered lists in a single replace

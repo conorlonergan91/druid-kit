@@ -63,6 +63,13 @@ def route_lua(route) -> list:
             out.append(f"      {{ {fields} }},")
         out.append("    } },")
     out.append("  },")
+    # Bag plan for quest items needed later (tools/item_plan.py): name -> { action = bank|drop|keep, why = ... }
+    items = route.get("items") or {}
+    if items:
+        out.append("  items = {")
+        for name, it in items.items():
+            out.append(f"    [{lua_str(name)}] = {{ action = {lua_str(it['action'])}, why = {lua_str(it['why'])} }},")
+        out.append("  },")
     out.append("}")
     return out
 

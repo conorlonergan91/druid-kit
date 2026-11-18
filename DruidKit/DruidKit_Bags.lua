@@ -256,6 +256,42 @@ local function questBlob()
   blob = table.concat(parts, " | "):lower()
   return blob
 end
+-- Which quest in your log an item belongs to (its name in that quest's title or objective lines).
+local function questFor(name)
+  if not (name and C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetInfo) then return end
+  local n = name:lower()
+  for i = 1, (C_QuestLog.GetNumQuestLogEntries() or 0) do
+    local q = C_QuestLog.GetInfo(i)
+    if q and not q.isHeader and q.questID then
+      local text = (q.title or ""):lower()
+      for _, o in ipairs((C_QuestLog.GetQuestObjectives and C_QuestLog.GetQuestObjectives(q.questID)) or {}) do
+        text = text .. " | " .. (o.text or ""):lower()
+      end
+      if text:find(n, 1, true) or text:find((n:gsub("s$", "")), 1, true) then return q.questID, q.title end
+    end
+  end
+end
+
+-- A quest item you won't need for a while: the update's plan (DruidKitRoute.items) says bank or drop it; without a
+-- plan, bank it when the route passes a bank within ~30 steps and the quest isn't in the route at all.
+local function laterPlan(name, qid, qtitle)
+  local plan = DruidKitRoute and DruidKitRoute.items and DruidKitRoute.items[name]
+  if plan and plan.action ~= "keep" then return plan.action, plan.why end
+  if plan then return nil end
+  if not (qid and DruidKit_StepsAhead and DruidKit_NextBank) then return nil end
+  local ahead = DruidKit_StepsAhead(qid)
+  if ahead then return nil end    -- the route still does this quest: keep it (no way to know you'll pass a bank again)
+  local bank = DruidKit_NextBank(30)
+  if not bank then return nil end
+  return "bank", ("needed later for %s (%s); bank it in %s (in about %d steps)"):format(qtitle or "a quest",
+    ahead and ("about " .. ahead .. " steps away") or "not in your current route", bank.where, bank.steps)
+end
+
+DruidKit_BankLater = function(name)
+  local ok, action, why = pcall(function() local qid, qt = questFor(name); return laterPlan(name, qid, qt) end)
+  if ok and action == "bank" then return why end
+end
+
 local function questMentions(name)
   if not name then return false end
   local b = questBlob()
@@ -414,10 +450,18 @@ local function scan()
         local isQuest, questID, active = questInfo(bag, slot)
         local guard = name and protectedReason(link, bag, slot)
         if guard then
-          -- quest items, library books and Waylaid Crates: never sold or dropped
+          -- quest items, library books and Waylaid Crates: never sold (but a quest item needed much later can go
+          -- to the bank, or be dropped when the plan says it's easy to get again)
           if isBook(name) then
             table.insert(bank, { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1,
               why = "library book: hand in to Garion Wendell (Stormwind library) or bank it" })
+          elseif guard == "quest item" or guard == "your quest needs this" then
+            local qid, qtitle = questFor(name)
+            local action, why = laterPlan(name, qid, qtitle)
+            local e = { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1, why = why,
+              value = 0 }
+            if action == "bank" then table.insert(bank, e)
+            elseif action == "drop" then table.insert(unusable, e) end
           end
         elseif name then
           local entry = { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1 }
@@ -427,6 +471,10 @@ local function scan()
           if questID and doneQ then
             entry.why, entry.value = "starts a quest you've already done: destroy it", (price or 0) * (count or 1)
             table.insert(unusable, entry)
+          elseif questID and not active and laterPlan(name, nil, nil) then
+            local action, why = laterPlan(name, nil, nil)
+            entry.why, entry.value = why, 0
+            table.insert(action == "bank" and bank or unusable, entry)
           elseif questID and not active then
             if not starterSeen[questID] then
               starterSeen[questID] = entry

@@ -571,6 +571,21 @@ function DruidKit_StepGo()
   say("arrow set to " .. label .. (customNav and ". The route arrow comes back when you arrive there, or with Now." or "."))
 end
 
+-- For the bag check: how many steps until the route deals with a quest, and the next bank on the route.
+local BANK_ZONES = { ["Stormwind City"] = true, ["Ironforge"] = true, ["Darnassus"] = true }
+DruidKit_StepsAhead = function(q)
+  if not q then return nil end
+  for i = pos, #steps do
+    if steps[i].q == q then return i - pos end
+  end
+end
+DruidKit_NextBank = function(within)
+  for i = pos, math.min(#steps, pos + (within or 30)) do
+    local at = steps[i].at
+    if at and BANK_ZONES[at[1]] then return { steps = i - pos, where = at[1] } end
+  end
+end
+
 -- Catch-up: when the route is (re)loaded behind where you really are, jump to just after the last quest you've
 -- handed in. Steps passed on the way are logged "passed"; their quests stay behind unless they're in your log,
 -- and the next update re-plans them.
