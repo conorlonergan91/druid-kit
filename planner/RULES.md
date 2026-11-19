@@ -175,3 +175,14 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   Alther's Mill only after The Everstill Bridge). When a giver has other quests, plan the new quest's accept after
   those are handed in, and the step tip says it may need the earlier quest first. Record what play shows in
   knowledge/facts.json.
+
+## Added in v13: what the player enjoys (19 Nov: "not a fan of kill loads of monsters to collect X loot")
+- Collect-from-kills quests (items that drop from mobs) cost 1.4x their minutes in `rk.py` (DROP_DISLIKE). Prefer
+  chains, deliveries, kill-count, object and dungeon quests when XP/h is close.
+- Keep a drop quest only if it unlocks a good follow-up (Blackrock Menace -> Shadow Magic, Tharil'zun) or shares
+  its mobs with another quest (Murloc Poachers + Selling Fish). Drop it (abandon step) when its mobs are 2+ levels
+  above the player or the step log shows deaths there.
+- Quest chains that pay a lasting reward (Cozy Sleeping Bag: +3% XP, rest anywhere, two 12-slot bags) are worth
+  their travel; fold their steps into trips the route makes anyway.
+- Money (mount at 40 = 100g): every update reports gold vs the mount target; sell stops before long trips; the
+  addon sells junk and unusable items and repairs at every vendor by itself.

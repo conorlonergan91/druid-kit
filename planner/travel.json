@@ -487,6 +487,13 @@
    "b": "Auberdine",
    "min": 3,
    "how": "flight"
+  },
+  {
+   "a": "Stonetalon Peak",
+   "b": "Auberdine",
+   "min": 5,
+   "how": "flight",
+   "note": "classic geography (unverified in Forever)"
   }
  ],
  "zone_yards": {

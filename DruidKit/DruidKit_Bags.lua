@@ -673,7 +673,7 @@ local function scan()
   add(spare)
   add(auction, "worth more at the Auction House: drop it last")
   results = { upgrades = up, junk = junk, unusable = unusable, use = use, junkValue = junkValue, drop = drop, kept = kept,
-    bank = bank, auction = auction }
+    bank = bank, auction = auction, spare = spare }
   return results
 end
 
@@ -889,6 +889,88 @@ sellJunk = function()
   else say("no grey items to sell.") end
   C_Timer.After(0.5, refresh)
 end
+-- Mount money: Apprentice Riding is 100g at level 40 (the mount comes with it). Target grows with level (quests pay
+-- more gold later), so being behind early is normal; the line says how far.
+local MOUNT_GOLD = 100 * 10000
+local function mountTarget(lvl)
+  if lvl >= 40 then return MOUNT_GOLD end
+  if lvl <= 20 then return 0 end
+  return math.floor(MOUNT_GOLD * ((lvl - 20) / 20) ^ 1.5)
+end
+local function mountLine()
+  local have = (GetMoney and GetMoney()) or 0
+  local lvl = UnitLevel("player") or 1
+  local target = mountTarget(lvl)
+  local head = ("Mount money: %s of 100g"):format(money(have))
+  if have >= MOUNT_GOLD then return head .. ": ENOUGH. Train riding at 40." end
+  if target == 0 then return head .. ": start saving now (about 3g by level 22)." end
+  if have >= target then return head .. (": on track (aim for %s at level %d)."):format(money(target), lvl) end
+  return head .. (": BEHIND by %s (aim for %s at level %d). Sell on the Auction House, skip buys you don't need.")
+    :format(money(target - have), money(target), lvl)
+end
+DruidKit_MountLine = function() local ok, l = pcall(mountLine); return ok and l or nil end
+DruidKit_MountTarget = mountTarget
+
+-- Autopilot at every vendor (on unless /dk autosell off): sell grey junk, gear druids can't use or that's worse
+-- than yours, and spare materials; then repair. Kept: quest items, upgrades, gear sets, bank items, anything
+-- worth more on the Auction House, and green or better Bind on Equip gear (sell those on the Auction House).
+-- Mistakes: the vendor's Buyback tab has the last 12 items.
+local autoBusy = false
+local function bindTypeOf(link) return select(14, getInfo(link)) end
+local function autoSellList(r)
+  local out = {}
+  local function addAll(list)
+    for _, e in ipairs(list or {}) do
+      local link = e.link
+      local _, _, q = getInfo(link)
+      local value = select(11, getInfo(link)) or 0
+      local boeGood = (q or 0) >= 2 and bindTypeOf(link) == 2
+      if value > 0 and not boeGood and not protectedReason(link, e.bag, e.slot) then table.insert(out, e) end
+    end
+  end
+  addAll(r.junk); addAll(r.unusable); addAll(r.spare)
+  return out
+end
+local function autoPilot()
+  if autoBusy or not (DruidKitDB and DruidKitDB.autoSell ~= false) then return end
+  local r = scan()
+  local list = autoSellList(r)
+  autoBusy = true
+  local sold, total, i = 0, 0, 0
+  local function finish()
+    autoBusy = false
+    local repaired = 0
+    if CanMerchantRepair and CanMerchantRepair() and GetRepairAllCost then
+      local cost, need = GetRepairAllCost()
+      if need and cost and cost > 0 and (GetMoney() or 0) >= cost then RepairAllItems(); repaired = cost end
+    end
+    local parts = {}
+    if sold > 0 then table.insert(parts, ("sold %d item%s for %s"):format(sold, sold == 1 and "" or "s", money(total))) end
+    if repaired > 0 then table.insert(parts, "repaired for " .. money(repaired)) end
+    if #parts > 0 then
+      say(table.concat(parts, ", ") .. ". Sold something by mistake? The vendor's Buyback tab has it.")
+      say(mountLine())
+    end
+    if r.auction and #r.auction > 0 then
+      say(("%d item%s worth more on the Auction House: kept (Alt+B lists them)."):format(#r.auction, #r.auction == 1 and "" or "s"))
+    end
+    C_Timer.After(0.5, function() pcall(refresh) end)
+  end
+  local function step()
+    i = i + 1
+    local e = list[i]
+    if not e or i > 24 or not (MerchantFrame and MerchantFrame:IsShown()) then return finish() end
+    if slotInfo(e.bag, e.slot) == e.link then
+      if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(e.bag, e.slot) else UseContainerItem(e.bag, e.slot) end
+      sold = sold + 1
+      total = total + (select(11, getInfo(e.link)) or 0) * (e.count or 1)
+    end
+    C_Timer.After(0.2, step)
+  end
+  step()
+end
+DruidKit_AutoPilot = autoPilot
+
 local function showSellButton()
   if not MerchantFrame then return end
   if not sellBtn then
@@ -963,7 +1045,13 @@ ev:SetScript("OnEvent", function(_, e)
     end)
     return
   end
-  if e == "MERCHANT_SHOW" then pcall(showSellButton); C_Timer.After(0.2, function() pcall(refresh) end) return end
+  if e == "MERCHANT_SHOW" then
+    pcall(showSellButton)
+    C_Timer.After(0.3, function() pcall(autoPilot) end)
+    C_Timer.After(0.2, function() pcall(refresh) end)
+    return
+  end
+  if e == "PLAYER_LEVEL_UP" then C_Timer.After(2, function() local l = DruidKit_MountLine(); if l then say(l) end end) end
   if e == "MERCHANT_CLOSED" then C_Timer.After(0.2, function() pcall(refresh) end) return end
   if pending then return end
   pending = true
@@ -1058,11 +1146,16 @@ local lootBox
 local lootPending = {}      -- loot slot -> { name, link, why } for items worth taking that are still in the loot
 local lootShouted = {}      -- link -> time of the last shout
 local function clearPending() for k in pairs(lootPending) do lootPending[k] = nil end end
-local function important(link, why, verdict)
+-- Worth stopping for: upgrades and set pieces; any green or better gear; and anything (white weapons too) that sells
+-- for 20 silver or more at a vendor, or 50 silver on the Auction House.
+local function important(link, why, verdict, qty)
   if verdict ~= "take" or not link then return false end
-  local _, _, q, _, _, _, _, _, equipLoc = getInfo(link)
+  local _, _, q, _, _, _, _, _, equipLoc, _, price = getInfo(link)
   if upgradeFor(link) or keepReason(link) then return true end
-  return equipLoc ~= nil and equipLoc ~= "" and (q or 0) >= 2 and (why or ""):find("^sells for") ~= nil
+  if equipLoc ~= nil and equipLoc ~= "" and (q or 0) >= 2 then return true end
+  if (price or 0) * (qty or 1) >= 2000 then return true end
+  local ah = ahPrice(link)
+  return ah ~= nil and ah * (qty or 1) >= 5000
 end
 local function bigAlert(msg)
   if RaidNotice_AddMessage and RaidWarningFrame then
@@ -1112,7 +1205,7 @@ local function showLootHelp()
       else
         local link = GetLootSlotLink and GetLootSlotLink(i)
         if link then verdict, why = lootVerdict(link, qty, isQuest, cheapest) else verdict, why = "take", "" end
-        if important(link, why, verdict) then
+        if important(link, why, verdict, qty) then
           lootPending[i] = { name = name, link = link, why = why }
           local now = (GetTime and GetTime()) or 0
           if not lootShouted[link] or now - lootShouted[link] > 60 then
@@ -1292,3 +1385,20 @@ lev:SetScript("OnEvent", function(_, e, a1)
     rolls[a1] = nil; pcall(drawRolls)
   end
 end)
+
+-- /dk autosell [on|off] and /dk mount (chained in front of the helper commands).
+do
+  local prev = DruidKit_HelperCommand
+  DruidKit_HelperCommand = function(cmd, rest)
+    if cmd == "autosell" then
+      rest = (rest or ""):lower()
+      if rest == "off" then DruidKitDB.autoSell = false elseif rest == "on" or rest == "" then DruidKitDB.autoSell = true end
+      say("selling junk and repairing at vendors by itself: " .. (DruidKitDB.autoSell == false and "OFF." or "ON (/dk autosell off stops it)."))
+      return true
+    elseif cmd == "mount" or cmd == "gold" then
+      say(DruidKit_MountLine() or "no money data yet.")
+      return true
+    end
+    return prev and prev(cmd, rest)
+  end
+end

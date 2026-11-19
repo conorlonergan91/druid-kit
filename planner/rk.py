@@ -330,6 +330,7 @@ def quest(qid):
         "kills": kills,
         "mob_level": (sum(mob_levels) / len(mob_levels)) if mob_levels else None,
         "elite": elite,
+        "drops": bool(drops),  # collect-from-kills quest (the player dislikes these: RULES v13)
         "xp": QUEST_XP.get(int(qid), 0),
         "pre_all": pre_all,
         "pre_any": pre_any,
@@ -410,6 +411,11 @@ def grind_xp_per_min(level):
     return mob_xp(level, level) * 60 / (sec_per_kill(level, level) * GRIND_FACTOR)
 
 
+# The player dislikes "kill monsters to collect N items" quests (19 Nov). Their kill time counts this much more, so
+# chains, deliveries, kill-count and object quests win when the XP is close.
+DROP_DISLIKE = 1.4
+
+
 def quest_minutes(q, level, party=1, from_point=None):
     """Minutes to do a quest's objectives once you're at its area (no hub travel)."""
     lvl = q["mob_level"] or q["level"]
@@ -423,6 +429,8 @@ def quest_minutes(q, level, party=1, from_point=None):
         m += 6.0  # place not in the data: allow time to find it
     if q["elite"] and party == 1:
         m *= 2.5  # solo elites: slow and risky
+    if q.get("drops"):
+        m *= DROP_DISLIKE  # player preference (RULES v13): collect-from-kills quests cost more than their minutes
     return m + 1.0  # talk to giver and hand in
 
 
