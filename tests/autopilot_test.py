@@ -38,6 +38,28 @@ check(g.REPAIRED is True, "repaired", g.REPAIRED)
 check(any("Mount money" in p for p in said), "mount money line after selling", said[-2:])
 check(any("Buyback" in p for p in said), "says how to undo", "")
 
+# Cooked food (Well Fed) and cooking meat are never sold by the autopilot (19 Nov: it sold Redridge Goulash).
+L = run(r"""
+ITEMS.goulash = {"Redridge Goulash","goulash",1,15,10,"","",20,"",1,40,0,5}
+ITEMS.spidermeat = {"Crisp Spider Meat","spidermeat",1,10,0,"","",10,"",1,8,7,8}
+ITEMS.mutton = {"Mutton Chop","mutton",1,15,5,"","",20,"",1,25,0,5}
+ITEMS.bread = {"Old Bread","bread",1,5,1,"","",20,"",1,1,0,5}
+C_TooltipInfo = { GetHyperlink = function(l)
+  if l == "goulash" then return { lines = { { leftText = "Use: Restores health. If you spend at least 10 seconds eating you will become well fed." } } } end
+  return { lines = {} } end }
+BAG[0][8] = "goulash"; BAG[0][9] = "spidermeat"; BAG[0][10] = "bread"
+C_Container.GetContainerNumSlots = function(b) return b == 0 and 10 or 0 end
+DruidKit_NeededFor = function(name) return nil, true, false end
+""")
+L.execute(r"""
+ev=frames[1]; ev.on_OnEvent(ev,"PLAYER_LOGIN"); ev.on_OnEvent(ev, "MERCHANT_SHOW")
+""")
+sold2 = list(L.globals().SOLD.values())
+print("sold2", sold2)
+check("goulash" not in sold2, "cooked Well Fed food is never auto-sold", sold2)
+check("spidermeat" not in sold2, "cooking materials are never auto-sold", sold2)
+check("bread" not in sold2, "no food is auto-sold (it stays a suggestion in Alt+B)", sold2)
+
 L = run("DruidKitDB = { autoSell = false }")
 L.execute(r"""
 ev=frames[1]; ev.on_OnEvent(ev,"PLAYER_LOGIN"); ev.on_OnEvent(ev, "MERCHANT_SHOW")

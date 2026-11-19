@@ -454,6 +454,14 @@ local function ahPrice(link)
 end
 DruidKit_AHPrice = ahPrice
 
+local function wellFed(link)
+  for _, t in ipairs(tooltipLines(link) or {}) do
+    local l = t:lower()
+    if l:find("well fed") or l:find("experience") then return true end
+  end
+  return false
+end
+
 local function scan()
   local up, junk, unusable, use, poles, spare, kept, bank = {}, {}, {}, {}, {}, {}, {}, {}
   local starterSeen = {}
@@ -534,6 +542,10 @@ local function scan()
           elseif classID == 2 and subID == 20 then
             entry.ilvl, entry.price = select(4, getInfo(link)) or 0, price or 0
             table.insert(poles, entry)
+          elseif classID == 0 and subID == 5 and not isQuest and wellFed(link) then
+            -- Cooked food with Well Fed: the +5% kill XP buff in Forever. Always keep it.
+            entry.why = "cooked food: eat it for the Well Fed +5% XP buff"
+            table.insert(kept, entry)
           elseif classID == 0 and subID == 5 and not isQuest then
             -- Food and drink: keep only your best stacks (sorted after the scan)
             local spell = GetItemSpell and GetItemSpell(link)
@@ -917,18 +929,24 @@ DruidKit_MountTarget = mountTarget
 -- Mistakes: the vendor's Buyback tab has the last 12 items.
 local autoBusy = false
 local function bindTypeOf(link) return select(14, getInfo(link)) end
+-- Only junk, gear (worse, or not for druids) and items for another class or profession. Never food or drink (cooked
+-- food is the +5% XP buff), never materials (cooking, alchemy: you may learn the recipe later) - those stay as
+-- suggestions in Alt+B. Learned 19 Nov: the first version sold Redridge Goulash and cooking meat.
 local function autoSellList(r)
   local out = {}
-  local function addAll(list)
+  local function addAll(list, gearOnly)
     for _, e in ipairs(list or {}) do
       local link = e.link
-      local _, _, q = getInfo(link)
-      local value = select(11, getInfo(link)) or 0
+      local _, _, q, _, _, _, _, _, equipLoc, _, value, classID = getInfo(link)
       local boeGood = (q or 0) >= 2 and bindTypeOf(link) == 2
-      if value > 0 and not boeGood and not protectedReason(link, e.bag, e.slot) then table.insert(out, e) end
+      local ok = not gearOnly or (equipLoc and equipLoc ~= "" and classID ~= 0) or restriction(link) ~= nil
+      if classID == 0 and not restriction(link) then ok = false end   -- consumables: food, drink, potions, scrolls
+      if classID == 7 or classID == 5 then ok = false end              -- trade goods, reagents
+      if gearOnly == false then ok = true end                          -- grey junk is always fine
+      if ok and (value or 0) > 0 and not boeGood and not protectedReason(link, e.bag, e.slot) then table.insert(out, e) end
     end
   end
-  addAll(r.junk); addAll(r.unusable); addAll(r.spare)
+  addAll(r.junk, false); addAll(r.unusable, true)
   return out
 end
 local function autoPilot()
