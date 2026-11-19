@@ -106,4 +106,34 @@ R = { DruidKitDB.routeStep, DruidKitDB.passedQ[115] == true }
 e = list(E.globals().R.values())
 check(e[0] == 1, "an early hand-in does not jump past a quest you're still doing", e[0])
 check(e[1] is False, "quests after it are not passed", e[1])
+
+# 19 Nov: progress in a later section must not pass an earlier, untouched section.
+F = LuaRuntime(unpack_returned_tuples=True)
+F.execute(MOCKS)
+F.execute(r"""
+LOG = { [245] = { title = "Eight-Legged Menaces" } }
+DONE = { [163] = true }
+DruidKitRoute = { id = "f2", sections = {
+  { title = "Deadmines quests", steps = {
+    { ["do"] = "accept", q = 132, name = "The Defias Brotherhood", at = { "Redridge Mountains", 21.4, 45.4 } },
+    { ["do"] = "accept", q = 168, name = "Collecting Memories", at = { "Stormwind City", 70.3, 40.8 } } } },
+  { title = "Duskwood", steps = {
+    { ["do"] = "accept", q = 163, name = "Raven Hill", at = { "Duskwood", 75.3, 48.8 } },
+    { ["do"] = "turnin", q = 163, name = "Raven Hill", at = { "Duskwood", 18.4, 56.4 } },
+    { ["do"] = "complete", q = 245, name = "Eight-Legged Menaces", at = { "Duskwood", 23.9, 28.8 } } } } } }
+DruidKitDB = { routeId = "f1", routeStep = 1 }
+""")
+F.execute(source("DruidKit/DruidKit_Steps.lua"))
+F.execute(r"""
+for _, f in ipairs(frames) do if f.events and f.events.QUEST_DETAIL then ev = f end end
+ev.on_OnEvent(ev, "PLAYER_LOGIN")
+R = { DruidKitDB.routeStep, DruidKitDB.passedQ[132] == true, DruidKitDB.passedQ[168] == true }
+said = false
+for _, p in ipairs(printed) do if p:find("later part") then said = true end end
+R[4] = said
+""")
+f = list(F.globals().R.values())
+print(f)
+check(f[0] == 1 and f[1] is False and f[2] is False, "an untouched earlier part is not passed", f)
+check(f[3] is True, "the player is told they have quests from a later part", f[3])
 done("catchup_test")

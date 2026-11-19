@@ -766,10 +766,15 @@ local function catchUp()
   if last < pos then return 0 end
   -- Stop at the first quest still in your log: you're working there, and a quest handed in early (out of order)
   -- must not pass the steps between (seen 18 Nov: Everstill Bridge handed in early passed Shadow Magic + Tharil'zun).
+  -- Only pass steps in the section you're working in. A whole earlier part you haven't started (19 Nov: the
+  -- Deadmines quests, while the player had gone on to Duskwood) stays: those quests are not "behind you".
   local n = 0
+  local here = steps[last].sec
   for i = pos, last do
     local st = steps[i]
-    if not isDone(i) then
+    if st.sec ~= here then
+      -- leave it; Next > / Go let you work in your own order
+    elseif not isDone(i) then
       if st.q and (st["do"] == "accept" or st["do"] == "complete" or st["do"] == "turnin") then
         if logEntry(st.q, st.name) then break end
         DB.passedQ[st.q] = true; n = n + 1; logStep(i, "passed")
@@ -787,6 +792,17 @@ DruidKit_StepsCatchUp = function()
   if ok and n and n > 0 then
     say(("caught up with you: %d step%s behind you passed (from step %d to %d). The Back button goes back one step.")
       :format(n, n == 1 and "" or "s", before, pos))
+  end
+  -- Quests from a later part already in your log while the window waits on an earlier part: say so.
+  local cur = steps[pos]
+  if cur then
+    for i = pos + 1, #steps do
+      local st = steps[i]
+      if st.sec ~= cur.sec and st.q and st["do"] == "complete" and logEntry(st.q, st.name) then
+        say(("you also have quests from a later part (%s). The window stays on %s; use Next > and Go if you want to do them first."):format(st.sec or "?", cur.sec or "this part"))
+        break
+      end
+    end
   end
 end
 
