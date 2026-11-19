@@ -51,12 +51,25 @@ local function logEntry(q, name)
   end
 end
 
-local function turnedIn(q, name)
+-- Quests matched by name only: how many different quests with that title you've handed in. Two quests can share a
+-- title (Forever: two "Explosive Consultation", two "Detonation at a Distance"), so the k-th step of a name counts.
+local function doneCount(name)
+  local v = name and titleDone[name]
+  if v == true then return 1 end
+  if type(v) == "table" then local n = 0; for _ in pairs(v) do n = n + 1 end; return n end
+  return 0
+end
+local function addTitle(name, id)
+  if not name then return end
+  if type(titleDone[name]) ~= "table" then titleDone[name] = titleDone[name] and { old = true } or {} end
+  titleDone[name][id or "?"] = true
+end
+local function turnedIn(q, name, k)
   if q then
     local f = (C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted) or IsQuestFlaggedCompleted
     if safe(f, q) then return true end
   end
-  return (not q) and name and titleDone[name] or false
+  return (not q) and name and doneCount(name) >= (k or 1) or false
 end
 
 local function objectivesDone(q, name)
@@ -147,15 +160,24 @@ local function isDone(i)
   local key = st.q or st.name
   if key and DB.skipQ[key] then return true end
   local d = st["do"]
+  -- k-th step of this kind for a name-only quest (titles can repeat)
+  local k = 1
+  if not st.q and st.name then
+    for j = 1, i - 1 do
+      local o = steps[j]
+      if o["do"] == d and not o.q and o.name == st.name then k = k + 1 end
+    end
+  end
   -- A quest the route passed while you were further on (catch-up) stays behind unless it's in your log.
   if st.q and DB.passedQ and DB.passedQ[st.q] and (d == "accept" or d == "complete" or d == "turnin")
     and not logEntry(st.q, st.name) then return true end
   if d == "accept" then
+    if not st.q then return (logEntry(nil, st.name) ~= nil and doneCount(st.name) >= k - 1) or doneCount(st.name) >= k end
     return logEntry(st.q, st.name) ~= nil or turnedIn(st.q, st.name)
   elseif d == "turnin" then
-    return turnedIn(st.q, st.name)
+    return turnedIn(st.q, st.name, k)
   elseif d == "complete" then
-    return objectivesDone(st.q, st.name) or turnedIn(st.q, st.name)
+    return objectivesDone(st.q, st.name) or turnedIn(st.q, st.name, k)
   elseif d == "goto" then
     return arrived[i] == true or (st.to ~= nil and placeMatches(st.to))
   elseif d == "fly" or d == "hearth" then
@@ -1005,7 +1027,7 @@ ev:SetScript("OnEvent", function(_, e, a1)
     pcall(draw)
   elseif e == "QUEST_TURNED_IN" then
     local t = a1 and C_QuestLog and C_QuestLog.GetTitleForQuestID and safe(C_QuestLog.GetTitleForQuestID, a1)
-    if t then titleDone[t] = true end
+    if t then addTitle(t, a1) end
     soon()
   elseif e == "BAG_UPDATE_DELAYED" then
     local now = (GetTime and GetTime()) or 0
@@ -1044,7 +1066,7 @@ ev:SetScript("OnEvent", function(_, e, a1)
     if autoOn() then
       local q = safe(GetQuestID)
       local st = wanted("turnin", q, safe(GetTitleText))
-      if st and pickReward(st) and st.name and not st.q then titleDone[st.name] = true end
+      if st and pickReward(st) and st.name and not st.q then addTitle(st.name, q or "pick") end
     end
   elseif e == "GOSSIP_SHOW" then
     gossipQuests()
