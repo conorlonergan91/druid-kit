@@ -195,3 +195,11 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   player has a group.
 - When a hub is mostly drop grinds, leave it (abandon step) for a hub with deliveries and kill counts (19 Nov:
   Redridge -> Duskwood).
+
+## Added in v13c (19 Nov, player: "fine when they're easy to pick out on their own and don't run away; the ones that
+## hang out together and murder you are annoying")
+- `rk.py crowd`: average other mobs within 15 yards of a quest's target spawns. Kill/drop quests with 2.0 or more
+  (camps: Blackrock 6.4, Shadow Magic 8.6, Mosshide gnolls 2.5, Shadowhide 2.2) are left out (SKIP_PACKS); open
+  beasts score under 1 (Duskwood wolves 0.85, spiders 0.7, Wetlands raptors 0.5).
+- Humanoids that flee at low health (gnolls, murlocs, orcs, Defias, kobolds...) cost +25% time; beasts and undead don't
+  flee. Between 1.5 and 2.0, the step tip says "pull one at a time".

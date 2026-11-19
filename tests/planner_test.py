@@ -175,4 +175,12 @@ check(
     "a quest starter that drops again is dropped when the route doesn't do it",
     plan,
 )
+
+# RULES v13c: packed camps out, open beasts in
+import importlib, sys as _s
+_s.path.insert(0, str(HERE.parent / "planner")) if "HERE" in dir() else None
+import rk as _rk
+c20, c226 = _rk.crowd(20), _rk.crowd(226)
+check(c20 and c20["packs"] >= 2.0 and c20["runners"], "Blackrock camp counts as packs of fleeing humanoids", c20)
+check(c226 and c226["packs"] < 1.0 and not c226["runners"], "Duskwood wolves stand alone and don't flee", c226)
 done("planner_test")

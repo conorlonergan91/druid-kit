@@ -421,6 +421,58 @@ SKIP_DROPS = True
 MAX_DROPS = 3
 
 
+# RULES v13c (player, 19 Nov: "fine when they're easy to pick out on their own and don't run away; the ones that
+# hang out together and murder you are annoying"): how crowded the target mobs stand, and whether they flee.
+SKIP_PACKS = True
+CROWD_MAX = 2.0     # average other mobs within CROWD_YARDS of a target spawn; camps are 2-9, open beasts under 1
+CROWD_YARDS = 15
+RUNNER_WORDS = ("gnoll", "kobold", "murloc", "blackrock", "defias", "ogre", "troll", "harpy", "centaur", "quilboar",
+                "trogg", "bandit", "smuggler", "thug", "cultist", "goblin", "dwarf", "tauren", "orc", "bluegill",
+                "mosshide", "shadowhide", "redridge", "riverpaw", "dragonmaw", "syndicate", "rogue", "pirate")
+_ZIDX, _CROWD = {}, {}
+
+
+def _zone_mobs(z):
+    if z not in _ZIDX:
+        pts = []
+        for nid, n in db()["npcs"].items():
+            if n.get("npcFlags", 0) != 0 or (n.get("minLevel") or 0) < 5:
+                continue
+            pts.extend((p[1], p[2]) for p in spawns("npc", nid) if p[0] == z)
+        _ZIDX[z] = pts
+    return _ZIDX[z]
+
+
+def crowd(qid):
+    """{'packs': avg other mobs within CROWD_YARDS of the quest's target spawns, 'runners': humanoids that flee}."""
+    qid = int(qid)
+    if qid in _CROWD:
+        return _CROWD[qid]
+    rec = db()["quests"].get(str(qid)) or {}
+    objs = _objectives(rec)
+    cids = list(objs["creatures"])
+    for it in objs["items"]:
+        cids += (db()["items"].get(str(it)) or {}).get("npcDrops") or []
+    tgt = [p for c in cids for p in spawns("npc", c)]
+    out = None
+    if tgt:
+        z = max({p[0] for p in tgt}, key=lambda zz: sum(1 for p in tgt if p[0] == zz))
+        if z in ZONE_YARDS:
+            w, h = ZONE_YARDS[z]
+            idx = _zone_mobs(z)
+            tot = n = 0
+            for p in tgt:
+                if p[0] != z:
+                    continue
+                c = sum(1 for x, y in idx if math.hypot((x - p[1]) / 100 * w, (y - p[2]) / 100 * h) < CROWD_YARDS) - 1
+                tot += max(c, 0)
+                n += 1
+            names = " ".join(((db()["npcs"].get(str(c)) or {}).get("name") or "").lower() for c in cids)
+            out = {"packs": round(tot / max(n, 1), 2), "runners": any(wd in names for wd in RUNNER_WORDS)}
+    _CROWD[qid] = out
+    return out
+
+
 def quest_minutes(q, level, party=1, from_point=None):
     """Minutes to do a quest's objectives once you're at its area (no hub travel)."""
     lvl = q["mob_level"] or q["level"]
@@ -436,6 +488,10 @@ def quest_minutes(q, level, party=1, from_point=None):
         m *= 2.5  # solo elites: slow and risky
     if q.get("drops"):
         m *= DROP_DISLIKE  # player preference (RULES v13): collect-from-kills quests cost more than their minutes
+    if q["kills"]:
+        c = crowd(q["id"])
+        if c:
+            m *= 1 + 0.25 * c["packs"] + (0.25 if c["runners"] else 0)  # RULES v13c: packs and fleeing mobs
     return m + 1.0  # talk to giver and hand in
 
 
@@ -570,6 +626,10 @@ def available(level, done, zones=None, window=(4, 1)):
             continue
         if SKIP_DROPS and q.get("drops") and q.get("drop_count", 0) > MAX_DROPS:
             continue  # RULES v13b: no "collect N from kills" quests (one named head or a few items is fine)
+        if SKIP_PACKS and (q["kills"] or q.get("drops")):
+            c = crowd(q["id"])
+            if c and c["packs"] >= CROWD_MAX:
+                continue  # RULES v13c: mobs in packs/camps (they pull together and kill you)
         z = q["start"][0][0] if q["start"] else q["zone"]
         if zones and z not in zones:
             continue
