@@ -137,6 +137,9 @@ local function knowsFlight(to)
   return false
 end
 
+local function skipKey(i) local st = steps[i]; return st and (st.q or st.name) end
+local function isSkipped(i) local k = skipKey(i); return k and DB.skipQ[k] and true or false end
+
 local function isDone(i)
   local st = steps[i]
   if not st then return true end
@@ -504,8 +507,10 @@ local function draw()
     resize()
     return
   end
+  if frame.skipBtn then frame.skipBtn:SetText(isSkipped(cur) and "Unskip" or "Skip") end
   if view and view ~= pos then
-    frame.head:SetText(("Viewing %d/%d (you're on %d)  ·  %s"):format(view, #steps, pos, st.sec or ""))
+    frame.head:SetText(("Viewing %d/%d (you're on %d)%s  ·  %s"):format(view, #steps, pos,
+      isSkipped(view) and " SKIPPED" or "", st.sec or ""))
   else
     frame.head:SetText(("Step %d/%d  ·  %s"):format(pos, #steps, st.sec or ""))
   end
@@ -645,8 +650,28 @@ function DruidKit_StepBack()
   pointArrow(); draw()
 end
 
+
+-- Unskip: bring a skipped quest back. The route goes back to its first step that isn't done.
+local function unskip(i)
+  local k = skipKey(i)
+  if not (k and DB.skipQ[k]) then return end
+  DB.skipQ[k] = nil
+  for j = 1, #steps do
+    if (steps[j].q or steps[j].name) == k and not isDone(j) then
+      if j < pos then pos = j end
+      break
+    end
+  end
+  view = nil; customNav = false; lastArrowFor = nil
+  say(("%s is back in the route."):format(steps[i].name or "the quest"))
+  evaluate()
+end
+
 -- Skip: leave this quest (every step of it) for now. Recorded for the next re-plan.
+-- On a skipped step (found with < Prev), the same button is Unskip.
 function DruidKit_StepSkip()
+  if view and isSkipped(view) then unskip(view); return end
+  if isSkipped(pos) then unskip(pos); return end
   local st = steps[pos]
   if not st then return end
   local key = st.q or st.name
@@ -654,7 +679,7 @@ function DruidKit_StepSkip()
   if key and (st["do"] == "complete" or st["do"] == "turnin" or st["do"] == "accept") then
     DB.skipQ[key] = { name = st.name, lvl = (xpNow()), deaths = DB.cur and DB.cur.deaths or 0,
       secs = DB.cur and math.floor(DB.cur.secs) or 0, at = date and date("%Y-%m-%d %H:%M") }
-    say(("skipped %s for now. Your quest log keeps it; the next update decides drop or come back. /dk steps unskip undoes this."):format(st.name or "this quest"))
+    say(("skipped %s for now. Your quest log keeps it. To bring it back: < Prev to it, then Unskip."):format(st.name or "this quest"))
   else
     DB.manual[pos] = true
   end
@@ -694,9 +719,10 @@ end
 function DruidKit_RouteSteps() return steps, pos end
 
 -- Automatic quest accept / hand-in ------------------------------------------------------------
--- Only for quests in the route from the current step onward; Shift held = you do it yourself.
+-- Accepts: quests in the route from the current step onward. Hand-ins: any quest in the route, also early ones.
+-- Shift held = you do it yourself.
 local function wanted(kind, q, name)
-  for i = math.max(1, pos - 3), #steps do
+  for i = (kind == "turnin" and 1 or math.max(1, pos - 3)), #steps do
     local st = steps[i]
     if st["do"] == kind and ((q and st.q == q) or (name and st.name == name and (not st.q or not q))) then return st end
   end
@@ -709,7 +735,14 @@ local function pickReward(st)
   local n = safe(GetNumQuestChoices) or 0
   if n <= 1 then safe(GetQuestReward, n); return true end
   if not (st and st.pick) then
-    say("pick your reward yourself (the guide has no choice for this one).")
+    local i, why
+    if DruidKit_RewardPick then i, why = DruidKit_RewardPick(n) end
+    if i then
+      safe(GetQuestReward, i)
+      say(("took %s (%s)."):format(safe(GetQuestItemInfo, "choice", i) or "a reward", why))
+      return true
+    end
+    say("pick your reward yourself (the guide couldn't read the rewards).")
     return false
   end
   for i = 1, n do

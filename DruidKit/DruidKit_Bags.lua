@@ -422,6 +422,24 @@ local function keepReason(link)
     return ("better for %s (+%d %s)"):format(role == "heal" and "healing" or "bear", math.floor(gain + 0.5), slotName:lower()), role
   end
 end
+-- Quest reward choice when the route names none: the biggest upgrade for your active role, else the one that sells
+-- for the most. Returns index, reason.
+local function rewardPick(n)
+  local best, bestGain, bestPrice, cash = nil, 0, -1, nil
+  for i = 1, n do
+    local link = GetQuestItemLink and GetQuestItemLink("choice", i)
+    if link then
+      local gain = upgradeFor(link, nil, true)
+      if gain and gain > bestGain then best, bestGain = i, gain end
+      local price = select(11, getInfo(link)) or 0
+      if price > bestPrice then cash, bestPrice = i, price end
+    end
+  end
+  if best then return best, "best upgrade for you" end
+  if cash then return cash, "no upgrade, so the one that sells for the most" end
+end
+DruidKit_RewardPick = function(n) local ok, i, why = pcall(rewardPick, n); if ok then return i, why end end
+
 DruidKit_GearKeep = function(link) local ok, a, b = pcall(keepReason, link); if ok then return a, b end end
 
 -- Scan ------------------------------------------------------------------------------
