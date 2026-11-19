@@ -929,26 +929,126 @@ DruidKit_MountTarget = mountTarget
 -- Mistakes: the vendor's Buyback tab has the last 12 items.
 local autoBusy = false
 local function bindTypeOf(link) return select(14, getInfo(link)) end
--- Only junk, gear (worse, or not for druids) and items for another class or profession. Never food or drink (cooked
--- food is the +5% XP buff), never materials (cooking, alchemy: you may learn the recipe later) - those stay as
--- suggestions in Alt+B. Learned 19 Nov: the first version sold Redridge Goulash and cooking meat.
+-- What the autopilot sells (player, 19 Nov: "fine to sell ingredients I have no recipe for"; "use consumables and
+-- sell the extras"): grey junk; gear that's worse or not for druids; items for another class or profession;
+-- materials no recipe of yours uses (herbs and anything a recipe in your bags needs are kept); and consumables beyond
+-- a sensible stock. Never food or drink (cooked food is the +5% XP buff), never quest items.
+local CONSUMABLE_KEEP = { [1] = 10, [2] = 8, [3] = 8, [4] = 4 }   -- potion, elixir, flask, scroll: keep this many each
+local BANDAGE = 7
+
+-- Materials named in the recipes you carry (not learned yet): keep them.
+local function recipeMats()
+  local names = {}
+  for bag = 0, 4 do
+    for slot = 1, (numSlots(bag) or 0) do
+      local link = slotInfo(bag, slot)
+      if link and select(12, getInfo(link)) == 9 then
+        for _, t in ipairs(tooltipLines(link) or {}) do names[#names + 1] = t end
+      end
+    end
+  end
+  local text = table.concat(names, "\n")
+  return function(name) return name and name ~= "" and text:find(name, 1, true) ~= nil end
+end
+
+-- Consumables over the stock to keep: whole stacks, so the total left is still at least the stock. Bandages: keep
+-- every stack of your best bandage; worse bandages go once you have 10 of the best.
+local function consumableExtras()
+  local groups, bandages = {}, {}
+  for bag = 0, 4 do
+    for slot = 1, (numSlots(bag) or 0) do
+      local link, count = slotInfo(bag, slot)
+      if link then
+        local name, _, q, ilvl, _, _, _, _, _, _, price, classID, subID = getInfo(link)
+        if classID == 0 and (CONSUMABLE_KEEP[subID] or subID == BANDAGE) and (price or 0) > 0 and (q or 1) >= 1 then
+          local isQ = questInfo(bag, slot)
+          if not isQ then
+            local g = groups[name] or { name = name, sub = subID, ilvl = ilvl or 0, total = 0, stacks = {} }
+            g.total = g.total + (count or 1)
+            table.insert(g.stacks, { bag = bag, slot = slot, link = link, count = count or 1, name = name })
+            groups[name] = g
+            if subID == BANDAGE then bandages[name] = g end
+          end
+        end
+      end
+    end
+  end
+  local best
+  for _, g in pairs(bandages) do if not best or g.ilvl > best.ilvl then best = g end end
+  local out = {}
+  for _, g in pairs(groups) do
+    local keep = CONSUMABLE_KEEP[g.sub]
+    if g.sub == BANDAGE then keep = (g == best or not best or best.total < 10) and math.huge or 0 end
+    table.sort(g.stacks, function(a, b) return a.count < b.count end)
+    local left = g.total
+    for _, st in ipairs(g.stacks) do
+      if left - st.count >= keep then
+        left = left - st.count
+        st.why = g.sub == BANDAGE and ("worse bandage: you have " .. best.total .. " " .. best.name) or ("extra: keeping " .. keep)
+        table.insert(out, st)
+      end
+    end
+  end
+  return out
+end
+DruidKit_ConsumableExtras = function() local ok, r = pcall(consumableExtras); return ok and r or {} end
+
 local function autoSellList(r)
   local out = {}
-  local function addAll(list, gearOnly)
+  local needed = recipeMats()
+  local function addAll(list, kind)
     for _, e in ipairs(list or {}) do
       local link = e.link
-      local _, _, q, _, _, _, _, _, equipLoc, _, value, classID = getInfo(link)
+      local name, _, q, _, _, _, _, _, equipLoc, _, value, classID, subID = getInfo(link)
       local boeGood = (q or 0) >= 2 and bindTypeOf(link) == 2
-      local ok = not gearOnly or (equipLoc and equipLoc ~= "" and classID ~= 0) or restriction(link) ~= nil
-      if classID == 0 and not restriction(link) then ok = false end   -- consumables: food, drink, potions, scrolls
-      if classID == 7 or classID == 5 then ok = false end              -- trade goods, reagents
-      if gearOnly == false then ok = true end                          -- grey junk is always fine
+      local ok = true
+      if kind == "gear" then
+        ok = (equipLoc and equipLoc ~= "" and classID ~= 0) or restriction(link) ~= nil
+        if classID == 0 and not restriction(link) then ok = false end   -- food/drink/consumables: never from here
+        if classID == 7 or classID == 5 then ok = false end
+      elseif kind == "mats" then
+        ok = (classID == 7 or classID == 5) and not (classID == 7 and subID == 9) and not needed(name)
+      end
       if ok and (value or 0) > 0 and not boeGood and not protectedReason(link, e.bag, e.slot) then table.insert(out, e) end
     end
   end
-  addAll(r.junk, false); addAll(r.unusable, true)
+  addAll(r.junk, "junk"); addAll(r.unusable, "gear"); addAll(r.spare, "mats"); addAll(consumableExtras(), "extra")
   return out
 end
+
+-- Buff button (step window): the next elixir, flask or scroll in your bags whose buff you don't have.
+local function hasAura(spell)
+  if not spell then return false end
+  if C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName then
+    return C_UnitAuras.GetAuraDataBySpellName("player", spell, "HELPFUL") ~= nil
+  end
+  if AuraUtil and AuraUtil.FindAuraByName then return AuraUtil.FindAuraByName(spell, "player") ~= nil end
+  return false
+end
+local function nextBuff()
+  local lvl = UnitLevel("player") or 1
+  local seen, list = {}, {}
+  for bag = 0, 4 do
+    for slot = 1, (numSlots(bag) or 0) do
+      local link, count = slotInfo(bag, slot)
+      if link then
+        local name, _, _, _, minLevel, _, _, _, _, icon, _, classID, subID = getInfo(link)
+        if classID == 0 and (subID == 2 or subID == 3 or subID == 4) and (minLevel or 0) <= lvl and not seen[name]
+          and not questInfo(bag, slot) and not restriction(link) then
+          seen[name] = true
+          local spell = GetItemSpell and GetItemSpell(link)
+          if spell and not hasAura(spell) then
+            table.insert(list, { name = name, icon = icon, count = count or 1, spell = spell })
+          end
+        end
+      end
+    end
+  end
+  table.sort(list, function(a, b) return a.name < b.name end)
+  return list[1], list
+end
+DruidKit_NextBuff = function() local ok, a, b = pcall(nextBuff); if ok then return a, b end end
+
 local function autoPilot()
   if autoBusy or not (DruidKitDB and DruidKitDB.autoSell ~= false) then return end
   local r = scan()

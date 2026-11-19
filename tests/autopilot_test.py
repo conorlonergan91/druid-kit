@@ -57,8 +57,42 @@ ev=frames[1]; ev.on_OnEvent(ev,"PLAYER_LOGIN"); ev.on_OnEvent(ev, "MERCHANT_SHOW
 sold2 = list(L.globals().SOLD.values())
 print("sold2", sold2)
 check("goulash" not in sold2, "cooked Well Fed food is never auto-sold", sold2)
-check("spidermeat" not in sold2, "cooking materials are never auto-sold", sold2)
+check("spidermeat" in sold2, "materials no recipe of yours uses are sold (player OK, 19 Nov)", sold2)
 check("bread" not in sold2, "no food is auto-sold (it stays a suggestion in Alt+B)", sold2)
+
+# A recipe in your bags keeps its materials; extra consumables and worse bandages are sold; Buff picks an elixir.
+L = run(r"""
+ITEMS.spidermeat = {"Crisp Spider Meat","spidermeat",1,10,0,"","",10,"",1,8,7,8}
+ITEMS.recipe = {"Recipe: Redridge Goulash","recipe",1,20,0,"","",1,"",1,50,9,5}
+ITEMS.elix1 = {"Elixir of Minor Strength","elix1",1,5,2,"","",20,"",1,10,0,2}
+ITEMS.elix2 = {"Elixir of Minor Strength","elix2",1,5,2,"","",20,"",1,10,0,2}
+ITEMS.band1 = {"Heavy Linen Bandage","band1",1,10,0,"","",20,"",1,20,0,7}
+ITEMS.band2 = {"Wool Bandage","band2",1,20,0,"","",20,"",1,30,0,7}
+COUNTS = { elix1 = 8, elix2 = 2, band1 = 20, band2 = 31 }
+local gi = C_Container.GetContainerItemInfo
+C_Container.GetContainerItemInfo = function(b, s) local r = gi(b, s); if r and COUNTS[r.hyperlink] then r.stackCount = COUNTS[r.hyperlink] end return r end
+C_TooltipInfo = { GetHyperlink = function(l)
+  if l == "recipe" then return { lines = { { leftText = "Requires Crisp Spider Meat (1)" } } } end
+  return { lines = {} } end }
+function GetItemSpell(l) if l == "elix1" or l == "elix2" then return "Lesser Strength" end end
+C_UnitAuras = { GetAuraDataBySpellName = function() return nil end }
+BAG[0][8] = "spidermeat"; BAG[0][9] = "recipe"; BAG[0][10] = "elix1"; BAG[0][11] = "elix2"; BAG[0][12] = "band1"; BAG[0][13] = "band2"
+C_Container.GetContainerNumSlots = function(b) return b == 0 and 13 or 0 end
+DruidKit_NeededFor = function(name) return nil, true, false end
+""")
+L.execute(r"""
+ev=frames[1]; ev.on_OnEvent(ev,"PLAYER_LOGIN")
+buff = DruidKit_NextBuff()
+buffName = buff and buff.name
+ev.on_OnEvent(ev, "MERCHANT_SHOW")
+""")
+g = L.globals()
+sold3 = list(g.SOLD.values())
+print("sold3", sold3, g.buffName)
+check("spidermeat" not in sold3, "materials a recipe in your bags needs are kept", sold3)
+check("elix2" in sold3 and "elix1" not in sold3, "extra elixirs sold, a stock of 8 kept", sold3)
+check("band1" in sold3 and "band2" not in sold3, "worse bandage sold, best kept", sold3)
+check(g.buffName == "Elixir of Minor Strength", "Buff picks an elixir you don't have active", g.buffName)
 
 L = run("DruidKitDB = { autoSell = false }")
 L.execute(r"""

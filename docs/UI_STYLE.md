@@ -77,7 +77,7 @@ combat; a change ends with the reload prompt (taint rules).
 | Option+W (or Ctrl+W) | TOGGLEAUTORUN | autorun (set by /dk keys) |
 | Shift+1 … Shift+8, Shift+F | action bar slots | bar layouts (/dk bars) |
 
-Step window buttons: Back · Done · Skip (Unskip on a skipped step) · Lore · Keys · Hide (row 1); < Prev · Next > · Go · Now · Vendor (row 2).
+Step window buttons: Back · Done · Skip (Unskip on a skipped step) · Lore · Keys · Hide (row 1); < Prev · Next > · Go · Now · Vendor · Buff (row 2; Buff is a secure button on UIParent placed over the row, so the window stays free to move and hide in combat).
 
 Key map window (live bindings for forms, every bar and Druid Kit): `/dk keymap` or the Keys button.
 

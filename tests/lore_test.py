@@ -60,4 +60,13 @@ check(r[7] == "Lore", "button label stays short (fits 64 px)", r[7])
 check(r[8] is True, "lore choice is remembered", r[8])
 check(r[9] is False, "Hide lore hides it", r[9])
 check(r[10] is True, "step window has the Druid crest", r[10])
+# Buff button: loaded with the next elixir; hard-fight hint on group steps.
+L.execute(r"""
+DruidKit_NextBuff = function() return { name = "Elixir of Minor Defense", count = 6, spell = "Lesser Armor" }, { 1 } end
+DruidKitBuffButton.SetAttribute = function(s, k, v) s.attr = s.attr or {}; s.attr[k] = v end
+DruidKit_StepsEvaluate()
+B = { DruidKitBuffButton.attr and DruidKitBuffButton.attr.item, DruidKitBuffButton.attr and DruidKitBuffButton.attr.type, DruidKitBuffButton.tip }
+""")
+b = list(L.globals().B.values())
+check(b[0] == "Elixir of Minor Defense" and b[1] == "item", "Buff button uses the next elixir", b)
 done("lore_test")

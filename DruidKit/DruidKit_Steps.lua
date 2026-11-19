@@ -422,6 +422,7 @@ end
 local PAD = 10
 local WIDTH = 2 * PAD + 6 * 68 - 4   -- six 64-wide buttons a row
 
+local updateBuff
 local function build()
   frame = CreateFrame("Frame", "DruidKitSteps", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
   frame:SetSize(WIDTH, 160)
@@ -433,6 +434,7 @@ local function build()
     f:StopMovingOrSizing()
     local _, _, _, x, y = f:GetPoint()
     DB.stepsPos = { x, y }
+    pcall(updateBuff)
   end)
   if DruidKitStyle and DruidKitStyle.druidPanel then DruidKitStyle.druidPanel(frame, 28) end
   local p = DB.stepsPos
@@ -482,6 +484,47 @@ local function build()
     .. "The route arrow comes back when you arrive, or with Now.", function() DruidKit_StepGo() end)
   frame.nowBtn = btn("Now", "Back to your current step and its arrow.", function() DruidKit_StepView(0) end)
   frame.vendorBtn = btn("Vendor", "Point the arrow at the nearest vendor in this zone.", function() DruidKit_StepsCommand("vendor") end)
+  -- Buff: a secure button (items can only be used from one), so it hangs on UIParent at the step window's bottom
+  -- row instead of being its child: then the step window can still move, resize and hide in combat.
+  local ok, b = pcall(CreateFrame, "Button", "DruidKitBuffButton", UIParent, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+  if ok and b then
+    b:SetSize(64, 20); b:SetText("Buff")
+    b:SetFrameStrata("MEDIUM")
+    if b.RegisterForClicks then b:RegisterForClicks("AnyUp", "AnyDown") end
+    b:SetScript("OnEnter", function(s)
+      GameTooltip:SetOwner(s, "ANCHOR_TOP")
+      GameTooltip:SetText(s.tip or "Nothing to use: your elixir and scroll buffs are all on, or you have none.", 1, 1, 1, 1, true)
+      GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    frame.buffBtn = b
+  end
+end
+
+-- Keep the Buff button on the step window's bottom row and loaded with the next buff. Out of combat only.
+updateBuff = function()
+  local b = frame and frame.buffBtn
+  if not b or (InCombatLockdown and InCombatLockdown()) then return end
+  if not frame:IsShown() then b:Hide(); return end
+  local l, bottom = frame:GetLeft(), frame:GetBottom()
+  if l and bottom then
+    b:ClearAllPoints(); b:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", l + PAD + 5 * 68, bottom + 8)
+    if b.SetFrameLevel and frame.GetFrameLevel then b:SetFrameLevel((frame:GetFrameLevel() or 1) + 5) end
+  end
+  local nb, all = nil, nil
+  if DruidKit_NextBuff then nb, all = DruidKit_NextBuff() end
+  if nb then
+    b:SetAttribute("type", "item"); b:SetAttribute("item", nb.name)
+    b:SetText("Buff"); if b.Enable then b:Enable() end
+    b.tip = ("Use %s (%d in bags) for %s.%s"):format(nb.name, nb.count, nb.spell or "its buff",
+      (all and #all > 1) and (" Click again for the next one (" .. (#all - 1) .. " more).") or "")
+  else
+    b:SetAttribute("type", nil)
+    if b.Disable then b:Disable() end
+    b.tip = nil
+  end
+  b:SetAlpha(1); b:Show()
+  frame.nextBuff = nb
 end
 
 local function textH(f)
@@ -627,6 +670,13 @@ local function draw()
   frame.stats:SetText(stats)
   frame.main:SetText(mainLine(st))
   local adv = adviceLine(st)
+  -- Hard fight ahead (group quest, or you died on this step): offer the Buff button.
+  local hard = st["do"] == "complete" and (st.party or (DB.cur and DB.cur.i == cur and DB.cur.deaths > 0))
+  local nb = hard and DruidKit_NextBuff and DruidKit_NextBuff()
+  if nb then
+    local line = Y .. "Hard fight:" .. R .. " press " .. W .. "Buff" .. R .. " to use " .. nb.name .. " (" .. nb.count .. ")."
+    adv = adv and (adv .. "\n" .. line) or line
+  end
   local det = detailLines(st)
   frame.detail:SetText(adv and ((det ~= "" and (det .. "\n") or "") .. adv) or det)
   local nxt = {}
@@ -634,6 +684,7 @@ local function draw()
   frame.next:SetText(table.concat(nxt, "\n"))
   resize()
   drawLore(cur)
+  pcall(updateBuff)
 end
 
 -- Advancing ------------------------------------------------------------------------------------
@@ -816,6 +867,9 @@ function DruidKit_ToggleSteps(show)
   else
     frame:Hide(); showPop(#steps > 0)
     if lore then lore:Hide() end
+    if frame.buffBtn then
+      if InCombatLockdown and InCombatLockdown() then frame.buffBtn:SetAlpha(0) else frame.buffBtn:Hide() end
+    end
     if DruidKit_NavClear and DruidKit_NavTarget and DruidKit_NavTarget() then DruidKit_NavClear(true) end
   end
 end
