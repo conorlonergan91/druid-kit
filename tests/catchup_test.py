@@ -82,4 +82,28 @@ R[3] = DruidKitDB.routeStep
 a = list(A.globals().R.values())
 check(a[0] == 1 and "Abandon" in str(a[1]), "abandon step waits while the quest is in the log", a[:2])
 check(a[2] == 2, "abandon step ticks itself when the quest is gone", a[2])
+
+# A quest handed in early (out of order) must not pass the steps between: stop at the first quest in the log.
+E = LuaRuntime(unpack_returned_tuples=True)
+E.execute(MOCKS)
+E.execute(r"""
+LOG = { [92] = { title = "Redridge Goulash" } }
+DONE = { [89] = true }
+DruidKitRoute = { id = "e2", sections = { { title = "S", steps = {
+  { ["do"] = "complete", q = 92, name = "Redridge Goulash", at = { "Redridge Mountains", 48.1, 42.1 } },
+  { ["do"] = "accept", q = 115, name = "Shadow Magic", at = { "Redridge Mountains", 28.4, 49.0 } },
+  { ["do"] = "turnin", q = 89, name = "The Everstill Bridge", at = { "Redridge Mountains", 27.1, 48.6 } },
+  { ["do"] = "turnin", q = 115, name = "Shadow Magic", at = { "Redridge Mountains", 28.4, 49.0 } },
+} } } }
+DruidKitDB = { routeId = "e1", routeStep = 1 }
+""")
+E.execute(source("DruidKit/DruidKit_Steps.lua"))
+E.execute(r"""
+for _, f in ipairs(frames) do if f.events and f.events.QUEST_DETAIL then ev = f end end
+ev.on_OnEvent(ev, "PLAYER_LOGIN")
+R = { DruidKitDB.routeStep, DruidKitDB.passedQ[115] == true }
+""")
+e = list(E.globals().R.values())
+check(e[0] == 1, "an early hand-in does not jump past a quest you're still doing", e[0])
+check(e[1] is False, "quests after it are not passed", e[1])
 done("catchup_test")

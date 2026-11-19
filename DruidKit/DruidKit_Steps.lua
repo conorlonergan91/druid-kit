@@ -599,12 +599,15 @@ local function catchUp()
     if st["do"] == "turnin" and st.q and turnedIn(st.q) then last = i; break end
   end
   if last < pos then return 0 end
+  -- Stop at the first quest still in your log: you're working there, and a quest handed in early (out of order)
+  -- must not pass the steps between (seen 18 Nov: Everstill Bridge handed in early passed Shadow Magic + Tharil'zun).
   local n = 0
   for i = pos, last do
     local st = steps[i]
     if not isDone(i) then
       if st.q and (st["do"] == "accept" or st["do"] == "complete" or st["do"] == "turnin") then
-        if not logEntry(st.q, st.name) then DB.passedQ[st.q] = true; n = n + 1; logStep(i, "passed") end
+        if logEntry(st.q, st.name) then break end
+        DB.passedQ[st.q] = true; n = n + 1; logStep(i, "passed")
       else
         DB.manual[i] = true; n = n + 1; logStep(i, "passed")
       end
