@@ -317,13 +317,45 @@ local function makePet(i, unit, owner)
   p:SetAttribute("unit", unit)
   p:SetAttribute("type1", "target")
   p:SetAttribute("type2", "spell"); p:SetAttribute("spell2", "Rejuvenation")
+  p:SetAttribute("shift-type1", "spell");  p:SetAttribute("shift-spell1", "Regrowth")
+  p:SetAttribute("ctrl-type1", "spell");   p:SetAttribute("ctrl-spell1", "Healing Touch")
+  p:SetAttribute("alt-type1", "spell");    p:SetAttribute("alt-spell1", "Cure Poison")
   p.unit = unit
   p.hp = CreateFrame("StatusBar", nil, p); p.hp:SetAllPoints()
   p.hp:SetStatusBarTexture(BAR_TEX); p.hp:SetStatusBarColor(LEAF[1], LEAF[2], LEAF[3], 0.9)
   p.hp.bg = p.hp:CreateTexture(nil, "BACKGROUND"); p.hp.bg:SetAllPoints(); p.hp.bg:SetColorTexture(0.05, 0.05, 0.05, 0.9)
   p.name = text(p.hp, 13); p.name:SetPoint("LEFT", 6, 0)
-  p.tag = text(p.hp, 13); p.tag:SetPoint("RIGHT", -6, 0); p.tag:SetText("PET")
+  -- Pet heal set: three small buttons on the right of the bar, cast on this pet.
+  p.heals = {}
+  local PET_SPELLS = { "Rejuvenation", "Regrowth", "Healing Touch" }
+  for n = #PET_SPELLS, 1, -1 do
+    local sp = PET_SPELLS[n]
+    local h = CreateFrame("Button", nil, p, "SecureActionButtonTemplate")
+    h:SetSize(PET_H - 2, PET_H - 2)
+    h:SetPoint("RIGHT", p, "RIGHT", -1 - (#PET_SPELLS - n) * PET_H, 0)
+    h:RegisterForClicks("AnyUp", "AnyDown")
+    h:SetAttribute("type", "spell"); h:SetAttribute("spell", sp); h:SetAttribute("unit", unit)
+    h:SetFrameLevel(p:GetFrameLevel() + 3)
+    h.tex = h:CreateTexture(nil, "ARTWORK"); h.tex:SetAllPoints(); h.tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local icon = (C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(sp)) or (GetSpellTexture and GetSpellTexture(sp))
+    h.tex:SetTexture(icon or "Interface\\Icons\\Spell_Nature_Rejuvenation")
+    local hl = h:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.3)
+    h:SetScript("OnEnter", function(s) GameTooltip:SetOwner(s, "ANCHOR_TOP"); GameTooltip:AddLine(sp .. " on the pet", 1, 1, 1); GameTooltip:Show() end)
+    h:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    p.heals[#p.heals + 1] = h
+  end
+  p.tag = text(p.hp, 13); p.tag:SetPoint("RIGHT", -6 - #PET_SPELLS * PET_H, 0); p.tag:SetText("PET")
+  p:SetScript("OnEnter", function(s)
+    GameTooltip:SetOwner(s, "ANCHOR_TOP")
+    GameTooltip:AddLine("Pet: click to target · Right-click Rejuvenation · Shift Regrowth · Ctrl Healing Touch · Alt Cure Poison", 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  p:SetScript("OnLeave", function() GameTooltip:Hide() end)
   return p
+end
+local function setPetUnit(p, u)
+  p:SetAttribute("unit", u); p.unit = u
+  for _, h in ipairs(p.heals or {}) do h:SetAttribute("unit", u) end
 end
 
 -- Spell buttons: which action slot each one uses (only changed out of combat) ---------
@@ -510,6 +542,13 @@ local function updatePet(p)
   if not UnitExists(p.unit) then return end
   setBar(p.hp, UnitHealth(p.unit), UnitHealthMax(p.unit))
   if not pcall(p.name.SetText, p.name, UnitName(p.unit)) then p.name:SetText("") end
+  local ok, pct = pcall(function() return UnitHealth(p.unit) / math.max(1, UnitHealthMax(p.unit)) end)
+  if ok and type(pct) == "number" then
+    if UnitIsDeadOrGhost(p.unit) then p.tag:SetText("DEAD")
+    elseif pct < CRITICAL then p.tag:SetText(("!! %d%%"):format(pct * 100))
+    elseif pct < LOW then p.tag:SetText(("LOW %d%%"):format(pct * 100))
+    else p.tag:SetText("PET") end
+  end
 end
 
 local function updateAll()
@@ -532,7 +571,7 @@ end
 local function setLive()
   setUnits(function(_, u) return u end)
   for _, b in ipairs(cards) do RegisterUnitWatch(b) end
-  for i, p in ipairs(pets) do p:SetAttribute("unit", PETS[i]); p.unit = PETS[i]; RegisterUnitWatch(p) end
+  for i, p in ipairs(pets) do setPetUnit(p, PETS[i]); RegisterUnitWatch(p) end
   if DB.partyOn then RegisterStateDriver(container, "visibility", "[group:party] show; hide")
   else RegisterStateDriver(container, "visibility", "hide") end
 end
@@ -545,7 +584,7 @@ local function setTest(on)
     UnregisterStateDriver(container, "visibility")
     for _, b in ipairs(cards) do UnregisterUnitWatch(b); b:Show() end
     setUnits(function() return "player" end)
-    for _, p in ipairs(pets) do UnregisterUnitWatch(p); p:SetAttribute("unit", "player"); p.unit = "player"; p:Show() end
+    for _, p in ipairs(pets) do UnregisterUnitWatch(p); setPetUnit(p, "player"); p:Show() end
     container:Show()
     say("party preview on (5 copies of you). /dk unlock to drag it, /dk party test again to close.")
   else

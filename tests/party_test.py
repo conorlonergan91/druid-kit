@@ -17,6 +17,7 @@ base = base.replace(
 )
 L.execute(base)
 L.execute("local mt=getmetatable(CreateFrame()) ")
+L.execute("local cf=CreateFrame; CreateFrame=function(...) local f=cf(...); f.SetAttribute=function(s,k,v) s.attrs=s.attrs or {}; s.attrs[k]=v end; f.GetAttribute=function(s,k) return s.attrs and s.attrs[k] end; return f end")
 L.execute(r"""
 DruidKitDB={}
 C_Timer={After=function(t,f) f() end}
@@ -75,4 +76,13 @@ info = list(g.info.values())
 check(g.drv1 == "[group:party] show; hide", "party view only shows in a party", g.drv1)
 check("!! 25%" in info[1], "low health shown in words, not colour alone", info[1])
 check("4:Rejuvenation" in info[5], "heal buttons mirror the action bar", info[5])
+L.execute(r"""
+local pp = _G["DruidKitPartyPet2"]
+petInfo = { pp and pp.heals and #pp.heals or 0, pp and pp.heals and pp.heals[1] and pp.heals[1].attrs and pp.heals[1].attrs.unit or "?",
+  pp and pp.attrs and pp.attrs["shift-spell1"] or "?" }
+""")
+pi = list(L.globals().petInfo.values())
+print("pet", pi)
+check(pi[0] == 3, "pet bars have their own heal set (3 buttons)", pi)
+check(pi[2] == "Regrowth", "pet bar clicks match a person's card (Shift = Regrowth)", pi)
 done("party_test")
