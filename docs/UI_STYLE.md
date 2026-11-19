@@ -34,6 +34,10 @@ state is a word (+ icon or sound); colour is only ever a second signal.
 
 ## Panels
 
+- Druid theme: always-on boxes use `S.druidPanel` (dark forest backdrop, faint Restoration tree, bark-brown border,
+  leaf-green line under the header, Mark of the Wild crest). Reading boxes (quest lore) use `S.parchment` + `S.ink`:
+  dark ink on parchment, quest-title font (Morpheus) for headings, body 14, **no OUTLINE** (the one exception: dark
+  ink on light paper has more contrast than an outline).
 - Every window and box is built with `DruidKit_Style` (`S.window`, `S.header`, `S.item`, `S.note`): same backdrop,
   border, title bar, close button, drag to move, position saved.
 - Strata: windows `DIALOG`; always-on pieces (step window, arrow, HUD) `MEDIUM`/`HIGH`; alerts `HIGH`.
@@ -73,7 +77,7 @@ combat; a change ends with the reload prompt (taint rules).
 | Option+W (or Ctrl+W) | TOGGLEAUTORUN | autorun (set by /dk keys) |
 | Shift+1 … Shift+8, Shift+F | action bar slots | bar layouts (/dk bars) |
 
-Step window buttons: Back · Done · Skip · Keys · Hide (row 1); < Prev · Next > · Go · Now · Vendor (row 2).
+Step window buttons: Back · Done · Skip (Unskip on a skipped step) · Lore · Keys · Hide (row 1); < Prev · Next > · Go · Now · Vendor (row 2).
 
 Key map window (live bindings for forms, every bar and Druid Kit): `/dk keymap` or the Keys button.
 

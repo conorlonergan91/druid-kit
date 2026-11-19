@@ -419,7 +419,8 @@ end
 -- Window ---------------------------------------------------------------------------------------
 -- Layout, top to bottom: header row (step count + section on the left, time/deaths on the right),
 -- the action in large text, its details, the next two steps, then a row of buttons.
-local WIDTH, PAD = 380, 10
+local PAD = 10
+local WIDTH = 2 * PAD + 6 * 68 - 4   -- six 64-wide buttons a row
 
 local function build()
   frame = CreateFrame("Frame", "DruidKitSteps", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
@@ -433,11 +434,7 @@ local function build()
     local _, _, _, x, y = f:GetPoint()
     DB.stepsPos = { x, y }
   end)
-  if frame.SetBackdrop then
-    frame:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
-    frame:SetBackdropColor(0, 0, 0, 0.85)
-  end
+  if DruidKitStyle and DruidKitStyle.druidPanel then DruidKitStyle.druidPanel(frame, 28) end
   local p = DB.stepsPos
   frame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", p and p[1] or -20, p and p[2] or -230)
 
@@ -449,10 +446,10 @@ local function build()
     f:SetTextColor(r, g, b)
     return f
   end
-  frame.head = fs(13, 0.75, 0.75, 0.75, WIDTH - 2 * PAD - 110); frame.head:SetPoint("TOPLEFT", PAD, -8)
+  frame.head = fs(13, 0.78, 0.88, 0.66, WIDTH - 2 * PAD - 132); frame.head:SetPoint("TOPLEFT", PAD + 22, -8)
   if frame.head.SetWordWrap then frame.head:SetWordWrap(false) end
   frame.stats = fs(13, 0.75, 0.75, 0.75, 110, "RIGHT"); frame.stats:SetPoint("TOPRIGHT", -PAD, -8)
-  frame.main = fs(16, 1, 1, 1);           frame.main:SetPoint("TOPLEFT", frame.head, "BOTTOMLEFT", 0, -6)
+  frame.main = fs(16, 1, 1, 1);           frame.main:SetPoint("TOPLEFT", PAD, -36)
   frame.detail = fs(13, 0.9, 0.9, 0.9); frame.detail:SetPoint("TOPLEFT", frame.main, "BOTTOMLEFT", 0, -4)
   frame.next = fs(13, 0.75, 0.75, 0.75);  frame.next:SetPoint("TOPLEFT", frame.detail, "BOTTOMLEFT", 0, -6)
 
@@ -470,6 +467,8 @@ local function build()
   frame.backBtn = btn("Back", "Go back one step.", function() DruidKit_StepBack() end)
   frame.doneBtn = btn("Done", "Mark this step done and move on.", function() DruidKit_StepDone() end)
   frame.skipBtn = btn("Skip", "Leave this quest for now (dying a lot, or no group). The next update decides: drop it or come back later.", function() DruidKit_StepSkip() end)
+  frame.loreBtn = btn("Lore", "Show or hide the quest's story and objectives, to read while you travel. Quests are "
+    .. "still accepted for you; the text is kept when you meet the quest giver.", function() DruidKit_ToggleLore() end)
   frame.keysBtn = btn("Keys", "Every key you have: forms, caster, Bear, Cat, Prowl and Druid Kit keys.", function()
     if DruidKit_ShowKeymap then DruidKit_ShowKeymap() end
   end)
@@ -492,9 +491,112 @@ local function textH(f)
 end
 
 local function resize()
-  local h = 8 + 14 + 6 + textH(frame.main) + 4 + textH(frame.detail) + 6 + textH(frame.next) + 8 + 20 + 4 + 20 + 8
+  local h = 36 + textH(frame.main) + 4 + textH(frame.detail) + 6 + textH(frame.next) + 8 + 20 + 4 + 20 + 8
   frame:SetHeight(math.max(96, h))
 end
+
+-- Lore: the quest's own story text, kept when you meet the quest giver (auto-accept skips past it), shown on
+-- parchment next to the step window. The Lore button shows or hides it; it follows the step you look at.
+local lore
+local function cleanText(t)
+  if type(t) ~= "string" or t == "" then return nil end
+  local name = UnitName and UnitName("player") or "friend"
+  local race = UnitRace and UnitRace("player") or "traveller"
+  local class = UnitClass and UnitClass("player") or "druid"
+  return (t:gsub("%$[Nn]", name):gsub("%$[Rr]", race):gsub("%$[Cc]", class):gsub("%$[Bb]", "\n"):gsub("%$[Gg]([^:]*):([^;]*);", "%1"))
+end
+local function keepLore(field, text)
+  local q = safe(GetQuestID)
+  text = cleanText(text)
+  if not (q and q > 0 and text) then return end
+  DB.lore = DB.lore or {}
+  local l = DB.lore[q] or {}
+  l.title = safe(GetTitleText) or l.title
+  l[field] = text
+  DB.lore[q] = l
+end
+-- A quest already in your log but met before this feature: read it from the quest log.
+local function logLore(q)
+  if not (C_QuestLog and C_QuestLog.GetLogIndexForQuestID and GetQuestLogQuestText) then return end
+  local idx = safe(C_QuestLog.GetLogIndexForQuestID, q)
+  if not idx then return end
+  local prev = GetQuestLogSelection and safe(GetQuestLogSelection)
+  if C_QuestLog.SetSelectedQuest then safe(C_QuestLog.SetSelectedQuest, q) elseif SelectQuestLogEntry then safe(SelectQuestLogEntry, idx) end
+  local desc, obj = safe(GetQuestLogQuestText, idx)
+  if prev and SelectQuestLogEntry then safe(SelectQuestLogEntry, prev) end
+  desc, obj = cleanText(desc), cleanText(obj)
+  if desc or obj then return { text = desc, obj = obj } end
+end
+-- The quest to show for step i: its own, else the next quest along the route (what you're travelling to).
+local function loreQuest(i)
+  for j = i, math.min(#steps, i + 8) do
+    local st = steps[j]
+    if st and st.q then return st, j ~= i end
+  end
+end
+
+local function buildLore()
+  lore = CreateFrame("Frame", "DruidKitLore", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+  lore:SetSize(340, 320)
+  lore:SetFrameStrata("MEDIUM")
+  lore:SetClampedToScreen(true)
+  if DruidKitStyle and DruidKitStyle.parchment then DruidKitStyle.parchment(lore) end
+  lore:SetPoint("TOPRIGHT", frame, "TOPLEFT", -6, 0)
+  local close = CreateFrame("Button", nil, lore, "UIPanelCloseButton")
+  close:SetPoint("TOPRIGHT", 2, 2)
+  close:SetScript("OnClick", function() DruidKit_ToggleLore(false) end)
+  local ink = DruidKitStyle and DruidKitStyle.ink or function(parent, size, _, width)
+    local t = parent:CreateFontString(nil, "OVERLAY"); t:SetFont("Fonts\\FRIZQT__.TTF", size, "OUTLINE")
+    t:SetJustifyH("LEFT"); if width then t:SetWidth(width) end
+    return t
+  end
+  local scroll = CreateFrame("ScrollFrame", nil, lore, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 14, -30); scroll:SetPoint("BOTTOMRIGHT", -30, 14)
+  local body = CreateFrame("Frame", nil, scroll)
+  body:SetSize(290, 10)
+  scroll:SetScrollChild(body)
+  lore.kind = ink(lore, 13, false, 280); lore.kind:SetPoint("TOPLEFT", 14, -10)
+  lore.title = ink(body, 19, true, 290); lore.title:SetPoint("TOPLEFT", 0, 0)
+  lore.text = ink(body, 14, false, 290); lore.text:SetPoint("TOPLEFT", lore.title, "BOTTOMLEFT", 0, -8)
+  lore.objHead = ink(body, 17, true, 290); lore.objHead:SetPoint("TOPLEFT", lore.text, "BOTTOMLEFT", 0, -12)
+  lore.obj = ink(body, 14, false, 290); lore.obj:SetPoint("TOPLEFT", lore.objHead, "BOTTOMLEFT", 0, -4)
+  lore.endHead = ink(body, 17, true, 290); lore.endHead:SetPoint("TOPLEFT", lore.obj, "BOTTOMLEFT", 0, -12)
+  lore.ending = ink(body, 14, false, 290); lore.ending:SetPoint("TOPLEFT", lore.endHead, "BOTTOMLEFT", 0, -4)
+  lore.body = body
+  lore:Hide()
+end
+
+local function drawLore(i)
+  if not (lore and lore:IsShown()) then return end
+  local st, ahead = loreQuest(i or pos)
+  local l = st and ((DB.lore and DB.lore[st.q]) or logLore(st.q))
+  if st and l and DB.lore and not DB.lore[st.q] then DB.lore[st.q] = l end
+  lore.kind:SetText(not st and "No quest ahead on this part of the route."
+    or ahead and "Next quest on your path" or "This step's quest")
+  lore.title:SetText(st and (l and l.title or st.name) or "")
+  lore.text:SetText(l and l.text
+    or (st and "The story isn't kept yet. It is saved when you next meet the quest giver, or once the quest is in your log." or ""))
+  lore.objHead:SetText(l and l.obj and "Quest Objectives" or "")
+  lore.obj:SetText(l and l.obj or "")
+  local ending = l and (l.reward or l.progress)
+  lore.endHead:SetText(ending and "Completion" or "")
+  lore.ending:SetText(ending or "")
+  local h = 0
+  for _, f in ipairs({ lore.title, lore.text, lore.objHead, lore.obj, lore.endHead, lore.ending }) do
+    local t = f:GetText()
+    if t and t ~= "" then h = h + (f:GetStringHeight() or 0) + 12 end
+  end
+  lore.body:SetHeight(math.max(10, h))
+end
+
+function DruidKit_ToggleLore(show)
+  if not frame then return end
+  if not lore then buildLore() end
+  if show == nil then show = not lore:IsShown() end
+  DB.loreShown = show and true or false
+  if show then lore:Show(); drawLore(view or pos) else lore:Hide() end
+end
+DruidKit_KeepLore = keepLore
 
 local function draw()
   if not frame then return end
@@ -502,9 +604,9 @@ local function draw()
   local st = steps[cur]
   if not st then
     frame.head:SetText("Druid Kit route"); frame.stats:SetText("")
-    frame.main:SetText(Y .. "Route finished." .. R .. " Say \"update\" for the next part.")
+    frame.main:SetText(Y .. "The path is walked." .. R .. " Say \"update\" for the next part.")
     frame.detail:SetText(""); frame.next:SetText("")
-    resize()
+    resize(); drawLore(cur)
     return
   end
   if frame.skipBtn then frame.skipBtn:SetText(isSkipped(cur) and "Unskip" or "Skip") end
@@ -531,6 +633,7 @@ local function draw()
   for i = cur + 1, math.min(#steps, cur + 2) do table.insert(nxt, "Then: " .. shortLine(steps[i])) end
   frame.next:SetText(table.concat(nxt, "\n"))
   resize()
+  drawLore(cur)
 end
 
 -- Advancing ------------------------------------------------------------------------------------
@@ -709,8 +812,10 @@ function DruidKit_ToggleSteps(show)
   DB.stepsHidden = not show
   if show then
     frame:Show(); showPop(false); lastArrowFor = nil; evaluate()
+    if DB.loreShown then DruidKit_ToggleLore(true) end
   else
     frame:Hide(); showPop(#steps > 0)
+    if lore then lore:Hide() end
     if DruidKit_NavClear and DruidKit_NavTarget and DruidKit_NavTarget() then DruidKit_NavClear(true) end
   end
 end
@@ -841,16 +946,19 @@ ev:SetScript("OnEvent", function(_, e, a1)
     if st and st["do"] == "train" then DB.manual[pos] = true end
     soon()
   elseif e == "QUEST_DETAIL" then
+    pcall(keepLore, "text", safe(GetQuestText)); pcall(keepLore, "obj", safe(GetObjectiveText))
     if autoOn() then
       local q = safe(GetQuestID)
       if wanted("accept", q, safe(GetTitleText)) then safe(AcceptQuest); soon() end
     end
   elseif e == "QUEST_PROGRESS" then
+    pcall(keepLore, "progress", safe(GetProgressText))
     if autoOn() and safe(IsQuestCompletable) then
       local q = safe(GetQuestID)
       if wanted("turnin", q, safe(GetTitleText)) then safe(CompleteQuest) end
     end
   elseif e == "QUEST_COMPLETE" then
+    pcall(keepLore, "reward", safe(GetRewardText))
     if autoOn() then
       local q = safe(GetQuestID)
       local st = wanted("turnin", q, safe(GetTitleText))

@@ -16,7 +16,8 @@ local function obj()
     if k=="IsShown" then return function(s) return s.shown end end
     if k=="SetText" then return function(s,v) s.text=v end end
     if k=="GetStringHeight" then return function() return 14 end end
-    if k=="CreateFontString" then return function() return obj() end end
+    if k=="CreateFontString" or k=="CreateTexture" then return function() return obj() end end
+    if k=="GetText" then return function(s) return s.text end end
     if k=="SetScript" then return function(s,e,f) s["on_"..e]=f end end
     if k=="RegisterEvent" then return function(s,e) s.events=s.events or {}; s.events[e]=true end end
     if type(k)=="string" and k:match("^%u") then return function() end end

@@ -65,6 +65,62 @@ function S.window(name, title, icon, w, h)
   return f
 end
 
+-- Always-on boxes (step window): dark forest backdrop, a faint Restoration tree, a bark-brown border, a leaf-green
+-- line under the header and a Mark of the Wild crest. Text on it stays light with OUTLINE.
+S.BARK = { 0.55, 0.42, 0.22 }
+function S.druidPanel(f, headerH)
+  if f.SetBackdrop then
+    f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+    f:SetBackdropColor(0.035, 0.065, 0.03, 0.92)
+    f:SetBackdropBorderColor(S.BARK[1], S.BARK[2], S.BARK[3], 1)
+  end
+  local tree = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+  tree:SetPoint("TOPLEFT", 4, -4); tree:SetPoint("BOTTOMRIGHT", -4, 4)
+  if tree:SetTexture("Interface\\TalentFrame\\DruidRestoration-TopLeft") == false then tree:Hide() end
+  tree:SetAlpha(0.22)
+  local crest = f:CreateTexture(nil, "ARTWORK")
+  crest:SetSize(18, 18); crest:SetPoint("TOPLEFT", 8, -6)
+  crest:SetTexture("Interface\\Icons\\Spell_Nature_Regeneration")
+  if crest.SetTexCoord then crest:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
+  local line = f:CreateTexture(nil, "ARTWORK")
+  line:SetHeight(1)
+  line:SetPoint("TOPLEFT", 8, -(headerH or 28)); line:SetPoint("TOPRIGHT", -8, -(headerH or 28))
+  line:SetColorTexture(S.LEAF[1], S.LEAF[2], S.LEAF[3], 0.55)
+  f.tree, f.crest, f.leafLine = tree, crest, line
+  return f
+end
+
+-- Reading boxes (quest lore): parchment like the game's quest text, dark ink, quest-title font, bark border.
+-- Dark ink on parchment has more contrast than light text with an outline, so no OUTLINE here (UI_STYLE).
+S.INK = { 0.20, 0.12, 0.05 }
+S.INK_HEAD = { 0.36, 0.20, 0.04 }
+function S.parchment(f)
+  if f.SetBackdrop then
+    f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+    f:SetBackdropColor(0.86, 0.78, 0.61, 0.97)
+    f:SetBackdropBorderColor(S.BARK[1], S.BARK[2], S.BARK[3], 1)
+  end
+  local paper = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+  paper:SetPoint("TOPLEFT", 4, -4); paper:SetPoint("BOTTOMRIGHT", -4, 4)
+  if paper:SetTexture("Interface\\QuestFrame\\QuestBG") == false then paper:Hide() end
+  if paper.SetTexCoord then paper:SetTexCoord(0, 0.58, 0, 0.66) end
+  f.paper = paper
+  return f
+end
+function S.ink(parent, size, title, width)
+  local t = parent:CreateFontString(nil, "OVERLAY")
+  t:SetFont(title and "Fonts\\MORPHEUS.TTF" or "Fonts\\FRIZQT__.TTF", size, "")
+  local c = title and S.INK_HEAD or S.INK
+  t:SetTextColor(c[1], c[2], c[3])
+  if t.SetShadowColor then t:SetShadowColor(0, 0, 0, 0) end
+  t:SetJustifyH("LEFT"); t:SetJustifyV("TOP")
+  if width then t:SetWidth(width) end
+  if t.SetWordWrap then t:SetWordWrap(true) end
+  return t
+end
+
 -- Layout helper: call begin(), then header/item/note in order, then finish().
 function S.begin(f)
   f.y = -4
