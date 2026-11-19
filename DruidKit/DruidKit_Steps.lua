@@ -1107,7 +1107,11 @@ end
 -- Keep progress text fresh while you work on a "Do" step.
 local tick = 0
 ev:SetScript("OnUpdate", function(_, el)
-  if DB and DB.cur and DB.cur.i == pos and not (UnitIsAFK and UnitIsAFK("player")) then DB.cur.secs = DB.cur.secs + el end
+  -- UnitIsAFK can be a secret value in Forever (in combat): testing it raises an error every frame (19 Nov,
+  -- 2,992 errors in 30 s). Only use it when it is a plain boolean.
+  local afk = UnitIsAFK and UnitIsAFK("player")
+  if issecretvalue and issecretvalue(afk) then afk = false end
+  if DB and DB.cur and DB.cur.i == pos and not afk then DB.cur.secs = DB.cur.secs + el end
   tick = tick + el
   if tick < 2 then return end
   tick = 0
