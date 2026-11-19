@@ -186,3 +186,12 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   their travel; fold their steps into trips the route makes anyway.
 - Money (mount at 40 = 100g): every update reports gold vs the mount target; sell stops before long trips; the
   addon sells junk and unusable items and repairs at every vendor by itself.
+
+## Added in v13b (19 Nov, player: "drops are even lower in a party; too much fighting and dying")
+- No "collect N items from kills" quests at all when N > 3 (`rk.py` SKIP_DROPS, MAX_DROPS = 3). A named mob's head
+  or a few items is fine. Kill-count quests are fine (counts are shared in a group). Object/search, delivery and
+  story chains are preferred.
+- No solo fights with mobs 2+ levels above the player; group-only kills (Fangore, Tharil'zun) are left out unless the
+  player has a group.
+- When a hub is mostly drop grinds, leave it (abandon step) for a hub with deliveries and kill counts (19 Nov:
+  Redridge -> Duskwood).

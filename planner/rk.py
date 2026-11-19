@@ -331,6 +331,7 @@ def quest(qid):
         "mob_level": (sum(mob_levels) / len(mob_levels)) if mob_levels else None,
         "elite": elite,
         "drops": bool(drops),  # collect-from-kills quest (the player dislikes these: RULES v13)
+        "drop_count": (count or 6) if drops else 0,
         "xp": QUEST_XP.get(int(qid), 0),
         "pre_all": pre_all,
         "pre_any": pre_any,
@@ -413,7 +414,11 @@ def grind_xp_per_min(level):
 
 # The player dislikes "kill monsters to collect N items" quests (19 Nov). Their kill time counts this much more, so
 # chains, deliveries, kill-count and object quests win when the XP is close.
-DROP_DISLIKE = 1.4
+DROP_DISLIKE = 3.0
+# RULES v13b (player, 19 Nov: drops are worse in a group, too much fighting): leave out drop quests that need more
+# than MAX_DROPS items. A named mob's head (1 item) still counts as a kill quest.
+SKIP_DROPS = True
+MAX_DROPS = 3
 
 
 def quest_minutes(q, level, party=1, from_point=None):
@@ -563,6 +568,8 @@ def available(level, done, zones=None, window=(4, 1)):
             continue
         if not (level - window[0] <= q["level"] <= level + window[1]):
             continue
+        if SKIP_DROPS and q.get("drops") and q.get("drop_count", 0) > MAX_DROPS:
+            continue  # RULES v13b: no "collect N from kills" quests (one named head or a few items is fine)
         z = q["start"][0][0] if q["start"] else q["zone"]
         if zones and z not in zones:
             continue
