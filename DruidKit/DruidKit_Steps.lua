@@ -670,6 +670,12 @@ local function draw()
   frame.stats:SetText(stats)
   frame.main:SetText(mainLine(st))
   local adv = adviceLine(st)
+  if st["do"] == "note" and (st.text or ""):find("^Sell") and DruidKit_SellCount then
+    local n = DruidKit_SellCount()
+    local line = n == 0 and (Y .. "Nothing to sell right now" .. R .. " (bag check is empty): talk to the vendor to repair, or press Done.")
+      or n and (Y .. n .. " item" .. (n == 1 and "" or "s") .. " to sell" .. R .. ": talk to the vendor and the addon sells them and repairs.")
+    if line then adv = adv and (adv .. "\n" .. line) or line end
+  end
   -- Hard fight ahead (group quest, or you died on this step): offer the Buff button.
   local hard = st["do"] == "complete" and (st.party or (DB.cur and DB.cur.i == cur and DB.cur.deaths > 0))
   local nb = hard and DruidKit_NextBuff and DruidKit_NextBuff()
@@ -937,7 +943,7 @@ end
 local ev = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN", "QUEST_REMOVED",
   "ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED_INDOORS", "PLAYER_LEVEL_UP", "TRAINER_CLOSED",
-  "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "GOSSIP_SHOW", "QUEST_GREETING", "PLAYER_DEAD",
+  "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "MERCHANT_SHOW", "GOSSIP_SHOW", "QUEST_GREETING", "PLAYER_DEAD",
   "TAXIMAP_OPENED", "CHAT_MSG_SYSTEM", "HEARTHSTONE_BOUND", "BAG_UPDATE_DELAYED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
@@ -995,6 +1001,12 @@ ev:SetScript("OnEvent", function(_, e, a1)
     local st = steps[pos]
     if st and st["do"] == "fp" then DB.manual[pos] = true end
     C_Timer.After(0.5, soon)
+  elseif e == "MERCHANT_SHOW" then
+    -- A "Sell ..." step is done once you've talked to a vendor (the autopilot sells and repairs first).
+    local st, at = steps[pos], pos
+    if st and st["do"] == "note" and (st.text or ""):find("^Sell") then
+      C_Timer.After(4, function() if pos == at then DB.manual[at] = true; soon() end end)
+    end
   elseif e == "TRAINER_CLOSED" then
     local st = steps[pos]
     if st and st["do"] == "train" then DB.manual[pos] = true end

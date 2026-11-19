@@ -724,6 +724,7 @@ local function sellEntry(e)
   return true
 end
 
+local autoSellList   -- defined with the vendor autopilot below
 refresh = function()
   if not panel or not panel:IsShown() then return end
   local r = scan()
@@ -777,24 +778,33 @@ refresh = function()
     end
   end
 
-  local sellCount = #r.unusable + (#r.junk > 0 and 1 or 0)
+  -- Exactly what the vendor autopilot sells (grey junk shown as one row).
+  local toSell = {}
+  for _, e in ipairs(autoSellList and autoSellList(r) or r.unusable) do
+    if qualityOf(e.link) ~= 0 then table.insert(toSell, e) end
+  end
+  local sellCount = #toSell + (#r.junk > 0 and 1 or 0)
   local atShop = MerchantFrame and MerchantFrame:IsShown()
   S.header(panel, "Sell at a vendor", "Interface\\Icons\\INV_Misc_Coin_02", sellCount,
     (atShop and sellCount > 0) and "Sell all" or nil, function()
       local n = 0
-      for _, e in ipairs(r.unusable) do if sellEntry(e) then n = n + 1 end end
+      for _, e in ipairs(toSell) do if sellEntry(e) then n = n + 1 end end
       if n > 0 then say(("sold %d item%s."):format(n, n == 1 and "" or "s")) end
       if #r.junk > 0 then sellJunk() else C_Timer.After(0.5, refresh) end
     end)
-  if sellCount == 0 then S.note(panel, "Nothing to sell.")
-  elseif not atShop then S.note(panel, "Talk to any vendor and Sell buttons appear here.") end
+  if sellCount == 0 then S.note(panel, "Nothing to sell: your bags only hold things you use.")
+  elseif not atShop then
+    S.note(panel, DruidKitDB and DruidKitDB.autoSell == false and "Talk to any vendor and Sell buttons appear here."
+      or "Talk to any vendor: these are sold for you, and your gear is repaired.")
+  end
   if #r.junk > 0 then
     local first = r.junk[1]
     S.item(panel, nil, first.icon, 0, ("%d grey item%s"):format(#r.junk, #r.junk == 1 and "" or "s"),
       ("Worth %s."):format(money(r.junkValue)), atShop and "Sell" or nil, atShop and function() sellJunk() end or nil)
   end
-  for _, e in ipairs(r.unusable) do
-    S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)),
+  for _, e in ipairs(toSell) do
+    S.item(panel, e.link, e.icon, qualityOf(e.link), e.name .. ((e.count or 1) > 1 and ("  x" .. e.count) or ""),
+      ((e.why or "sell it"):gsub("^%l", string.upper)),
       atShop and "Sell" or nil, atShop and function() sellEntry(e); C_Timer.After(0.4, refresh) end or nil)
   end
 
@@ -993,7 +1003,7 @@ local function consumableExtras()
 end
 DruidKit_ConsumableExtras = function() local ok, r = pcall(consumableExtras); return ok and r or {} end
 
-local function autoSellList(r)
+autoSellList = function(r)
   local out = {}
   local needed = recipeMats()
   local function addAll(list, kind)
@@ -1014,6 +1024,12 @@ local function autoSellList(r)
   end
   addAll(r.junk, "junk"); addAll(r.unusable, "gear"); addAll(r.spare, "mats"); addAll(consumableExtras(), "extra")
   return out
+end
+
+-- How many things the next vendor visit would sell (the step window's sell steps use it).
+DruidKit_SellCount = function()
+  local ok, n = pcall(function() return #autoSellList(scan()) end)
+  return ok and n or nil
 end
 
 -- Buff button (step window): the next elixir, flask or scroll in your bags whose buff you don't have.
