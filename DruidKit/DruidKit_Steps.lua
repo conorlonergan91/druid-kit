@@ -155,6 +155,7 @@ end
 local function skipKey(i) local st = steps[i]; return st and (st.q or st.name) end
 local function isSkipped(i) local k = skipKey(i); return k and DB.skipQ[k] and true or false end
 
+local bagsFreeNow   -- set with the bag helpers below
 local function isDone(i)
   local st = steps[i]
   if not st then return true end
@@ -196,12 +197,15 @@ local function isDone(i)
     end
     return true
   end
+  if d == "note" and st.freeBags and bagsFreeNow and bagsFreeNow() >= st.freeBags then return true end
   return false   -- note, train: you tick them (train also ticks when you close the trainer)
 end
 
 -- Bags: when they fill up, name the nearest vendor (DruidKitVendors, generated from the quest data) ---------
 local BAGS_LOW = 3
-local function bagsFree()
+local bagsFree
+bagsFreeNow = function() return bagsFree and bagsFree() or 0 end
+bagsFree = function()
   local free = 0
   for bag = 0, 4 do
     free = free + ((C_Container and C_Container.GetContainerNumFreeSlots and safe(C_Container.GetContainerNumFreeSlots, bag))
@@ -694,6 +698,12 @@ local function draw()
   frame.stats:SetText(stats)
   frame.main:SetText(mainLine(st))
   local adv = adviceLine(st)
+  if st.freeBags then
+    local free = bagsFree()
+    local line = free >= st.freeBags and (Y .. "Bag spaces: " .. free .. R .. " free. Ready.")
+      or (Y .. "Bag spaces: " .. free .. " of " .. st.freeBags .. R .. " needed. Talk to a vendor (the addon sells), or bank things.")
+    adv = adv and (adv .. "\n" .. line) or line
+  end
   if st["do"] == "note" and (st.text or ""):find("^Sell") and DruidKit_SellCount then
     local n = DruidKit_SellCount()
     local line = n == 0 and (Y .. "Nothing to sell right now" .. R .. " (bag check is empty): talk to the vendor to repair, or press Done.")

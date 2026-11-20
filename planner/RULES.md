@@ -205,7 +205,7 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   flee. Between 1.5 and 2.0, the step tip says "pull one at a time".
 
 ## Added in v14 (20 Nov, player: little XP from the Deadmines; friend 37)
-- Every dungeon section starts with "Before the dungeon: sell, repair and bank" (10+ free slots).
+- Every dungeon section starts with "Before the dungeon: sell, repair and bank" (20+ free slots).
 - Take every dungeon quest before the run (prerequisite chains included; check NPC spots such as upstairs rooms).
 - Forever dungeon XP rule (15 Nov hotfix): the whole party gets 0 XP from a mob if ANY member is more than 12 levels
   above that mob. With a higher friend (level F), only dungeons whose mobs are >= F-12 pay kill XP.
