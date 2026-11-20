@@ -203,3 +203,13 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   beasts score under 1 (Duskwood wolves 0.85, spiders 0.7, Wetlands raptors 0.5).
 - Humanoids that flee at low health (gnolls, murlocs, orcs, Defias, kobolds...) cost +25% time; beasts and undead don't
   flee. Between 1.5 and 2.0, the step tip says "pull one at a time".
+
+## Added in v14 (20 Nov, player: little XP from the Deadmines; friend 37)
+- Every dungeon section starts with "Before the dungeon: sell, repair and bank" (10+ free slots).
+- Take every dungeon quest before the run (prerequisite chains included; check NPC spots such as upstairs rooms).
+- Forever dungeon XP rule (15 Nov hotfix): the whole party gets 0 XP from a mob if ANY member is more than 12 levels
+  above that mob. With a higher friend (level F), only dungeons whose mobs are >= F-12 pay kill XP.
+- Weapon skills: a druid must train Maces, Two-Handed Maces, Fist Weapons, Polearms; plan a weapon master stop the
+  first time the route is in a capital, and never call an untrained weapon an upgrade.
+- Flight paths for dungeons: learn Ratchet (WC, RFK), Astranaar (BFD), Southshore (SFK, Dalaran, SM, Ruins of
+  Lordaeron), Refuge Pointe; Menethil/Thelsamar/IF cover Excavation Site and Gnomeregan.
