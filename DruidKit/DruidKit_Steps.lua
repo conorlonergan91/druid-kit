@@ -38,6 +38,8 @@ end
 
 -- Quest state ----------------------------------------------------------------------------------
 local function logEntry(q, name)
+  -- IsOnQuest sees quests under a collapsed zone header too (the index lookup and the log walk don't).
+  if q and C_QuestLog and C_QuestLog.IsOnQuest and safe(C_QuestLog.IsOnQuest, q) then return q end
   if q and C_QuestLog and C_QuestLog.GetLogIndexForQuestID then
     local idx = safe(C_QuestLog.GetLogIndexForQuestID, q)
     if idx and idx > 0 then return q end

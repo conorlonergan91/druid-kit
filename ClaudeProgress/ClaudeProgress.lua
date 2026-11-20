@@ -51,8 +51,36 @@ local function objectivesClassic(index)
   return out
 end
 
+-- Collapsed zone headers hide their quests from GetNumQuestLogEntries (20 Nov: Underground Assault looked "gone").
+-- Open every header for the snapshot, then close the ones that were closed again.
+local function expandAll()
+  if not (C_QuestLog and C_QuestLog.ExpandQuestHeader and C_QuestLog.GetInfo) then return {} end
+  local closed = {}
+  for _ = 1, 40 do
+    local found
+    for i = 1, (safe(C_QuestLog.GetNumQuestLogEntries) or 0) do
+      local info = safe(C_QuestLog.GetInfo, i)
+      if info and info.isHeader and info.isCollapsed then found = i; closed[#closed + 1] = info.title; break end
+    end
+    if not found then break end
+    safe(C_QuestLog.ExpandQuestHeader, found)
+  end
+  return closed
+end
+local function collapseAgain(closed)
+  if not (closed and #closed > 0 and C_QuestLog.CollapseQuestHeader) then return end
+  local want = {}
+  for _, t in ipairs(closed) do want[t] = true end
+  for i = (safe(C_QuestLog.GetNumQuestLogEntries) or 0), 1, -1 do
+    local info = safe(C_QuestLog.GetInfo, i)
+    if info and info.isHeader and want[info.title] and not info.isCollapsed then safe(C_QuestLog.CollapseQuestHeader, i) end
+  end
+end
+
 local function snapshotQuests()
   local quests = {}
+  local closed = expandAll()
+  local ok, list = pcall(function()
   -- Modern quest API
   if C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetInfo then
     local n = safe(C_QuestLog.GetNumQuestLogEntries) or 0
@@ -95,6 +123,10 @@ local function snapshotQuests()
       end
     end
   end
+  return quests
+  end)
+  collapseAgain(closed)
+  if ok then return list end
   return quests
 end
 
