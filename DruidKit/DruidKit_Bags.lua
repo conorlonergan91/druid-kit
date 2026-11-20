@@ -133,7 +133,8 @@ local function redLine(link)
     if ok and data and data.lines then
       for _, l in ipairs(data.lines) do
         for _, side in ipairs({ { l.leftText, l.leftColor }, { l.rightText, l.rightColor } }) do
-          if side[1] and isRed(side[2]) and not side[1]:find(levelWord, 1, true) then return side[1] end
+          local txt = side[1]
+          if txt and isRed(side[2]) and not txt:find(levelWord, 1, true) and not txt:find("Durability", 1, true) then return txt end
         end
       end
     end
@@ -994,6 +995,17 @@ local function bindTypeOf(link) return select(14, getInfo(link)) end
 -- a sensible stock. Never food or drink (cooked food is the +5% XP buff), never quest items.
 local CONSUMABLE_KEEP = { [1] = 10, [2] = 8, [3] = 8, [4] = 4 }   -- potion, elixir, flask, scroll: keep this many each
 local BANDAGE = 7
+-- Classic item data often files potions, elixirs, scrolls and bandages under subclass 0: use the name too.
+local function consumableKind(name, subID)
+  if CONSUMABLE_KEEP[subID] or subID == BANDAGE then return subID end
+  name = name or ""
+  if name:find("Bandage") then return BANDAGE end
+  if name:find("Potion") then return 1 end
+  if name:find("^Elixir") then return 2 end
+  if name:find("Flask") then return 3 end
+  if name:find("^Scroll of") then return 4 end
+end
+DruidKit_ConsumableKind = consumableKind
 
 -- Materials named in the recipes you carry (not learned yet): keep them.
 local function recipeMats()
@@ -1019,7 +1031,9 @@ local function consumableExtras()
       local link, count = slotInfo(bag, slot)
       if link then
         local name, _, q, ilvl, _, _, _, _, _, _, price, classID, subID = getInfo(link)
-        if classID == 0 and (CONSUMABLE_KEEP[subID] or subID == BANDAGE) and (price or 0) > 0 and (q or 1) >= 1 then
+        local kind = classID == 0 and consumableKind(name, subID)
+        if kind and (price or 0) > 0 and (q or 1) >= 1 then
+          subID = kind
           local isQ = questInfo(bag, slot)
           if not isQ then
             local g = groups[name] or { name = name, sub = subID, ilvl = ilvl or 0, total = 0, stacks = {} }
@@ -1063,6 +1077,8 @@ autoSellList = function(r)
       local ok = true
       if kind == "gear" then
         ok = (equipLoc and equipLoc ~= "" and classID ~= 0) or restriction(link) ~= nil
+        local w = cantWield(link)
+        if w and w:find("haven't learned", 1, true) and (q or 0) >= 2 then ok = false end   -- train the skill, then it may be an upgrade
         if classID == 0 and not restriction(link) then ok = false end   -- food/drink/consumables: never from here
         if classID == 7 or classID == 5 then ok = false end
       elseif kind == "mats" then
@@ -1098,7 +1114,8 @@ local function nextBuff()
       local link, count = slotInfo(bag, slot)
       if link then
         local name, _, _, _, minLevel, _, _, _, _, icon, _, classID, subID = getInfo(link)
-        if classID == 0 and (subID == 2 or subID == 3 or subID == 4) and (minLevel or 0) <= lvl and not seen[name]
+        local kind = classID == 0 and consumableKind(name, subID)
+        if (kind == 2 or kind == 3 or kind == 4) and (minLevel or 0) <= lvl and not seen[name]
           and not questInfo(bag, slot) and not restriction(link) then
           seen[name] = true
           local spell = GetItemSpell and GetItemSpell(link)

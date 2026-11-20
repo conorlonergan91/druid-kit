@@ -54,7 +54,8 @@ end
 -- Collapsed zone headers hide their quests from GetNumQuestLogEntries (20 Nov: Underground Assault looked "gone").
 -- Open every header for the snapshot, then close the ones that were closed again.
 local function expandAll()
-  if not (C_QuestLog and C_QuestLog.ExpandQuestHeader and C_QuestLog.GetInfo) then return {} end
+  local expand = (C_QuestLog and C_QuestLog.ExpandQuestHeader) or ExpandQuestHeader   -- Classic: global API
+  if not (expand and C_QuestLog and C_QuestLog.GetInfo) then return {} end
   local closed = {}
   for _ = 1, 40 do
     local found
@@ -63,17 +64,18 @@ local function expandAll()
       if info and info.isHeader and info.isCollapsed then found = i; closed[#closed + 1] = info.title; break end
     end
     if not found then break end
-    safe(C_QuestLog.ExpandQuestHeader, found)
+    safe(expand, found)
   end
   return closed
 end
 local function collapseAgain(closed)
-  if not (closed and #closed > 0 and C_QuestLog.CollapseQuestHeader) then return end
+  local collapse = (C_QuestLog and C_QuestLog.CollapseQuestHeader) or CollapseQuestHeader
+  if not (closed and #closed > 0 and collapse) then return end
   local want = {}
   for _, t in ipairs(closed) do want[t] = true end
   for i = (safe(C_QuestLog.GetNumQuestLogEntries) or 0), 1, -1 do
     local info = safe(C_QuestLog.GetInfo, i)
-    if info and info.isHeader and want[info.title] and not info.isCollapsed then safe(C_QuestLog.CollapseQuestHeader, i) end
+    if info and info.isHeader and want[info.title] and not info.isCollapsed then safe(collapse, i) end
   end
 end
 

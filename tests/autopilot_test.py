@@ -96,6 +96,27 @@ check("elix2" in sold3 and "elix1" not in sold3, "extra elixirs sold, a stock of
 check("band1" in sold3 and "band2" not in sold3, "worse bandage sold, best kept", sold3)
 check(g.buffName == "Elixir of Minor Strength", "Buff picks an elixir you don't have active", g.buffName)
 
+# Classic data: an elixir filed under subclass 0 still counts (Buff, extras); a red Durability line is not "can't use".
+L = run(r"""
+ITEMS.elix0 = {"Elixir of Minor Defense","elix0",1,5,1,"","",20,"",1,10,0,0}
+ITEMS.broken = {"Worn Leather Boots","broken",2,15,10,"","",1,"INVTYPE_FEET",1,300,4,2,2}
+STATS.broken = {RESISTANCE0_NAME=10}
+function GetItemSpell(l) if l == "elix0" then return "Lesser Armor" end end
+C_UnitAuras = { GetAuraDataBySpellName = function() return nil end }
+C_TooltipInfo = { GetHyperlink = function(l)
+  if l == "broken" then return { lines = { { leftText = "Durability 0 / 30", leftColor = { r = 1, g = 0.13, b = 0.13 } } } } end
+  return { lines = {} } end }
+BAG[0][8] = "elix0"; BAG[0][9] = "broken"
+C_Container.GetContainerNumSlots = function(b) return b == 0 and 9 or 0 end
+""")
+L.execute(r"""
+nb = DruidKit_NextBuff(); nbName = nb and nb.name
+cw = DruidKit_CantWield("broken")
+""")
+g = L.globals()
+check(g.nbName == "Elixir of Minor Defense", "an elixir filed under subclass 0 is found by Buff", g.nbName)
+check(g.cw is None, "a red Durability line doesn't make gear unusable", g.cw)
+
 L = run("DruidKitDB = { autoSell = false }")
 L.execute(r"""
 ev=frames[1]; ev.on_OnEvent(ev,"PLAYER_LOGIN"); ev.on_OnEvent(ev, "MERCHANT_SHOW")

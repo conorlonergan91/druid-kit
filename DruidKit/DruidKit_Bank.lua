@@ -101,7 +101,7 @@ local function essential(link, bag, slot)
   if name and name:find("Hearthstone") then return true end
   if API.questInfo(bag, slot) then return true end
   if DruidKit_Protected and DruidKit_Protected(link, bag, slot) then return true end
-  if classID == 0 and ESSENTIAL_CONSUMABLE[subID] then return true end
+  if classID == 0 then return true end   -- every consumable (Classic data files many under subclass 0)
   if equipLoc and equipLoc ~= "" then return not (classID == 2 and subID == 20) end   -- gear, but not fishing poles
   return false
 end
