@@ -24,7 +24,7 @@ local WEIGHTS = {
   ITEM_MOD_SPELL_POWER_SHORT = 0.5,
   ITEM_MOD_HEALTH_REGENERATION_SHORT = 1.0,
   ITEM_MOD_MANA_REGENERATION_SHORT = 1.5,
-  ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 0.3,
+  ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 1.0,   -- Forever: druid form attacks scale with weapon damage
 }
 
 -- Healing gear: Intellect, Spirit and healing power matter most.
@@ -54,7 +54,7 @@ local SLOT_NAMES = { "Head", "Neck", "Shoulders", "Shirt", "Chest", "Waist", "Le
 -- What a druid can use: cloth/leather armor, misc (rings, necks, cloaks), idols;
 -- one- and two-handed maces, staves, daggers, fist weapons.
 local ARMOR_OK = { [0] = true, [1] = true, [2] = true, [8] = true }   -- misc, cloth, leather, idol
-local WEAPON_OK = { [4] = true, [5] = true, [10] = true, [13] = true, [15] = true }
+local WEAPON_OK = { [4] = true, [5] = true, [6] = true, [10] = true, [13] = true, [15] = true }   -- + polearms (Forever)
 -- Trade goods, reagents, quest items, recipes and containers are never junk.
 local KEEP_CLASS = { [1] = true, [5] = true, [7] = true, [9] = true, [12] = true }
 -- Tools are never junk either: fishing poles and miscellaneous "weapons" like mining picks.
@@ -108,7 +108,56 @@ end
 local PROFESSIONS = { Alchemy = true, Blacksmithing = true, Enchanting = true, Engineering = true, Herbalism = true,
   Leatherworking = true, Mining = true, Skinning = true, Tailoring = true, Jewelcrafting = true, Inscription = true,
   Cooking = true, ["First Aid"] = true, Fishing = true, Lockpicking = true }
+-- Can you wield it? Two checks that need no guessing (20 Nov: Smite's Mighty Hammer was called an upgrade, but the
+-- player hasn't trained Two-Handed Maces):
+--  1. the game's own tooltip: any line it paints red (weapon type you can't use, class, race...), except the level line;
+--  2. the weapon skill's proficiency spell (Night Elf druids start with Staves and Daggers only).
+local WEAPON_SKILL = { [0] = { 196, "Axes" }, [1] = { 197, "Two-Handed Axes" }, [2] = { 264, "Bows" }, [3] = { 266, "Guns" },
+  [4] = { 198, "Maces" }, [5] = { 199, "Two-Handed Maces" }, [6] = { 200, "Polearms" }, [7] = { 201, "Swords" },
+  [8] = { 202, "Two-Handed Swords" }, [10] = { 227, "Staves" }, [13] = { 15590, "Fist Weapons" }, [15] = { 1180, "Daggers" },
+  [16] = { 2567, "Thrown" }, [18] = { 5011, "Crossbows" }, [19] = { 5009, "Wands" } }
+local function knowsSpell(id)
+  if IsPlayerSpell then return IsPlayerSpell(id) end
+  if IsSpellKnown then return IsSpellKnown(id) end
+end
+local function isRed(c)
+  if not c then return false end
+  local r, g, b = c.r, c.g, c.b
+  if c.GetRGB then r, g, b = c:GetRGB() end
+  return r and r > 0.95 and g < 0.25 and b < 0.25
+end
+local function redLine(link)
+  local levelWord = (ITEM_MIN_LEVEL and ITEM_MIN_LEVEL:match("^(%a+ %a+)")) or "Requires Level"
+  if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+    local ok, data = pcall(C_TooltipInfo.GetHyperlink, link)
+    if ok and data and data.lines then
+      for _, l in ipairs(data.lines) do
+        for _, side in ipairs({ { l.leftText, l.leftColor }, { l.rightText, l.rightColor } }) do
+          if side[1] and isRed(side[2]) and not side[1]:find(levelWord, 1, true) then return side[1] end
+        end
+      end
+    end
+  end
+end
+local function cantWield(link)
+  local gi = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+  local _, _, _, _, _, _, _, _, equipLoc, _, _, classID, subID = gi(link)
+  if classID == 2 then
+    local w = WEAPON_SKILL[subID]
+    if w and knowsSpell(w[1]) == false then
+      return ("you haven't learned %s (a weapon master in a capital teaches it)"):format(w[2])
+    end
+  end
+  if equipLoc and equipLoc ~= "" then
+    local red = redLine(link)
+    if red then return "you can't use this (" .. red .. ")" end
+  end
+end
+DruidKit_CantWield = function(link) local ok, why = pcall(cantWield, link); if ok then return why end end
+
 local function restriction(link)
+  local wield = cantWield(link)
+  if wield then return wield end
   local classLabel = (ITEM_CLASSES_ALLOWED and ITEM_CLASSES_ALLOWED:match("^([^:]+)")) or "Classes"
   local me = (UnitClass and UnitClass("player")) or "Druid"
   for _, t in ipairs(tooltipLines(link)) do
