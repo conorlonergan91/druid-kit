@@ -77,6 +77,22 @@ forever-watch (quick) -> save-reader -> log-analyst -> route-tidier
     cap -> professions-advisor; dungeon in the band -> dungeon-advisor; upgrades/rolls -> gear-advisor)
 ```
 
+**"I want to go to the dungeon"** (player, 20 Nov: rework the whole route to go in straight away, as a healer)
+
+```
+save-reader -> dungeon-advisor (which dungeon, quests, prerequisites incl. hidden ones, level reqs, 12-level XP rule
+with the group's levels) -> step-writer builds a NEW route that starts with the dungeon:
+  1. pick-ups: every quest of the dungeon and its prerequisite chain, nearest first; each travel step gets
+     onlyFor = {quest ids it serves} so a quest a friend shares skips the trip and the accept step
+  2. healer prep: "Healing mode" step (Alt+H / /dk heal: heal bars + healing gear set; /dk healset if none saved),
+     party view on (/dk party on), 20+ drinks and some mana potions (buy at an innkeeper), Buff items
+  3. pack at the last bank (pack = true) + sell/repair with freeBags = 20
+  4. find a group note (LFG text: "<dungeon>, druid healer"), then the run's complete steps (party = true)
+  5. hand-ins, "take your things back" bank step, switch back to questing mode (/dk quest)
+  6. the previous route continues after (unchanged order)
+-> travel-checker + bag-advisor -> plan-reviewer -> qa-gatekeeper -> deployer -> guide-writer -> reply
+```
+
 **Feedback or a feature request**
 
 ```

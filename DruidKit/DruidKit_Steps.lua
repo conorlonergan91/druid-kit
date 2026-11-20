@@ -163,6 +163,15 @@ local function isDone(i)
   local key = st.q or st.name
   if key and DB.skipQ[key] then return true end
   local d = st["do"]
+  -- A trip that only serves some quests (fly to a quest giver, walk to an NPC) is done once those quests are in your
+  -- log or handed in: e.g. a friend shared them (20 Nov: dungeon prep with friends).
+  if st.onlyFor and (d == "goto" or d == "fly" or d == "hearth" or d == "note") then
+    local all = true
+    for _, q in ipairs(st.onlyFor) do
+      if not (logEntry(q) or turnedIn(q)) then all = false; break end
+    end
+    if all then return true end
+  end
   -- k-th step of this kind for a name-only quest (titles can repeat)
   local k = 1
   if not st.q and st.name then
