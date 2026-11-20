@@ -168,3 +168,6 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   build/items.json` on every update. An item for a quest the route doesn't do goes to the bank at the next bank on
   the route; a quest-start item that drops again (QuestieDB objectDrops/npcDrops) is dropped instead when its quest
   isn't planned. Items the route still uses stay in the bags. The bag check and bank check show the advice.
+- Before telling the player to abandon a quest, check where its chain leads (`quest ID` -> next in chain, rewards).
+  Object-started hidden chains (e.g. the Cozy Sleeping Bag: a Westfall cart note that leads across five zones) look
+  like stray deliveries but pay off in XP, bags and a permanent XP buff.
