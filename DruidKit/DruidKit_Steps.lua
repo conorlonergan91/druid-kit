@@ -930,6 +930,9 @@ function DruidKit_ToggleSteps(show)
   end
 end
 
+-- Flags on the current step that other parts read (bank check: pack = "keep only dungeon essentials").
+function DruidKit_StepWants(flag) local st = steps[pos]; return st and st[flag] and true or false end
+
 -- The Now tab and the doc use this list too.
 function DruidKit_RouteSteps() return steps, pos end
 

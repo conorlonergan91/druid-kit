@@ -91,6 +91,22 @@ local function bankBags()
 end
 local PLAYER_BAGS = { 0, 1, 2, 3, 4 }
 
+-- Dungeon packing (player, 20 Nov: "only keep what's essential for the dungeon"). On while the route's current step
+-- says pack, or after /dk pack. Kept in the bags: hearthstone, quest items, food, drink, potions, elixirs, flasks,
+-- scrolls, bandages, and wearable gear (you may swap roles inside). Everything else is offered to the bank.
+local ESSENTIAL_CONSUMABLE = { [1] = true, [2] = true, [3] = true, [4] = true, [5] = true, [7] = true }
+local function packing() return DruidKitDB and (DruidKitDB.packDungeon or (DruidKit_StepWants and DruidKit_StepWants("pack"))) end
+local function essential(link, bag, slot)
+  local name, _, _, _, _, _, _, _, equipLoc, _, _, classID, subID = API.getInfo(link)
+  if name and name:find("Hearthstone") then return true end
+  if API.questInfo(bag, slot) then return true end
+  if DruidKit_Protected and DruidKit_Protected(link, bag, slot) then return true end
+  if classID == 0 and ESSENTIAL_CONSUMABLE[subID] then return true end
+  if equipLoc and equipLoc ~= "" then return not (classID == 2 and subID == 20) end   -- gear, but not fishing poles
+  return false
+end
+DruidKit_PackEssential = function(link, bag, slot) local ok, r = pcall(essential, link, bag, slot); return ok and r end
+
 -- Decide ---------------------------------------------------------------------------------------
 local function classify()
   local deposit, take = {}, {}
@@ -134,9 +150,14 @@ local function classify()
         -- Gear for your other role: store it while you're not using it.
         local keepWhy, role = DruidKit_GearKeep and DruidKit_GearKeep(link)
         local mode = DruidKitDB.barMode == "heal" and "heal" or "quest"
-        if name and keepWhy and role ~= mode then
+        if name and keepWhy and role ~= mode and not packing() then   -- in a dungeon you may switch roles: keep both sets
           table.insert(deposit, { bag = bag, slot = slot, link = link, icon = icon, count = count or 1,
             why = (role == "heal" and "healing gear: store while you quest" or "bear gear: store while you heal") })
+          name = nil
+        end
+        if name and packing() and not essential(link, bag, slot) then
+          table.insert(deposit, { bag = bag, slot = slot, link = link, icon = icon, count = count or 1,
+            why = "not needed in the dungeon: store it, take it back after" })
           name = nil
         end
         local subID = select(13, API.getInfo(link))
@@ -168,6 +189,7 @@ local function classify()
           local gain, slotName = API.upgradeFor(link)
           if gain then why = ("upgrade for your %s"):format(slotName:lower()) end
         end
+        if why and packing() and not essential(link, bag, slot) then why = nil end   -- packing: leave it in the bank
         if why then
           table.insert(take, { bag = bag, slot = slot, link = link, icon = icon, count = count or 1, why = why })
         end
@@ -214,7 +236,8 @@ refresh = function()
     S.item(panel, e.link, e.icon, q, t, (e.why:gsub("^%l", string.upper)), "Take", function() move(e); C_Timer.After(0.4, refresh) end)
   end
 
-  S.header(panel, "Put in the bank", "Interface\\Icons\\INV_Box_02", #deposit, #deposit > 0 and "Store all" or nil, doAll(deposit))
+  S.header(panel, packing() and "Put in the bank (packing for the dungeon)" or "Put in the bank", "Interface\\Icons\\INV_Box_02",
+    #deposit, #deposit > 0 and "Store all" or nil, doAll(deposit))
   if not haveReagentData() then
     S.note(panel, "Open your Alchemy, First Aid and Cooking windows once so I know which herbs and cloth you use.")
   elseif #deposit == 0 then
@@ -267,3 +290,18 @@ ev:SetScript("OnEvent", function(_, e, a1)
     C_Timer.After(0.5, function() pending = false; pcall(refresh) end)
   end
 end)
+
+-- /dk pack [on|off]: keep only what the dungeon needs (the route's packing step turns it on by itself).
+do
+  local prev = DruidKit_HelperCommand
+  DruidKit_HelperCommand = function(cmd, rest)
+    if cmd == "pack" then
+      rest = (rest or ""):lower()
+      DruidKitDB.packDungeon = not (rest == "off")
+      print("|cff7fd35bDruid Kit:|r dungeon packing " .. (DruidKitDB.packDungeon and "ON: the bank check stores everything a dungeon doesn't need. /dk pack off after the run." or "OFF."))
+      if refresh then pcall(refresh) end
+      return true
+    end
+    return prev and prev(cmd, rest)
+  end
+end
