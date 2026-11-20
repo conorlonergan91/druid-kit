@@ -1096,6 +1096,11 @@ local function autoPilot()
     if not e or i > 24 or not (MerchantFrame and MerchantFrame:IsShown()) then return finish() end
     if slotInfo(e.bag, e.slot) == e.link then
       if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(e.bag, e.slot) else UseContainerItem(e.bag, e.slot) end
+      -- Sold log (last 60): the update reads it, so nothing the autopilot sells is a mystery.
+      DruidKitDB.soldLog = DruidKitDB.soldLog or {}
+      table.insert(DruidKitDB.soldLog, { name = e.name or (getInfo(e.link)), count = e.count or 1, why = e.why,
+        at = date and date("%Y-%m-%d %H:%M") })
+      while #DruidKitDB.soldLog > 60 do table.remove(DruidKitDB.soldLog, 1) end
       sold = sold + 1
       total = total + (select(11, getInfo(e.link)) or 0) * (e.count or 1)
     end

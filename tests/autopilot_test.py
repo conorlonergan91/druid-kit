@@ -37,6 +37,8 @@ check("herb" not in sold, "herbs kept", sold)
 check(g.REPAIRED is True, "repaired", g.REPAIRED)
 check(any("Mount money" in p for p in said), "mount money line after selling", said[-2:])
 check(any("Buyback" in p for p in said), "says how to undo", "")
+log = L.globals().DruidKitDB.soldLog
+check(log is not None and len(list(log.values())) == 3, "every autopilot sale is logged for the update", log and len(list(log.values())))
 
 # Cooked food (Well Fed) and cooking meat are never sold by the autopilot (19 Nov: it sold Redridge Goulash).
 L = run(r"""
