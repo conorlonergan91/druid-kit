@@ -156,6 +156,25 @@ local function skipKey(i) local st = steps[i]; return st and (st.q or st.name) e
 local function isSkipped(i) local k = skipKey(i); return k and DB.skipQ[k] and true or false end
 
 local bagsFreeNow   -- set with the bag helpers below
+-- Steps you tick by hand (notes, training, travel) keep their tick when the route is rebuilt: they are remembered by
+-- kind + text + which occurrence, not by step number (21 Nov: a new route sent the player back to an old Sell step).
+local QUESTY = { accept = true, turnin = true, complete = true, level = true, abandon = true }
+local function stepKey(i)
+  local st = steps[i]
+  if not st or QUESTY[st["do"]] then return nil end
+  local base = (st["do"] or "") .. "|" .. (st.text or st.name or st.to or "")
+  local k = 1
+  for j = 1, i - 1 do
+    local o = steps[j]
+    if o and (o["do"] or "") .. "|" .. (o.text or o.name or o.to or "") == base then k = k + 1 end
+  end
+  return base .. "#" .. k
+end
+local function tick(i)
+  DB.manual[i] = true
+  local key = stepKey(i)
+  if key then DB.doneKeys = DB.doneKeys or {}; DB.doneKeys[key] = true end
+end
 local function isDone(i)
   local st = steps[i]
   if not st then return true end
@@ -860,7 +879,7 @@ local function catchUp()
         if logEntry(st.q, st.name) then break end
         DB.passedQ[st.q] = true; n = n + 1; logStep(i, "passed")
       else
-        DB.manual[i] = true; n = n + 1; logStep(i, "passed")
+        tick(i); n = n + 1; logStep(i, "passed")
       end
     end
   end
@@ -890,7 +909,7 @@ end
 function DruidKit_StepDone()
   if not steps[pos] then return end
   logStep(pos, "ticked")
-  DB.manual[pos] = true
+  tick(pos)
   pos = pos + 1
   lastArrowFor = nil
   evaluate()
@@ -899,6 +918,8 @@ end
 function DruidKit_StepBack()
   if pos <= 1 then return end
   pos = pos - 1
+  local key = stepKey(pos)
+  if key and DB.doneKeys then DB.doneKeys[key] = nil end
   DB.manual[pos] = nil
   arrived[pos] = nil
   viaAt[pos] = nil
@@ -938,7 +959,7 @@ function DruidKit_StepSkip()
       secs = DB.cur and math.floor(DB.cur.secs) or 0, at = date and date("%Y-%m-%d %H:%M") }
     say(("skipped %s for now. Your quest log keeps it. To bring it back: < Prev to it, then Unskip."):format(st.name or "this quest"))
   else
-    DB.manual[pos] = true
+    tick(pos)
   end
   pos = pos + 1
   lastArrowFor = nil
@@ -1070,6 +1091,10 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     DB.passedQ = DB.passedQ or {}
     if DB.routeId ~= id then
       DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.passedQ = {}; DB.cur = nil; DB.bossKilled = nil
+      for i = 1, #steps do
+        local key = stepKey(i)
+        if key and DB.doneKeys and DB.doneKeys[key] then DB.manual[i] = true end
+      end
     end
     pos = DB.routeStep or 1
     DruidKit_ToggleSteps(not DB.stepsHidden and #steps > 0)
@@ -1123,17 +1148,17 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
   elseif e == "TAXIMAP_OPENED" then
     -- Talking to a flight master learns its flight path, so an "fp" step here is done.
     local st = steps[pos]
-    if st and st["do"] == "fp" then DB.manual[pos] = true end
+    if st and st["do"] == "fp" then tick(pos) end
     C_Timer.After(0.5, soon)
   elseif e == "MERCHANT_SHOW" then
     -- A "Sell ..." step is done once you've talked to a vendor (the autopilot sells and repairs first).
     local st, at = steps[pos], pos
     if st and st["do"] == "note" and (st.text or ""):find("^Sell") then
-      C_Timer.After(4, function() if pos == at then DB.manual[at] = true; soon() end end)
+      C_Timer.After(4, function() if pos == at then tick(at); soon() end end)
     end
   elseif e == "TRAINER_CLOSED" then
     local st = steps[pos]
-    if st and st["do"] == "train" then DB.manual[pos] = true end
+    if st and st["do"] == "train" then tick(pos) end
     soon()
   elseif e == "QUEST_DETAIL" then
     pcall(keepLore, "text", safe(GetQuestText)); pcall(keepLore, "obj", safe(GetObjectiveText))
@@ -1209,7 +1234,7 @@ end)
 function DruidKit_StepsCommand(arg)
   arg = (arg or ""):lower()
   if arg == "reset" then
-    DB.manual = {}; DB.passedQ = {}; pos = 1; DB.routeStep = 1; arrived = {}; lastArrowFor = nil
+    DB.manual = {}; DB.passedQ = {}; DB.doneKeys = {}; pos = 1; DB.routeStep = 1; arrived = {}; lastArrowFor = nil
     DruidKit_ToggleSteps(true)
     say("route restarted: finished steps skip themselves.")
   elseif arg == "unskip" then
