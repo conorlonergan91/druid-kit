@@ -170,7 +170,7 @@ local function stepKey(i)
   end
   return base .. "#" .. k
 end
-local function tick(i)
+local function tickStep(i)
   DB.manual[i] = true
   local key = stepKey(i)
   if key then DB.doneKeys = DB.doneKeys or {}; DB.doneKeys[key] = true end
@@ -224,7 +224,9 @@ isDone = function(i)
     return objectivesDone(st.q, st.name) or turnedIn(st.q, st.name, k)
   elseif d == "goto" then
     return arrived[i] == true or (st.to ~= nil and placeMatches(st.to))
-  elseif d == "fly" or d == "hearth" then
+  elseif d == "fly" then
+    return placeMatches(st.to)   -- or ticked when you take the flight there (TakeTaxiNode below)
+  elseif d == "hearth" then
     return placeMatches(st.to) or arrived[i] == true
   elseif d == "level" then
     return (UnitLevel("player") or 0) >= (st.level or 999)
@@ -913,7 +915,7 @@ local function catchUp()
         if logEntry(st.q, st.name) then break end
         DB.passedQ[st.q] = true; n = n + 1; logStep(i, "passed")
       else
-        tick(i); n = n + 1; logStep(i, "passed")
+        tickStep(i); n = n + 1; logStep(i, "passed")
       end
     end
   end
@@ -943,7 +945,7 @@ end
 function DruidKit_StepDone()
   if not steps[pos] then return end
   logStep(pos, "ticked")
-  tick(pos)
+  tickStep(pos)
   pos = pos + 1
   lastArrowFor = nil
   evaluate()
@@ -993,7 +995,7 @@ function DruidKit_StepSkip()
       secs = DB.cur and math.floor(DB.cur.secs) or 0, at = date and date("%Y-%m-%d %H:%M") }
     say(("skipped %s for now. Your quest log keeps it. To bring it back: < Prev to it, then Unskip."):format(st.name or "this quest"))
   else
-    tick(pos)
+    tickStep(pos)
   end
   pos = pos + 1
   lastArrowFor = nil
@@ -1182,17 +1184,17 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
   elseif e == "TAXIMAP_OPENED" then
     -- Talking to a flight master learns its flight path, so an "fp" step here is done.
     local st = steps[pos]
-    if st and st["do"] == "fp" then tick(pos) end
+    if st and st["do"] == "fp" then tickStep(pos) end
     C_Timer.After(0.5, soon)
   elseif e == "MERCHANT_SHOW" then
     -- A "Sell ..." step is done once you've talked to a vendor (the autopilot sells and repairs first).
     local st, at = steps[pos], pos
     if st and st["do"] == "note" and (st.text or ""):find("^Sell") then
-      C_Timer.After(4, function() if pos == at then tick(at); soon() end end)
+      C_Timer.After(4, function() if pos == at then tickStep(at); soon() end end)
     end
   elseif e == "TRAINER_CLOSED" then
     local st = steps[pos]
-    if st and st["do"] == "train" then tick(pos) end
+    if st and st["do"] == "train" then tickStep(pos) end
     soon()
   elseif e == "QUEST_DETAIL" then
     pcall(keepLore, "text", safe(GetQuestText)); pcall(keepLore, "obj", safe(GetObjectiveText))
@@ -1243,7 +1245,7 @@ DruidKit_OnArrive = function()
     pointArrow(); pcall(draw)
     return
   end
-  if st and st.at and (st["do"] == "goto" or st["do"] == "fly" or st["do"] == "hearth") then
+  if st and st.at and (st["do"] == "goto" or st["do"] == "hearth") then
     arrived[pos] = true
     soon()
   end
@@ -1263,6 +1265,26 @@ ev:SetScript("OnUpdate", function(_, el)
   pcall(recordTrail)
   if frame and frame:IsShown() and steps[pos] then pcall(draw) end
 end)
+
+-- Flights: a fly step ticks when you take a flight to its town (not when you reach the flight master).
+-- Picking another town says so. hooksecurefunc runs after the game's own TakeTaxiNode: no taint.
+if hooksecurefunc and TakeTaxiNode then
+  hooksecurefunc("TakeTaxiNode", function(index)
+    if not DB then return end
+    local st = steps[pos]
+    if not (st and st["do"] == "fly" and st.to) then return end
+    local node = safe(TaxiNodeName, index)
+    if type(node) ~= "string" then return end
+    local want = st.to:lower():gsub(",.*", "")
+    if node:lower():find(want, 1, true) then
+      logStep(pos, "flying")
+      tickStep(pos); pos = pos + 1; lastArrowFor = nil
+      pcall(evaluate)
+    else
+      say(("this flight goes to %s; the step wants %s."):format(node, st.to))
+    end
+  end)
+end
 
 -- Vendor menu: one row per kind of vendor in this zone, nearest first; a click points the arrow.
 local vendorMenu

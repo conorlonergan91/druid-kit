@@ -686,12 +686,17 @@ local function scan()
       if a.minLevel ~= b.minLevel then return a.minLevel > b.minLevel end
       return (a.count or 1) > (b.count or 1)
     end)
+    -- Count by item, not by stack: 20 + 8 Ice Cold Milk is one drink you keep all of (21 Nov: it said drop the
+    -- milk just bought for the dungeon).
     local keptNow, keptLater, best = 0, 0, nil
+    local keepName = {}
     for _, e in ipairs(list) do
-      if e.minLevel > lvl and keptLater < 1 then
-        keptLater = keptLater + 1
+      if keepName[e.name] then
+        -- another stack of an item you keep
+      elseif e.minLevel > lvl and keptLater < 1 then
+        keptLater = keptLater + 1; keepName[e.name] = true
       elseif e.minLevel <= lvl and keptNow < MEAL_KEEP then
-        keptNow = keptNow + 1
+        keptNow = keptNow + 1; keepName[e.name] = true
         best = best or e
       else
         e.why = ("spare %s: you're keeping %s"):format(kind:lower(), best and best.name or "better ones")
