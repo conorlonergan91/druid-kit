@@ -236,7 +236,7 @@ local function drawXP()
     xpText:SetSize(300, 16)
     xpText.t = xpText:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     xpText.t:SetAllPoints()
-    if bar then xpText:SetPoint("BOTTOM", bar, "TOP", 0, 2) else xpText:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 60) end
+    if bar then xpText:SetPoint("BOTTOM", bar, "TOP", 0, 2) elseif DruidKitPos then DruidKitPos.place(xpText, "questxp") end
   end
   if n == 0 then xpText:Hide() return end
   local cur, max = UnitXP("player") or 0, UnitXPMax("player") or 1

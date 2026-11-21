@@ -1,5 +1,5 @@
-"""Catch-up tracker: guild members are not saved as friends and never become the default target; guildies saved
-by older versions are pruned. A guildie can still be named with /dk catchup."""
+"""Catch-up tracker: guild members are never saved as friends, and saved friends are never removed (even one who is
+only in the guild now). A guildie can still be named with /dk catchup."""
 
 from lupa.lua51 import LuaRuntime
 
@@ -39,7 +39,7 @@ function UnitIsDeadOrGhost() return false end
 function BreakUpLargeNumbers(n) return tostring(n) end
 C_FriendList = { GetNumFriends = function() return 1 end, GetFriendInfoByIndex = function() return { name = "Aoife", level = 23 } end }
 function IsInGuild() return true end
-GUILD = { { "Oldtimer-Realm", 59 }, { "Aoife-Realm", 23 } }
+GUILD = { { "Oldtimer-Realm", 59 }, { "Aoife-Realm", 23 }, { "Guildie-Realm", 60 } }
 function GetNumGuildMembers() return #GUILD end
 function GetGuildRosterInfo(i) local m = GUILD[i]; return m[1], nil, nil, m[2] end
 DruidKitDB = { friends = { Oldtimer = 59, Aoife = 22 } }
@@ -52,17 +52,19 @@ ev.on_OnEvent(ev, "FRIENDLIST_UPDATE")
 ev.on_OnEvent(ev, "GUILD_ROSTER_UPDATE")
 function trackerText() for _, f in ipairs(frames) do if type(f.text) == "string" and f.text:find("Catch") then return f.text end end end
 DEFAULT = trackerText()
-DruidKit_HelperCommand("catchup", "oldt")
+DruidKit_HelperCommand("catchup", "guil")
 NAMED = trackerText()
 """)
 g = L.globals()
 friends = dict(g.DruidKitDB.friends.items())
-check("Oldtimer" not in friends, "a guildie saved by an older version is pruned", friends)
+check(friends.get("Oldtimer") == 59, "a saved friend now only in the guild is never removed", friends)
 check(friends.get("Aoife") == 23, "a friend who is also in the guild stays", friends)
+check("Guildie" not in friends, "a guild member is never saved as a friend", friends)
 check(
-    "Aoife 23" in g.DEFAULT and "Oldtimer" not in g.DEFAULT,
-    "default target is a friend, not the highest guildie",
+    "Oldtimer 59" in g.DEFAULT and "Guildie" not in g.DEFAULT,
+    "default target is the highest saved friend, never an unsaved guildie",
     g.DEFAULT,
 )
-check("Oldtimer 59" in g.NAMED, "a guildie can still be named with /dk catchup", g.NAMED)
+check(g.DruidKitDB.friendsMigrated is None, "no one-time friends migration", g.DruidKitDB.friendsMigrated)
+check("Guildie 60" in g.NAMED, "a guildie can still be named with /dk catchup", g.NAMED)
 done("bagsfix_friends_test")

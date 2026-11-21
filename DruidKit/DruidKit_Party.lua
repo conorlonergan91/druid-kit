@@ -637,11 +637,12 @@ end
 local function applyScale()
   if InCombatLockdown() then return end
   local sc = SIZES[DB.partySize or "normal"] or 1
-  -- never bigger than the screen allows
+  -- normal fits the left third of the screen (the middle stays clear); never bigger than the screen allows
   local uw, uh = UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
   local w, h = container:GetWidth() or 1, container:GetHeight() or 1
-  if uw > 0 and uh > 0 then sc = math.min(sc, (uw * 0.62) / w, (uh * 0.85) / h) end
+  if uw > 0 and uh > 0 then sc = math.min(sc * math.min(1, (uw / 3 - 20) / w), (uw * 0.62) / w, (uh * 0.85) / h) end
   container:SetScale(sc)
+  if DruidKitPos then DruidKitPos.place(container, "party") end
 end
 
 local handle
@@ -658,8 +659,7 @@ local function setMovable(on)
       handle:SetScript("OnDragStart", function() container:StartMoving() end)
       handle:SetScript("OnDragStop", function()
         container:StopMovingOrSizing()
-        local a, _, b, x, y = container:GetPoint(1)
-        DB.partyPos3 = { a, b, x, y }
+        if DruidKitPos then DruidKitPos.save(container, "party") end
       end)
     end
     handle:Show()
@@ -685,8 +685,7 @@ local function build()
   local ic = hd:CreateTexture(nil, "ARTWORK"); ic:SetSize(16, 16); ic:SetPoint("LEFT", 8, 0); ic:SetTexture("Interface\\Icons\\Spell_Nature_Rejuvenation"); ic:SetTexCoord(0.08, 0.92, 0.08, 0.92)
   local tt = text(hd, 13); tt:SetPoint("LEFT", ic, "RIGHT", 6, 0); tt:SetText("Party"); tt:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
   local hint = text(hd, 13); hint:SetPoint("RIGHT", -10, 0); hint:SetText("click a button to cast it on that person"); hint:SetTextColor(0.75, 0.75, 0.65)
-  local p = DB.partyPos3       -- grid layout: new saved position
-  if p then container:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else container:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 20, -130) end
+  if DruidKitPos then DruidKitPos.place(container, "party") end
   container:SetMovable(true); container:SetClampedToScreen(true)
   container:Hide()
   for i, unit in ipairs(UNITS) do
@@ -763,8 +762,7 @@ function DruidKit_PartyCommand(arg)
     if InCombatLockdown() then say("can't change that in combat.") return end
     DB.partySize = b; applyScale(); say("party view size: " .. b .. ".")
   elseif a == "reset" then
-    if InCombatLockdown() then return end
-    DB.partyPos3 = nil; container:ClearAllPoints(); container:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 20, -130); say("party view moved back to the left side.")
+    if DruidKitPos then DruidKitPos.reset("party") end
   else
     say("/dk party test · on · off · size small|normal|big · reset")
   end

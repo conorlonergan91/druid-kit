@@ -577,6 +577,10 @@ local function pointArrow()
   if not st or lastArrowFor == pos or customNav then return end
   lastArrowFor = pos
   if DB.arrowOff then return end
+  if st.inside then   -- the game gives no position inside a dungeon: no arrow, not even to the next step outside
+    if DruidKit_NavTarget and DruidKit_NavTarget() and DruidKit_NavClear then DruidKit_NavClear(true) end
+    return
+  end
   local v, n = nextVia(st)
   local final = st.npc or st.text or st.name or "Next step"
   if v and DruidKit_GoTo then
@@ -607,13 +611,12 @@ local function build()
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", function(f)
     f:StopMovingOrSizing()
-    local _, _, _, x, y = f:GetPoint()
-    DB.stepsPos = { x, y }
+    if DruidKitPos then DruidKitPos.save(f, "steps") end
     pcall(updateBuff)
   end)
+  frame.onPlaced = function() pcall(updateBuff) end
   if DruidKitStyle and DruidKitStyle.druidPanel then DruidKitStyle.druidPanel(frame, 28) end
-  local p = DB.stepsPos
-  frame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", p and p[1] or -20, p and p[2] or -230)
+  if DruidKitPos then DruidKitPos.place(frame, "steps") end
 
   local function fs(size, r, g, b, width, justify)
     local f = frame:CreateFontString(nil, "OVERLAY")
@@ -715,7 +718,7 @@ local function resize()
 end
 
 -- Lore: the quest's own story text, kept when you meet the quest giver (auto-accept skips past it), shown on
--- parchment next to the step window. The Lore button shows or hides it; it follows the step you look at.
+-- parchment at the left, where reading windows open. The Lore button shows or hides it; it follows the step you look at.
 local lore
 local function routeQuest(q)
   for _, st in ipairs(steps) do if st.q == q then return true end end
@@ -766,7 +769,7 @@ local function buildLore()
   lore:SetFrameStrata("MEDIUM")
   lore:SetClampedToScreen(true)
   if DruidKitStyle and DruidKitStyle.parchment then DruidKitStyle.parchment(lore) end
-  lore:SetPoint("TOPRIGHT", frame, "TOPLEFT", -6, 0)
+  if DruidKitPos then DruidKitPos.place(lore, "lore") end
   local close = CreateFrame("Button", nil, lore, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", 2, 2)
   close:SetScript("OnClick", function() DruidKit_ToggleLore(false) end)

@@ -22,7 +22,8 @@ function S.window(name, title, icon, w, h)
   f:SetMovable(true); f:EnableMouse(true); f:SetClampedToScreen(true)
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving)
-  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  f:SetScript("OnDragStop", function() f:StopMovingOrSizing(); if DruidKitPos then DruidKitPos.save(f) end end)
+  if DruidKitPos then DruidKitPos.place(f) end
   table.insert(UISpecialFrames, name)
   if f.SetPortraitToAsset then pcall(f.SetPortraitToAsset, f, icon)
   elseif f.portrait and SetPortraitToTexture then pcall(SetPortraitToTexture, f.portrait, icon) end
