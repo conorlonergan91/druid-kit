@@ -1,5 +1,7 @@
 """Forever secret values: the step window's OnUpdate must not test UnitIsAFK when it is secret (19 Nov errors)."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 

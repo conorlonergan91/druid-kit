@@ -61,7 +61,7 @@ local function objectivesClassic(index)
 end
 
 -- Collapsed zone headers hide their quests from GetNumQuestLogEntries (20 Nov: Underground Assault looked "gone").
--- Open every header for the snapshot, then close the ones that were closed again.
+-- The full snapshot opens every header, then closes the ones that were closed again.
 local function expandAll()
   local expand = (C_QuestLog and C_QuestLog.ExpandQuestHeader) or ExpandQuestHeader   -- Classic: global API
   if not (expand and C_QuestLog and C_QuestLog.GetInfo) then return {} end
@@ -90,7 +90,6 @@ end
 
 local function snapshotQuests()
   local quests = {}
-  local closed = expandAll()
   local ok, list = pcall(function()
   -- Modern quest API
   if C_QuestLog and C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetInfo then
@@ -136,8 +135,22 @@ local function snapshotQuests()
   end
   return quests
   end)
-  collapseAgain(closed)
   if ok then return list end
+  return quests
+end
+
+-- Without opening headers: keep the last snapshot's quests under headers that are collapsed now.
+local function withHiddenQuests(quests, prev)
+  if not (prev and C_QuestLog and C_QuestLog.GetInfo) then return quests end
+  local hidden, seen = {}, {}
+  for i = 1, (safe(C_QuestLog.GetNumQuestLogEntries) or 0) do
+    local info = safe(C_QuestLog.GetInfo, i)
+    if info and info.isHeader and info.isCollapsed then hidden[info.title] = true end
+  end
+  for _, q in ipairs(quests) do if q.id then seen[q.id] = true end end
+  for _, q in ipairs(prev) do
+    if q.zone and hidden[q.zone] and not (q.id and seen[q.id]) then table.insert(quests, q) end
+  end
   return quests
 end
 
@@ -392,7 +405,7 @@ local function snapshotQuestRewards()
       if #entry.choices > 0 or #entry.given > 0 or entry.xp then table.insert(out, entry) end
     end
   end
-  if prev and C_QuestLog.SetSelectedQuest then safe(C_QuestLog.SetSelectedQuest, prev) end
+  if C_QuestLog.SetSelectedQuest then safe(C_QuestLog.SetSelectedQuest, prev or 0) end
   return out
 end
 
@@ -671,6 +684,7 @@ pcall(tf.RegisterEvent, tf, "TAXIMAP_OPENED")
 tf:SetScript("OnEvent", function() safe(recordFlights) end)
 
 -- Completed quests (v1.8): ids the server says are done, with titles where the client has them cached.
+local titleRequested = {}
 local function snapshotCompleted()
   local ids = (C_QuestLog and C_QuestLog.GetAllCompletedQuestIDs and C_QuestLog.GetAllCompletedQuestIDs()) or nil
   if not ids and GetQuestsCompleted then
@@ -680,7 +694,10 @@ local function snapshotCompleted()
   local out, n = {}, 0
   for _, id in ipairs(ids or {}) do
     local title = C_QuestLog and C_QuestLog.GetTitleForQuestID and safe(C_QuestLog.GetTitleForQuestID, id)
-    if not title and C_QuestLog and C_QuestLog.RequestLoadQuestByID then pcall(C_QuestLog.RequestLoadQuestByID, id) end
+    if not title and not titleRequested[id] and C_QuestLog and C_QuestLog.RequestLoadQuestByID then
+      titleRequested[id] = true
+      pcall(C_QuestLog.RequestLoadQuestByID, id)
+    end
     out[id] = title or true
     n = n + 1
   end
@@ -694,18 +711,28 @@ local function hollow()
   return (not max or max == 0) or (not bags or (bags.total or 0) == 0)
 end
 
-local function snapshot()
+-- full: open the quest log's headers and select each quest to read its rewards (logout and /claude only, never in
+-- combat). Otherwise the quest log is left alone and the last full pass's rewards are kept.
+local function snapshot(full)
   local key = (safe(UnitName, "player") or "unknown") .. "-" .. realmName()
   ClaudeProgressDB = ClaudeProgressDB or {}
-  if hollow() and ClaudeProgressDB[key] then
-    ClaudeProgressDB[key].lastQuit = date("%Y-%m-%d %H:%M")
-    return ClaudeProgressDB[key]
+  local prev = ClaudeProgressDB[key]
+  if hollow() and prev then
+    prev.lastQuit = date("%Y-%m-%d %H:%M")
+    return prev
   end
+  full = full and not (InCombatLockdown and InCombatLockdown())
+  local closed = full and expandAll() or {}
+  local quests = snapshotQuests()
+  local okQ, rewards = true, prev and prev.questRewards
+  if full then okQ, rewards = pcall(snapshotQuestRewards) end
+  collapseAgain(closed)
+  if not full then quests = withHiddenQuests(quests, prev and prev.quests) end
   ClaudeProgressDB[key] = {
     savedAt = date("%Y-%m-%d %H:%M"),
     savedTime = time(),
     basics = snapshotBasics(),
-    quests = snapshotQuests(),
+    quests = quests,
     skills = snapshotSkills(),
     talents = snapshotTalents(),
     bags = snapshotBags(),
@@ -716,7 +743,6 @@ local function snapshot()
   ClaudeProgressDB[key].gear = okG and gear or { error = tostring(gear) }
   local okB, bagGear = pcall(snapshotBagGear)
   ClaudeProgressDB[key].bagGear = okB and bagGear or { error = tostring(bagGear) }
-  local okQ, rewards = pcall(snapshotQuestRewards)
   ClaudeProgressDB[key].questRewards = okQ and rewards or { error = tostring(rewards) }
   local okC, done = pcall(snapshotCompleted)
   ClaudeProgressDB[key].completed = okC and done or { error = tostring(done) }
@@ -738,8 +764,8 @@ for _, ev in ipairs({ "CHARACTER_POINTS_CHANGED", "PLAYER_TALENT_UPDATE", "PLAYE
 end
 f:SetScript("OnEvent", function(_, event)
   if event == "PLAYER_LOGOUT" or event == "PLAYER_ENTERING_WORLD" then
-    -- Login snapshot keeps the file from being empty; the logout/reload one is the fresh one.
-    safe(snapshot)
+    -- Login snapshot keeps the file from being empty; the logout/reload one is the fresh, full one.
+    safe(snapshot, event == "PLAYER_LOGOUT")
   else
     -- Cache talents while playing, in case they read as empty at logout.
     safe(snapshotTalents)
@@ -750,12 +776,12 @@ if C_Timer and C_Timer.After then
 end
 -- Fresh snapshot every minute while playing, so quitting with Cmd+Q still saves recent progress.
 if C_Timer and C_Timer.NewTicker then
-  C_Timer.NewTicker(60, function() safe(snapshot) end)
+  C_Timer.NewTicker(60, function() safe(snapshot, false) end)
 end
 
 SLASH_CLAUDEPROGRESS1 = "/claude"
 SlashCmdList["CLAUDEPROGRESS"] = function()
-  local s = safe(snapshot)
+  local s = safe(snapshot, true)
   if s then
     print("|cff88ccffClaude Progress:|r snapshot taken. Type /reload to save it to disk for Claude.")
   else

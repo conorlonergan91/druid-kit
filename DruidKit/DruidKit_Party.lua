@@ -148,10 +148,22 @@ local function makeFix(parent, spell, icon, letter, tip)
     GameTooltip:SetOwner(s, "ANCHOR_TOP"); GameTooltip:AddLine("Click: " .. tip, 1, 1, 1); GameTooltip:Show()
   end)
   f:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  f:SetAlpha(0)
+  f:SetAlpha(0); f:EnableMouse(false); f.mouseOn = false
   return f
 end
+-- A hidden fix button must not take clicks. Secure frames can't change that in combat: done after combat.
+local mouseLater = {}
+local function setMouse(f, on)
+  if f.mouseOn == on and mouseLater[f] == nil then return end
+  if InCombatLockdown() then mouseLater[f] = on; return end
+  mouseLater[f] = nil
+  f:EnableMouse(on); f.mouseOn = on
+end
+local function applyMouseLater()
+  for f, on in pairs(mouseLater) do mouseLater[f] = nil; f:EnableMouse(on); f.mouseOn = on end
+end
 local function showFix(f, on, pulse)
+  setMouse(f, on and true or false)
   if on then
     if pulse then if not f.pulse:IsPlaying() then f.pulse:Play() end
     elseif f.pulse:IsPlaying() then f.pulse:Stop() end
@@ -542,13 +554,11 @@ local function updatePet(p)
   if not UnitExists(p.unit) then return end
   setBar(p.hp, UnitHealth(p.unit), UnitHealthMax(p.unit))
   if not pcall(p.name.SetText, p.name, UnitName(p.unit)) then p.name:SetText("") end
-  local ok, pct = pcall(function() return UnitHealth(p.unit) / math.max(1, UnitHealthMax(p.unit)) end)
-  if ok and type(pct) == "number" then
-    if UnitIsDeadOrGhost(p.unit) then p.tag:SetText("DEAD")
-    elseif pct < CRITICAL then p.tag:SetText(("!! %d%%"):format(pct * 100))
-    elseif pct < LOW then p.tag:SetText(("LOW %d%%"):format(pct * 100))
-    else p.tag:SetText("PET") end
-  end
+  local frac = healthFrac(p.unit)
+  if plain(try(UnitIsDeadOrGhost, p.unit)) == true then p.tag:SetText("DEAD")
+  elseif frac and frac < CRITICAL then p.tag:SetText(("!! %d%%"):format(math.floor(frac * 100 + 0.5)))
+  elseif frac and frac < LOW then p.tag:SetText(("LOW %d%%"):format(math.floor(frac * 100 + 0.5)))
+  else p.tag:SetText("PET") end
 end
 
 local function updateAll()
@@ -663,6 +673,11 @@ local function build()
   local okS, eS = pcall(applySlots); if not okS then logErr("applySlots", eS) end
 end
 
+-- Unit events come for every unit (target, nameplates...): only ours mark the cards dirty; OnUpdate draws them.
+local WATCHED = {}
+for _, u in ipairs(UNITS) do WATCHED[u] = true end
+for _, u in ipairs(PETS) do WATCHED[u] = true end
+local dirty = false
 local ev = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_POWER_UPDATE",
                      "UNIT_AURA", "UNIT_THREAT_SITUATION_UPDATE", "UNIT_PET", "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_ENABLED",
@@ -670,7 +685,8 @@ for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDA
                      "ACTIONBAR_UPDATE_COOLDOWN", "ACTIONBAR_UPDATE_USABLE" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
-ev:SetScript("OnEvent", function(_, e)
+ev:SetScript("OnEvent", function(_, e, unit)
+  if e:sub(1, 5) == "UNIT_" and not WATCHED[unit] then return end
   if e == "PLAYER_LOGIN" then
     DruidKitDB = DruidKitDB or {}
     DB = DruidKitDB
@@ -683,20 +699,21 @@ ev:SetScript("OnEvent", function(_, e)
   end
   if not container then return end
   if e == "ACTIONBAR_SLOT_CHANGED" then slotsDirty = true end
+  if e == "PLAYER_REGEN_ENABLED" then applyMouseLater() end
   if e == "PLAYER_REGEN_ENABLED" or e == "ACTIONBAR_SLOT_CHANGED" or e == "PLAYER_ENTERING_WORLD" then
     if slotsDirty then applySlots() end
   end
   if e == "GROUP_ROSTER_UPDATE" or e == "UNIT_PORTRAIT_UPDATE" or e == "UNIT_MODEL_CHANGED" or e == "PLAYER_ENTERING_WORLD" then
     C_Timer.After(0.2, updatePortraits)
   end
-  updateAll()
+  dirty = true
 end)
--- HoT countdowns, range and cooldowns: light refresh twice a second; portraits every 5 s
+-- Changes are drawn within 0.1 s; HoT countdowns, range and cooldowns twice a second anyway; portraits every 5 s
 local acc, pacc = 0, 0
 ev:SetScript("OnUpdate", function(_, el)
   acc, pacc = acc + el, pacc + el
-  if acc < 0.5 then return end
-  acc = 0
+  if acc < (dirty and 0.1 or 0.5) then return end
+  acc, dirty = 0, false
   if container and container:IsShown() then
     updateAll()
     if pacc > 5 then pacc = 0; updatePortraits() end

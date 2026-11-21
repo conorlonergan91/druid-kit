@@ -2,6 +2,7 @@
 
 from lupa.lua51 import LuaRuntime
 
+from expect import check, done
 from wowenv import source
 
 L = LuaRuntime(unpack_returned_tuples=True)
@@ -59,48 +60,27 @@ L.execute(source("DruidKit/DruidKit_Helpers.lua"))
 L.execute(r"""
 ev=frames[1]
 ev.on_OnEvent(ev,"PLAYER_LOGIN")
-assert(DruidKitDB.trackerOn and DruidKitDB.friends.Aoife==23)
 NOW=1600; XP=2500; ev.on_OnEvent(ev,"PLAYER_XP_UPDATE")
 NOW=1900; XP=4000; ev.on_OnEvent(ev,"PLAYER_XP_UPDATE")
-""")
-tr = [f for f in L.eval("frames")]
-fr = L.globals().frames
-# find tracker text
-L.execute("""for i,f in pairs(frames) do end""")
-L.execute("""
-HP=50; MP=30; ev.on_OnUpdate(ev,1)
-HP=100; MP=100; BUFFS["Mark of the Wild"]={} ; ev.on_OnUpdate(ev,1)
-ev.on_OnEvent(ev,"UPDATE_INVENTORY_DURABILITY")
-ev.on_OnEvent(ev,"BAG_UPDATE_DELAYED")
-LVL=14; ev.on_OnEvent(ev,"PLAYER_LEVEL_UP",14)
-SlashOK = DruidKit_HelperCommand("catchup","25")
-Bad = DruidKit_HelperCommand("zzz","")
-DruidKit_HelperCommand("unlock",""); DruidKit_HelperCommand("hud","off"); DruidKit_HelperCommand("lock","")
+LVL=14
+function trackerText() for _,f in ipairs(frames) do if type(f.text)=="string" and f.text:find("Catch") then return f.text end end end
+DruidKit_HelperCommand("catchup","")
+DEFAULT = trackerText()
+DruidKit_HelperCommand("catchup","25")
+TARGET = trackerText()
+DruidKit_HelperCommand("catchup","aoi")
+NAMED = trackerText()
+DruidKit_HelperCommand("catchup","niamh")
+MISSING = trackerText()
 """)
 g = L.globals()
-for k in g.printed.values():
-    print("PRINT:", k)
-for k in g.shouts.values():
-    print("SHOUT:", k)
-print("slash", g.SlashOK, g.Bad, g.DruidKitDB.catchupTarget, g.DruidKitDB.hudOn)
-# dump texts of fontstrings
-L.execute("""alltexts={} """)
-L.execute('DruidKit_HelperCommand("hud","off")')
-print("hudOn after off:", L.globals().DruidKitDB.hudOn)
-L.execute(
-    """DruidKit_HelperCommand("tracker","on"); for _,f in ipairs(frames) do if type(f.text)=="string" and f.text:find("Catch") then CT=f.text end end"""
+check(g.DruidKitDB.friends.Aoife == 23, "a friend's level is saved", g.DruidKitDB.friends.Aoife)
+check("Aoife 23: 9 levels behind" in g.DEFAULT, "no target set: catch up to your highest friend", g.DEFAULT)
+check("Target 25: 11 levels behind" in g.TARGET, "/dk catchup 25: a level target", g.TARGET)
+check(
+    "Aoife 23: 9 levels behind" in g.NAMED and "Big gap" in g.NAMED,
+    "/dk catchup aoi: the named friend, with advice",
+    g.NAMED,
 )
-print(L.globals().CT)
-L.execute("""for i=1,10 do ev.on_OnUpdate(ev,1) end
-hb=nil for _,f in ipairs(frames) do if f.gotSecret then hb=true end end""")
-print("bars got secret values:", L.globals().hb)
-print("paused msgs:", [p for p in L.globals().printed.values() if "paused" in p])
-
-L.execute("""
-CT=nil; for _,f in ipairs(frames) do if type(f.text)=="string" and f.text:find("Catch") then CT=f.text end end
-""")
-print("DEFAULT:", L.globals().CT)
-L.execute(
-    """DruidKit_HelperCommand("catchup","aoife"); for _,f in ipairs(frames) do if type(f.text)=="string" and f.text:find("Catch") then CT=f.text end end"""
-)
-print("AOIFE:", L.globals().CT)
+check("Niamh not on your friends list" in g.MISSING, "a name not on the list says how to add them", g.MISSING)
+done("friend_test")

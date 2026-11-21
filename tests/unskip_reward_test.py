@@ -1,7 +1,9 @@
 """Unskip a skipped quest from the step window; rewards are chosen even with no guide pick and on early hand-ins."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
-from wowenv import HERE, source, runtime
+from wowenv import HERE, runtime, source
 
 # 1. Bags: reward pick = best upgrade, else highest sell price.
 B = runtime("ui")

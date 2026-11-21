@@ -1,5 +1,7 @@
 """Dungeon steps: boss steps show short tactics and tick when the boss dies; inside steps show the next boss."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 
@@ -37,15 +39,24 @@ DruidKit_StepsEvaluate(); R[7] = DruidKitDB.routeStep
 """)
 r = list(L.globals().R.values())
 print(r)
-check("Next: Saltspine" in r[0] and "Pull onto the ledges" in r[0] and "HoT the tank" not in r[0],
-      "inside step: next boss with its first tactic only", r[0])
+check(
+    "Next: Saltspine" in r[0] and "Pull onto the ledges" in r[0] and "HoT the tank" not in r[0],
+    "inside step: next boss with its first tactic only",
+    r[0],
+)
 check(r[1] == 2 and "Boss:" in r[2] and "Saltspine" in r[2], "boss step has its own look", r[2])
 check(r[3].count("|cffff7040-|r") == 3, "boss step: the 3 tactic lines", r[3])
 check(r[4] == 2, "a wipe does not tick the boss", r[4])
 check(r[5] == 3, "the boss kill ticks the step", r[5])
 check(r[6] == 3, "looting the dead boss (your target) ticks the step", r[6])
 import re
+
 from wowenv import ROOT
-cleu = [f.name for f in (ROOT / "DruidKit").glob("*.lua") if re.search(r'RegisterEvent[^\n]*COMBAT_LOG_EVENT_UNFILTERED|"COMBAT_LOG_EVENT_UNFILTERED"', f.read_text())]
+
+cleu = [
+    f.name
+    for f in (ROOT / "DruidKit").glob("*.lua")
+    if re.search(r'RegisterEvent[^\n]*COMBAT_LOG_EVENT_UNFILTERED|"COMBAT_LOG_EVENT_UNFILTERED"', f.read_text())
+]
 check(not cleu, "no file registers the combat log (Forever blocks it: 'only available to the Blizzard UI')", cleu)
 done("boss_test")

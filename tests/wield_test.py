@@ -1,7 +1,8 @@
 """Can you wield it? An untrained weapon type (Two-Handed Maces) or any red tooltip line means: not an upgrade,
 sell it, and say why. Polearms count as druid weapons in Forever."""
-from wowenv import runtime, source
+
 from expect import check, done
+from wowenv import runtime, source
 
 L = runtime("ui")
 L.execute("UISpecialFrames={}")
@@ -15,7 +16,7 @@ ITEMS.redboots = {"Odd Boots","redboots",2,22,17,"","",1,"INVTYPE_FEET",1,500,4,
 STATS.redboots = {ITEM_MOD_STAMINA_SHORT=8, RESISTANCE0_NAME=60}
 KNOWN = { [227] = true, [1180] = true }          -- Staves, Daggers only
 function IsPlayerSpell(id) return KNOWN[id] == true end
-C_TooltipInfo = { GetHyperlink = function(l)
+C_TooltipInfo = { GetHyperlink = function(l) l = KEY(l)
   if l == "redboots" then return { lines = { { leftText = "Odd Boots" }, { leftText = "Classes: Druid" },
     { leftText = "Requires Rogue", leftColor = { r = 1, g = 0.13, b = 0.13 } } } } end
   if l == "hammer" then return { lines = { { leftText = "Smite's Mighty Hammer" }, { leftText = "Two-Hand", rightText = "Mace", rightColor = { r = 1, g = 0.13, b = 0.13 } } } } end
@@ -28,7 +29,9 @@ R = { DruidKit_CantWield("hammer"), DruidKit_CantWield("staff"), DruidKit_CantWi
 r = list(L.globals().R.values()) if L.globals().R else []
 g = L.globals()
 print(g.R[1], "|", g.R[2], "|", g.R[3])
-check(g.R[1] and "Two-Handed Maces" in g.R[1], "an untrained weapon type is not wieldable, with the skill named", g.R[1])
+check(
+    g.R[1] and "Two-Handed Maces" in g.R[1], "an untrained weapon type is not wieldable, with the skill named", g.R[1]
+)
 check(g.R[2] is None, "a staff (trained) is fine", g.R[2])
 check(g.R[3] and "Requires Rogue" in g.R[3], "a red tooltip line blocks the item", g.R[3])
 done("wield_test")

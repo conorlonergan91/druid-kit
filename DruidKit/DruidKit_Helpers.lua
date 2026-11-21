@@ -127,11 +127,15 @@ end
 local tracker, trackerText
 local samples, lastXP, lastMax = {}, nil, nil
 
+-- Friends (saved, the default catch-up target) and guild members (this session only: /dk catchup <name> finds them).
+local guild = {}
 local function friendLevels()
   DB.friends = DB.friends or {}
+  local isFriend = {}
   if C_FriendList and C_FriendList.GetNumFriends then
     for i = 1, (safe(C_FriendList.GetNumFriends) or 0) do
       local f = safe(C_FriendList.GetFriendInfoByIndex, i)
+      if f and f.name then isFriend[f.name] = true end
       if f and f.name and f.level and f.level > 0 then DB.friends[f.name] = f.level end
     end
   end
@@ -139,15 +143,20 @@ local function friendLevels()
     for i = 1, (safe(BNGetNumFriends) or 0) do
       local a = safe(C_BattleNet.GetFriendAccountInfo, i)
       local g = a and a.gameAccountInfo
-      if g and g.clientProgram == "WoW" and g.characterName and (g.characterLevel or 0) > 0 then
-        DB.friends[g.characterName] = g.characterLevel
+      if g and g.clientProgram == "WoW" and g.characterName then
+        isFriend[g.characterName] = true
+        if (g.characterLevel or 0) > 0 then DB.friends[g.characterName] = g.characterLevel end
       end
     end
   end
   if IsInGuild and IsInGuild() and GetNumGuildMembers then
     for i = 1, (safe(GetNumGuildMembers) or 0) do
       local name, _, _, level = safe(GetGuildRosterInfo, i)
-      if name and level then DB.friends[(name:match("^[^-]+")) or name] = level end
+      if name and level then
+        name = name:match("^[^-]+") or name
+        guild[name] = level
+        if not isFriend[name] then DB.friends[name] = nil end   -- saved by older versions
+      end
     end
   end
 end
@@ -156,8 +165,10 @@ end
 local function findFriend(pattern)
   if not pattern then return end
   pattern = pattern:lower()
-  for name, lvl in pairs(DB.friends or {}) do
-    if name:lower():sub(1, #pattern) == pattern then return lvl, name end
+  for _, list in ipairs({ DB.friends or {}, guild }) do
+    for name, lvl in pairs(list) do
+      if name:lower():sub(1, #pattern) == pattern then return lvl, name end
+    end
   end
 end
 

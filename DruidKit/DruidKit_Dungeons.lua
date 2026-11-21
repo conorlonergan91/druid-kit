@@ -4,10 +4,10 @@
 local S = DruidKitStyle
 local LEAF, GREY, GOLD, RED, R = "|cff7fd35b", "|cff9d9d9d", "|cffffd100", "|cffff6060", "|r"
 local function say(msg) print("|cffff7d0aDruid Kit:|r " .. msg) end
+local function pass(ok, ...) if ok then return ... end end
 local function safe(fn, ...)
   if not fn then return nil end
-  local r = { pcall(fn, ...) }
-  if r[1] then return select(2, unpack(r)) end
+  return pass(pcall(fn, ...))
 end
 local function plain(v) return not (issecretvalue and issecretvalue(v)) end
 
@@ -253,7 +253,7 @@ local ev = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_LOG_UPDATE", "PLAYER_XP_UPDATE", "PLAYER_LEVEL_UP", "GROUP_ROSTER_UPDATE" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
-local lastAuto, groupSize = 0, 0
+local lastAuto, groupSize, drawPending = 0, 0, false
 ev:SetScript("OnEvent", function(_, e)
   if e == "GROUP_ROSTER_UPDATE" then
     -- someone joined: offer to share (once a minute at most), only when there is something to share
@@ -266,8 +266,13 @@ ev:SetScript("OnEvent", function(_, e)
     groupSize = n
     return
   end
-  C_Timer.After(0.5, function() pcall(drawXP) end)
-  if dq and dq:IsShown() and e == "QUEST_LOG_UPDATE" then pcall(drawDQ) end
+  if drawPending then return end
+  drawPending = true
+  C_Timer.After(0.5, function()
+    drawPending = false
+    pcall(drawXP)
+    if dq and dq:IsShown() then pcall(drawDQ) end
+  end)
 end)
 
 do

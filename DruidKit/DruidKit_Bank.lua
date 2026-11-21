@@ -174,8 +174,11 @@ local function classify()
   for _, bag in ipairs(bankBags()) do
     for slot = 1, (API.numSlots(bag) or 0) do
       local link, count = API.slotInfo(bag, slot)
-      if link then
-        local name, _, q, _, _, _, _, _, _, icon, _, classID = API.getInfo(link)
+      local name = link and API.getInfo(link)
+      local stored = name and ((DruidKit_IsLibraryBook and DruidKit_IsLibraryBook(name))
+        or (DruidKit_BankLater and DruidKit_BankLater(name)))
+      if link and not stored then
+        local _, _, q, _, _, _, _, _, _, icon, _, classID = API.getInfo(link)
         local isQuest, questID, active = API.questInfo(bag, slot)
         local why
         local recipe = name and neededFor(name)
@@ -205,10 +208,7 @@ local panel
 local refresh
 local S
 
-local function move(e)
-  if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(e.bag, e.slot)
-  else UseContainerItem(e.bag, e.slot) end
-end
+local function move(e) API.useSlot(e.bag, e.slot) end
 
 local function build()
   S = DruidKitStyle

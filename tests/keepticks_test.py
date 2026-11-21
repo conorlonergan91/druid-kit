@@ -1,5 +1,7 @@
 """A rebuilt route (new id) keeps the steps you ticked by hand (notes, training, travel), matched by kind + text."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 
@@ -25,15 +27,21 @@ A = """DruidKitRoute = { id = "a", sections = { { title = "S", steps = {
   { ["do"] = "note", text = "Sell before the trip" },
   { ["do"] = "note", text = "Bank: make room" },
 } } } }"""
-B = A.replace('id = "a"', 'id = "b"').replace('{ ["do"] = "note", text = "Sell before the trip" },',
-    '{ ["do"] = "note", text = "Healer setup" },\n  { ["do"] = "note", text = "Sell before the trip" },')
+B = A.replace('id = "a"', 'id = "b"').replace(
+    '{ ["do"] = "note", text = "Sell before the trip" },',
+    '{ ["do"] = "note", text = "Healer setup" },\n  { ["do"] = "note", text = "Sell before the trip" },',
+)
 L = login(A, "DruidKitDB = {}")
 L.execute("DruidKit_StepDone(); DruidKit_StepsEvaluate()")
 first = L.eval("DruidKitDB.routeStep")
 # simulate the saved variables surviving a /reload into route b
 saved = L.eval("DruidKitDB")
-keys = [k for k in saved["doneKeys"].keys()] if saved["doneKeys"] else []
-db = "DruidKitDB = { routeId = 'a', routeStep = 2, manual = {}, doneKeys = {" + ",".join(f'["{k}"] = true' for k in keys) + "} }"
+keys = [k for k in saved["doneKeys"].keys()] if saved["doneKeys"] else []  # noqa: SIM118 (lupa table)
+db = (
+    "DruidKitDB = { routeId = 'a', routeStep = 2, manual = {}, doneKeys = {"
+    + ",".join(f'["{k}"] = true' for k in keys)
+    + "} }"
+)
 L2 = login(B, db)
 L2.execute("DruidKit_StepsEvaluate()")
 r = L2.eval("DruidKitDB.routeStep")

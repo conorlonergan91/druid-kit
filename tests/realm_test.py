@@ -1,5 +1,7 @@
 """ClaudeProgress: an empty realm name at login must not start a second save key ("Cu-")."""
+
 import sys
+
 from claude_progress_test import runtime
 
 L = runtime(False)

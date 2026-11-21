@@ -1,6 +1,8 @@
 """Quests a friend shares: their accept steps are done at once (the quest is in your log), the shared quest is
 auto-accepted when it's in the route, and a trip that only served those quests (onlyFor) is skipped."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 

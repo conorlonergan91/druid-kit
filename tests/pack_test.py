@@ -1,7 +1,8 @@
 """Dungeon packing: with /dk pack (or a route step with pack), the bank check offers every non-essential item to the
 bank and keeps hearthstone, potions, food, bandages, quest items and gear."""
-from wowenv import runtime, source
+
 from expect import check, done
+from wowenv import runtime, source
 
 L = runtime("ui")
 L.execute(r"""
@@ -33,6 +34,14 @@ for _,f in ipairs(frames) do if f.text == "Store all" and f.on_OnClick then f.on
 """)
 moved = list(L.globals().moved.values())
 print("stored:", moved)
-check("silverleaf" in moved and "linen" in moved and "recipe" in moved and "pole" in moved, "herbs, cloth, recipes, fishing pole go to the bank", moved)
-check(not any(x in moved for x in ("potion", "hearth", "bandage", "robe")), "potions, hearthstone, bandages and gear stay", moved)
+check(
+    "silverleaf" in moved and "linen" in moved and "recipe" in moved and "pole" in moved,
+    "herbs, cloth, recipes, fishing pole go to the bank",
+    moved,
+)
+check(
+    not any(x in moved for x in ("potion", "hearth", "bandage", "robe")),
+    "potions, hearthstone, bandages and gear stay",
+    moved,
+)
 done("pack_test")

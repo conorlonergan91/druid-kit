@@ -14,7 +14,7 @@ ITEMS.water1={"Refreshing Spring Water","water1",1,5,1,"","",20,"",1,1,0,5}
 ITEMS.water2={"Ice Cold Milk","water2",1,15,5,"","",20,"",1,6,0,5}
 ITEMS.later={"Melon Juice","later",1,35,25,"","",20,"",1,20,0,5}
 DRINK={water1=true,water2=true,later=true}
-function GetItemSpell(l) return DRINK[l] and "Drink" or "Food" end
+function GetItemSpell(l) l = KEY(l); return DRINK[l] and "Drink" or "Food" end
 BAG={[0]={"bread1","bread2","bread3","meat","water1","water2","later"}}
 UISpecialFrames={}
 """)

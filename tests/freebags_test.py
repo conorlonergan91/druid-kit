@@ -1,5 +1,7 @@
 """A pre-dungeon step can require free bag spaces: it shows the count and ticks itself at the target."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 

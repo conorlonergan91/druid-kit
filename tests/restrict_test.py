@@ -18,7 +18,7 @@ TIPS = {
   engitem = { "Mechanical Squirrel", "Requires Engineering (75)" },
   magebook = { "Tome of Frost Nova", "Classes: Mage" },
 }
-C_TooltipInfo = { GetHyperlink = function(l) local t = TIPS[l] or { l }; local lines = {}
+C_TooltipInfo = { GetHyperlink = function(l) l = KEY(l); local t = TIPS[l] or { l }; local lines = {}
   for i, x in ipairs(t) do lines[i] = { leftText = x } end; return { lines = lines } end }
 function GetNumSkillLines() return 1 end
 function GetSkillLineInfo(i) return "Alchemy", false, nil, 89 end

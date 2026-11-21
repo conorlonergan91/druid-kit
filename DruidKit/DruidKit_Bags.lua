@@ -1,7 +1,7 @@
 -- Druid Kit: bag check. Finds gear upgrades in your bags, junk to sell, and things to use.
 --   /dk bags   open or close the Bag check panel
 -- Upgrades also show a green line on the item's tooltip and a banner when you loot one.
--- At a vendor, a "Sell junk" button sells grey items only.
+-- At a vendor, the autopilot sells junk and gear you can't use (never potions or food); "Sell junk" sells grey only.
 
 local GREEN, ORANGE, GREY, YELLOW = "|cff7fd35b", "|cffff7c0a", "|cff9d9d9d", "|cffffd100"
 local function say(msg) print("|cff7fd35bDruid Kit:|r " .. msg) end
@@ -63,23 +63,51 @@ local KEEP_WEAPON = { [14] = true, [20] = true }
 local MEAL_KEEP = 2
 local function isTool(classID, subID) return classID == 2 and KEEP_WEAPON[subID] end
 
+local PROFESSIONS = { Alchemy = true, Blacksmithing = true, Enchanting = true, Engineering = true, Herbalism = true,
+  Leatherworking = true, Mining = true, Skinning = true, Tailoring = true, Jewelcrafting = true, Inscription = true,
+  Cooking = true, ["First Aid"] = true, Fishing = true, Lockpicking = true }
 -- Recipes: what skill and rank they need, read from the item tooltip ("Requires Cooking (75)").
-local function skillRank(skill)
-  if GetNumSkillLines and GetSkillLineInfo then
-    for i = 1, (GetNumSkillLines() or 0) do
-      local name, header, _, rank = GetSkillLineInfo(i)
-      if name == skill and not header then return rank or 0 end
+-- Returns the rank, false when the skill list was read and you don't have it, or nil when it can't be read.
+local function readSkillLines()
+  local n = GetNumSkillLines and GetSkillLineInfo and (GetNumSkillLines() or 0) or 0
+  if n == 0 then return nil end
+  -- Collapsed headers hide their skills: open them, read, then close them again.
+  local opened, i = {}, 1
+  while i <= (GetNumSkillLines() or 0) do
+    local name, header, expanded = GetSkillLineInfo(i)
+    if header and not expanded and ExpandSkillHeader then opened[#opened + 1] = name; ExpandSkillHeader(i) end
+    i = i + 1
+  end
+  local ranks = {}
+  for j = 1, (GetNumSkillLines() or 0) do
+    local name, header, _, rank = GetSkillLineInfo(j)
+    if name and not header then ranks[name] = rank or 0 end
+  end
+  if #opened > 0 and CollapseSkillHeader then
+    local close = {}
+    for _, name in ipairs(opened) do close[name] = true end
+    for j = (GetNumSkillLines() or 0), 1, -1 do
+      local name, header, expanded = GetSkillLineInfo(j)
+      if header and expanded and close[name] then CollapseSkillHeader(j) end
     end
   end
-  -- Modern client: professions are listed by GetProfessions instead.
+  return ranks
+end
+local skillCache
+local function skillRank(skill)
   if GetProfessions and GetProfessionInfo then
     for _, idx in pairs({ GetProfessions() }) do
-      if idx then
-        local name, _, rank = GetProfessionInfo(idx)
-        if name == skill then return rank or 0 end
-      end
+      local name, _, rank = GetProfessionInfo(idx)
+      if name == skill then return rank or 0 end
     end
+    if not (GetNumSkillLines and GetSkillLineInfo) then return PROFESSIONS[skill] and false or nil end
   end
+  if skillCache == nil then
+    local ok, ranks = pcall(readSkillLines)
+    skillCache = ok and ranks or false
+  end
+  if not skillCache then return nil end
+  return skillCache[skill] or false
 end
 
 local scanTip
@@ -103,11 +131,6 @@ local function tooltipLines(link)
   return out
 end
 
--- Who an item is for, from its tooltip: "Classes: Rogue" (not a druid's) or "Requires Engineering (100)" (a
--- profession you don't have, or not high enough). Returns a reason, or nil when you can use it.
-local PROFESSIONS = { Alchemy = true, Blacksmithing = true, Enchanting = true, Engineering = true, Herbalism = true,
-  Leatherworking = true, Mining = true, Skinning = true, Tailoring = true, Jewelcrafting = true, Inscription = true,
-  Cooking = true, ["First Aid"] = true, Fishing = true, Lockpicking = true }
 -- Can you wield it? Two checks that need no guessing (20 Nov: Smite's Mighty Hammer was called an upgrade, but the
 -- player hasn't trained Two-Handed Maces):
 --  1. the game's own tooltip: any line it paints red (weapon type you can't use, class, race...), except the level line;
@@ -156,7 +179,9 @@ local function cantWield(link)
 end
 DruidKit_CantWield = function(link) local ok, why = pcall(cantWield, link); if ok then return why end end
 
-local function restriction(link)
+-- Who an item is for, from its tooltip: "Classes: Rogue" (not a druid's) or "Requires Engineering (100)" (a
+-- profession you don't have, or not high enough). Returns a reason, or nil when you can use it.
+local function restrictionNow(link)
   local wield = cantWield(link)
   if wield then return wield end
   local classLabel = (ITEM_CLASSES_ALLOWED and ITEM_CLASSES_ALLOWED:match("^([^:]+)")) or "Classes"
@@ -170,10 +195,16 @@ local function restriction(link)
     local sk, n = t:match("^Requires ([%a' ]+) %((%d+)%)")
     if sk then
       local have = skillRank(sk)
-      if not have then return "needs " .. sk .. ", which you don't have" end
-      if have < tonumber(n) and PROFESSIONS[sk] then return ("needs %s %s (you're %d)"):format(sk, n, have) end
+      if have == false then return "needs " .. sk .. ", which you don't have" end
+      if have and have < tonumber(n) and PROFESSIONS[sk] then return ("needs %s %s (you're %d)"):format(sk, n, have) end
     end
   end
+end
+local restrictCache = {}
+local function restriction(link)
+  local r = restrictCache[link]
+  if r == nil then r = restrictionNow(link) or false; restrictCache[link] = r end
+  return r or nil
 end
 
 -- Extra words for the sell list: Bind on Equip greens and better often fetch more on the Auction House.
@@ -186,7 +217,7 @@ local function boeHint(link, q)
 end
 DruidKit_ItemRestriction = function(link) local ok, why = pcall(restriction, link); if ok then return why end end
 
--- verdict for a recipe: "learn" | "later" | "known" | "noskill", plus skill, needed, have
+-- verdict for a recipe: "learn" | "later" | "known" | "noskill" | "unknown" (skill list unreadable), plus skill, needed, have
 local function recipeCheck(link)
   local skill, need, known
   for _, t in ipairs(tooltipLines(link)) do
@@ -199,6 +230,7 @@ local function recipeCheck(link)
   if why and not why:find("you're", 1, true) then return "noclass", why end   -- other class, mage scroll, no skill
   if not skill then return "learn" end
   local have = skillRank(skill)
+  if have == nil then return "unknown", skill, need end
   if not have then return "noskill", skill, need end
   if have < need then return "later", skill, need, have end
   return "learn", skill, need, have
@@ -333,8 +365,8 @@ local function laterPlan(name, qid, qtitle)
   if ahead then return nil end    -- the route still does this quest: keep it (no way to know you'll pass a bank again)
   local bank = DruidKit_NextBank(30)
   if not bank then return nil end
-  return "bank", ("needed later for %s (%s); bank it in %s (in about %d steps)"):format(qtitle or "a quest",
-    ahead and ("about " .. ahead .. " steps away") or "not in your current route", bank.where, bank.steps)
+  return "bank", ("needed later for %s (not in your current route); bank it in %s (in about %d steps)"):format(
+    qtitle or "a quest", bank.where, bank.steps)
 end
 
 DruidKit_BankLater = function(name)
@@ -381,6 +413,7 @@ local function questNeeds(name)
 end
 
 -- One check for everything that must never be sold, dropped or offered: returns a reason, or nil.
+local ORPHAN = "quest item that may belong to no quest in your log"
 local function protectedReason(link, bag, slot)
   local name, _, _, _, _, _, _, _, _, _, _, classID, _, bindType = getInfo(link)
   if questNeeds(name) then return "your quest needs this" end
@@ -392,14 +425,8 @@ local function protectedReason(link, bag, slot)
     if starterID then return nil end                 -- quest starters: handled in the scan
     if questMentions(name) then return "quest item" end
     if name and name:find("Hearthstone") then return "your hearthstone" end
-    return nil                                       -- quest item for no quest you have: the scan offers it
+    return ORPHAN                                    -- only a guess: shown to check, never offered
   end
-end
-local function orphanQuestItem(link, bag, slot)
-  local name, _, _, _, _, _, _, _, _, _, _, classID, _, bindType = getInfo(link)
-  local isQuestFlag, starterID = false, nil
-  if bag and slot then isQuestFlag, starterID = questInfo(bag, slot) end
-  return (classID == 12 or bindType == 4 or isQuestFlag) and not starterID and not questMentions(name)
 end
 DruidKit_Protected = function(link, bag, slot) local ok, r = pcall(protectedReason, link, bag, slot); return ok and r or nil end
 
@@ -512,8 +539,8 @@ local function wellFed(link)
   return false
 end
 
-local function scan()
-  local up, junk, unusable, use, poles, spare, kept, bank = {}, {}, {}, {}, {}, {}, {}, {}
+local function scanNow()
+  local up, junk, unusable, use, poles, spare, kept, bank, check = {}, {}, {}, {}, {}, {}, {}, {}, {}
   local starterSeen = {}
   local meals = { Food = {}, Drink = {} }
   local junkValue = 0
@@ -526,18 +553,21 @@ local function scan()
         local isQuest, questID, active = questInfo(bag, slot)
         local guard = name and protectedReason(link, bag, slot)
         if guard then
-          -- quest items, library books and Waylaid Crates: never sold (but a quest item needed much later can go
-          -- to the bank, or be dropped when the plan says it's easy to get again)
+          -- quest items, library books and Waylaid Crates: never sold or dropped (but a quest item needed much later
+          -- can go to the bank; one the plan says to drop, or that may belong to no quest, is shown to check)
+          local e = { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1 }
           if isBook(name) then
-            table.insert(bank, { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1,
-              why = "library book: hand in to Garion Wendell (Stormwind library) or bank it" })
+            e.why = "library book: hand in to Garion Wendell (Stormwind library) or bank it"
+            table.insert(bank, e)
+          elseif guard == ORPHAN then
+            e.why = "check: may belong to no quest in your log (abandoned or done?)"
+            table.insert(check, e)
           elseif guard == "quest item" or guard == "your quest needs this" then
             local qid, qtitle = questFor(name)
             local action, why = laterPlan(name, qid, qtitle)
-            local e = { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1, why = why,
-              value = 0 }
+            e.why = why
             if action == "bank" then table.insert(bank, e)
-            elseif action == "drop" then table.insert(unusable, e) end
+            elseif action == "drop" then table.insert(check, e) end
           end
         elseif name then
           local entry = { bag = bag, slot = slot, link = link, name = name, icon = icon, count = count or 1 }
@@ -561,10 +591,6 @@ local function scan()
               first.copies = (first.copies or 1) + (count or 1)
               first.why = ("starts a quest: right-click one (you have %d; check the quest log after)"):format(first.copies)
             end
-          elseif orphanQuestItem(link, bag, slot) then
-            entry.why, entry.value = "quest item for no quest in your log (abandoned or done): destroy it unless "
-              .. "you'll take that quest again", (price or 0) * (count or 1)
-            table.insert(unusable, entry)
           elseif limit then
             -- Another class's book or scroll, another profession's item: sell, never "use" or "learn".
             entry.why, entry.value = limit, (price or 0) * (count or 1)
@@ -617,7 +643,7 @@ local function scan()
             elseif verdict == "later" then
               entry.why = ("learn at %s %d (you're %d): bank it till then"):format(skill, need, have)
               table.insert(bank, entry)
-            else
+            elseif verdict ~= "unknown" then
               entry.why = "recipe: right-click to learn it"
               table.insert(use, entry)
             end
@@ -740,7 +766,13 @@ local function scan()
   add(spare)
   add(auction, "worth more at the Auction House: drop it last")
   results = { upgrades = up, junk = junk, unusable = unusable, use = use, junkValue = junkValue, drop = drop, kept = kept,
-    bank = bank, auction = auction, spare = spare }
+    bank = bank, auction = auction, spare = spare, check = check }
+  return results
+end
+local scanDirty = true
+local function invalidate() scanDirty, skillCache, restrictCache = true, nil, {} end
+local function scan()
+  if scanDirty then scanNow(); scanDirty = false end
   return results
 end
 
@@ -769,13 +801,24 @@ local function freeSlots()
   return free, total
 end
 
+local function useSlot(bag, slot)
+  if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(bag, slot) else UseContainerItem(bag, slot) end
+end
+
+local function logSale(name, count, why)
+  if not DruidKitDB then return end
+  DruidKitDB.soldLog = DruidKitDB.soldLog or {}
+  table.insert(DruidKitDB.soldLog, { name = name, count = count or 1, why = why, at = date and date("%Y-%m-%d %H:%M") })
+  while #DruidKitDB.soldLog > 60 do table.remove(DruidKitDB.soldLog, 1) end
+end
+
 local sellJunk
 -- Sell one bag slot at an open vendor, only if it still holds the same item we listed.
 local function sellEntry(e)
   if not (MerchantFrame and MerchantFrame:IsShown()) then say("talk to a vendor first.") return false end
   local link = slotInfo(e.bag, e.slot)
-  if link ~= e.link then return false end
-  if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(e.bag, e.slot) else UseContainerItem(e.bag, e.slot) end
+  if link ~= e.link or protectedReason(link, e.bag, e.slot) then return false end
+  useSlot(e.bag, e.slot)
   return true
 end
 
@@ -819,6 +862,14 @@ refresh = function()
     S.note(panel, "Keep them, but they don't need a bag slot now. Bank check stores them at any banker.")
     for _, e in ipairs(r.bank) do
       S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)))
+    end
+  end
+
+  if r.check and #r.check > 0 then
+    S.header(panel, "Quest items to check", "Interface\\Icons\\INV_Misc_Note_02", #r.check)
+    S.note(panel, "Never sold or destroyed for you: check your quest log, then destroy them yourself if they're done with.")
+    for _, e in ipairs(r.check) do
+      S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, ((e.why or ""):gsub("^%l", string.upper)))
     end
   end
 
@@ -877,7 +928,7 @@ refresh = function()
         ("%s%s"):format((e.why:gsub("^%l", string.upper)), e.value > 0 and (", sells for " .. money(e.value)) or ""),
         atVendor and "Sell" or "Destroy", function()
           if atVendor then
-            if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(e.bag, e.slot) else UseContainerItem(e.bag, e.slot) end
+            sellEntry(e)
             C_Timer.After(0.4, refresh)
           else
             DruidKit_ConfirmDestroy(e)
@@ -896,6 +947,12 @@ StaticPopupDialogs["DRUIDKIT_DESTROY"] = {
   button1 = "Destroy", button2 = "Keep it",
   OnAccept = function(self, data)
     if not data then return end
+    if slotInfo(data.bag, data.slot) ~= data.link then
+      say("not destroyed: that bag slot has changed since you clicked. Open Bag check again.")
+      return
+    end
+    local guard = protectedReason(data.link, data.bag, data.slot)
+    if guard then say("not destroyed: " .. guard .. ".") return end
     ClearCursor()
     if C_Container and C_Container.PickupContainerItem then C_Container.PickupContainerItem(data.bag, data.slot) else PickupContainerItem(data.bag, data.slot) end
     local ok = pcall(DeleteCursorItem)
@@ -911,7 +968,7 @@ StaticPopupDialogs["DRUIDKIT_DESTROY"] = {
 function DruidKit_ConfirmDestroy(e)
   local worth = (e.value or 0) > 0 and ("It would sell for " .. money(e.value) .. " at a vendor.") or "It has no vendor value."
   local dlg = StaticPopup_Show("DRUIDKIT_DESTROY", e.link .. ((e.count or 1) > 1 and (" x" .. e.count) or ""), worth)
-  if dlg then dlg.data = { bag = e.bag, slot = e.slot } end
+  if dlg then dlg.data = { bag = e.bag, slot = e.slot, link = e.link } end
 end
 
 local function toggle()
@@ -920,7 +977,7 @@ local function toggle()
     panel = S.window("DruidKitBagCheck", "Bag check", "Interface\\Icons\\INV_Misc_Bag_08", 400, 470)
     panel:SetPoint("RIGHT", UIParent, "RIGHT", -240, 0)
   end
-  if panel:IsShown() then panel:Hide() else panel:Show(); refresh() end
+  if panel:IsShown() then panel:Hide() else panel:Show(); invalidate(); refresh() end
 end
 DruidKit_ToggleBags = toggle
 
@@ -956,7 +1013,8 @@ sellJunk = function()
       if link and not locked then
         local _, _, q, _, _, _, _, _, _, _, price = getInfo(link)
         if (q or quality) == 0 and (price or 0) > 0 and not protectedReason(link, bag, slot) then
-          if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(bag, slot) else UseContainerItem(bag, slot) end
+          useSlot(bag, slot)
+          logSale((getInfo(link)), count, "grey junk")
           sold = sold + 1; total = total + price * (count or 1)
         end
       end
@@ -991,18 +1049,19 @@ DruidKit_MountTarget = mountTarget
 -- Autopilot at every vendor (on unless /dk autosell off): sell grey junk, gear druids can't use or that's worse
 -- than yours, and spare materials; then repair. Kept: quest items, upgrades, gear sets, bank items, anything
 -- worth more on the Auction House, and green or better Bind on Equip gear (sell those on the Auction House).
--- Mistakes: the vendor's Buyback tab has the last 12 items.
+-- Mistakes: the vendor's Buyback tab has the last 12 items, so no more than that are sold per visit.
+local BUYBACK = 12
 local autoBusy = false
 local function bindTypeOf(link) return select(14, getInfo(link)) end
--- What the autopilot sells (player, 19 Nov: "fine to sell ingredients I have no recipe for"; "use consumables and
--- sell the extras"): grey junk; gear that's worse or not for druids; items for another class or profession;
--- materials no recipe of yours uses (herbs and anything a recipe in your bags needs are kept); and consumables beyond
--- a sensible stock. Never food or drink (cooked food is the +5% XP buff), never quest items.
-local CONSUMABLE_KEEP = { [1] = 10, [2] = 8, [3] = 8, [4] = 4 }   -- potion, elixir, flask, scroll: keep this many each
+-- What the autopilot sells (player, 19 Nov: "fine to sell ingredients I have no recipe for"): grey junk; gear that's
+-- worse or not for druids; items for another class or profession; materials no recipe of yours uses (herbs and
+-- anything a recipe in your bags needs are kept); and worse bandages. Never potions, elixirs, flasks or scrolls (the
+-- Bag check footer promises that), never food or drink (cooked food is the +5% XP buff), never quest items.
+local CONSUMABLE = { [1] = true, [2] = true, [3] = true, [4] = true }   -- potion, elixir, flask, scroll
 local BANDAGE = 7
 -- Classic item data often files potions, elixirs, scrolls and bandages under subclass 0: use the name too.
 local function consumableKind(name, subID)
-  if CONSUMABLE_KEEP[subID] or subID == BANDAGE then return subID end
+  if CONSUMABLE[subID] or subID == BANDAGE then return subID end
   name = name or ""
   if name:find("Bandage") then return BANDAGE end
   if name:find("Potion") then return 1 end
@@ -1027,49 +1086,38 @@ local function recipeMats()
   return function(name) return name and name ~= "" and text:find(name, 1, true) ~= nil end
 end
 
--- Consumables over the stock to keep: whole stacks, so the total left is still at least the stock. Bandages: keep
--- every stack of your best bandage; worse bandages go once you have 10 of the best.
-local function consumableExtras()
-  local groups, bandages = {}, {}
+-- Bandages: keep every stack of your best bandage; worse bandages go once you have 10 of the best.
+local function bandageExtras()
+  local groups = {}
   for bag = 0, 4 do
     for slot = 1, (numSlots(bag) or 0) do
       local link, count = slotInfo(bag, slot)
       if link then
         local name, _, q, ilvl, _, _, _, _, _, _, price, classID, subID = getInfo(link)
-        local kind = classID == 0 and consumableKind(name, subID)
-        if kind and (price or 0) > 0 and (q or 1) >= 1 then
-          subID = kind
-          local isQ = questInfo(bag, slot)
-          if not isQ then
-            local g = groups[name] or { name = name, sub = subID, ilvl = ilvl or 0, total = 0, stacks = {} }
-            g.total = g.total + (count or 1)
-            table.insert(g.stacks, { bag = bag, slot = slot, link = link, count = count or 1, name = name })
-            groups[name] = g
-            if subID == BANDAGE then bandages[name] = g end
-          end
+        if classID == 0 and consumableKind(name, subID) == BANDAGE and (price or 0) > 0 and (q or 1) >= 1
+          and not questInfo(bag, slot) then
+          local g = groups[name] or { name = name, ilvl = ilvl or 0, total = 0, stacks = {} }
+          g.total = g.total + (count or 1)
+          table.insert(g.stacks, { bag = bag, slot = slot, link = link, count = count or 1, name = name })
+          groups[name] = g
         end
       end
     end
   end
   local best
-  for _, g in pairs(bandages) do if not best or g.ilvl > best.ilvl then best = g end end
+  for _, g in pairs(groups) do if not best or g.ilvl > best.ilvl then best = g end end
   local out = {}
+  if not best or best.total < 10 then return out end
   for _, g in pairs(groups) do
-    local keep = CONSUMABLE_KEEP[g.sub]
-    if g.sub == BANDAGE then keep = (g == best or not best or best.total < 10) and math.huge or 0 end
-    table.sort(g.stacks, function(a, b) return a.count < b.count end)
-    local left = g.total
-    for _, st in ipairs(g.stacks) do
-      if left - st.count >= keep then
-        left = left - st.count
-        st.why = g.sub == BANDAGE and ("worse bandage: you have " .. best.total .. " " .. best.name) or ("extra: keeping " .. keep)
+    if g ~= best then
+      for _, st in ipairs(g.stacks) do
+        st.why = "worse bandage: you have " .. best.total .. " " .. best.name
         table.insert(out, st)
       end
     end
   end
   return out
 end
-DruidKit_ConsumableExtras = function() local ok, r = pcall(consumableExtras); return ok and r or {} end
 
 autoSellList = function(r)
   local out = {}
@@ -1092,7 +1140,7 @@ autoSellList = function(r)
       if ok and (value or 0) > 0 and not boeGood and not protectedReason(link, e.bag, e.slot) then table.insert(out, e) end
     end
   end
-  addAll(r.junk, "junk"); addAll(r.unusable, "gear"); addAll(r.spare, "mats"); addAll(consumableExtras(), "extra")
+  addAll(r.junk, "junk"); addAll(r.unusable, "gear"); addAll(r.spare, "mats"); addAll(bandageExtras(), "extra")
   return out
 end
 
@@ -1156,6 +1204,7 @@ local function autoPilot()
       say(table.concat(parts, ", ") .. ". Sold something by mistake? The vendor's Buyback tab has it.")
       say(mountLine())
     end
+    if #list > i then say(("%d more to sell: talk to the vendor again (Buyback only holds %d)."):format(#list - i + 1, BUYBACK)) end
     if r.auction and #r.auction > 0 then
       say(("%d item%s worth more on the Auction House: kept (Alt+B lists them)."):format(#r.auction, #r.auction == 1 and "" or "s"))
     end
@@ -1164,14 +1213,11 @@ local function autoPilot()
   local function step()
     i = i + 1
     local e = list[i]
-    if not e or i > 24 or not (MerchantFrame and MerchantFrame:IsShown()) then return finish() end
+    if not e or sold >= BUYBACK or not (MerchantFrame and MerchantFrame:IsShown()) then return finish() end
     if slotInfo(e.bag, e.slot) == e.link then
-      if C_Container and C_Container.UseContainerItem then C_Container.UseContainerItem(e.bag, e.slot) else UseContainerItem(e.bag, e.slot) end
+      useSlot(e.bag, e.slot)
       -- Sold log (last 60): the update reads it, so nothing the autopilot sells is a mystery.
-      DruidKitDB.soldLog = DruidKitDB.soldLog or {}
-      table.insert(DruidKitDB.soldLog, { name = e.name or (getInfo(e.link)), count = e.count or 1, why = e.why,
-        at = date and date("%Y-%m-%d %H:%M") })
-      while #DruidKitDB.soldLog > 60 do table.remove(DruidKitDB.soldLog, 1) end
+      logSale(e.name or (getInfo(e.link)), e.count, e.why)
       sold = sold + 1
       total = total + (select(11, getInfo(e.link)) or 0) * (e.count or 1)
     end
@@ -1245,6 +1291,7 @@ for _, e in ipairs({ "PLAYER_LOGIN", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHA
 end
 local pending = false
 ev:SetScript("OnEvent", function(_, e)
+  if e ~= "MERCHANT_CLOSED" then invalidate() end
   if e == "PLAYER_LOGIN" then
     C_Timer.After(5, function()
       pcall(scan)
@@ -1270,8 +1317,8 @@ end)
 
 -- Shared with the bank helper
 DruidKitBagsAPI = {
-  getInfo = getInfo, slotInfo = slotInfo, questInfo = questInfo, numSlots = numSlots,
-  upgradeFor = upgradeFor, isTool = isTool, refresh = function() refresh() end,
+  getInfo = getInfo, slotInfo = slotInfo, questInfo = questInfo, numSlots = numSlots, useSlot = useSlot,
+  upgradeFor = upgradeFor, isTool = isTool, refresh = function() invalidate(); refresh() end,
 }
 
 -- Loot helper and roll advisor --------------------------------------------------------
@@ -1303,14 +1350,6 @@ local function button(parent, label, w)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
   b:SetSize(w or 70, 24); b:SetText(label)
   return b
-end
-local function bagFree()
-  local free = 0
-  for bag = 0, 4 do
-    local n = numSlots(bag) or 0
-    for slot = 1, n do if not slotInfo(bag, slot) then free = free + 1 end end
-  end
-  return free
 end
 local function stacksWithBags(link)
   local id = itemID(link); if not id then return false end
@@ -1386,8 +1425,7 @@ end
 DruidKit_LootLeftBehind = lootLeftBehind
 
 local function showLootHelp()
-  if InCombatLockdown() and false then return end
-  local free = bagFree()
+  local free = freeSlots()
   if free > 0 then if lootBox then lootBox:Hide() end return end   -- room now: you can click it
   clearPending()
   lootBox = lootBox or box("DruidKitLootHelp", 330)

@@ -1,4 +1,5 @@
 """Dungeon quests window (/dk dq), quest share helper and quest XP over the XP bar."""
+
 from expect import check, done
 from wowenv import runtime, source
 
