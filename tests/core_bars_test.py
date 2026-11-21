@@ -147,6 +147,32 @@ check(
     any("stays in questing mode" in m for m in g.printed.values()), "it says the mode stays", list(g.printed.values())
 )
 
+# 16b: /dk quest for the current mode re-wears its set (after combat when fighting), with no bar change or Reload.
+L, g = setup(
+    "POPUP = 0; StaticPopup_Show = function() POPUP = POPUP + 1 end; EQUIPPED = 0\n"
+    "C_Item.GetItemCount = function() return 1 end; C_Item.EquipItemByName = function() EQUIPPED = EQUIPPED + 1 end"
+)
+L.execute(r"""
+DruidKitDB.gearSets = { quest = { [1] = "item:7:" } }
+COMBAT = true
+SlashCmdList.DRUIDKIT('quest')
+inCombat = EQUIPPED
+COMBAT = false; fire("PLAYER_REGEN_ENABLED")
+afterCombat = EQUIPPED
+SlashCmdList.DRUIDKIT('quest')
+""")
+check(
+    (g.inCombat, g.afterCombat, g.EQUIPPED) == (0, 1, 2),
+    "set re-worn after combat and out of it",
+    (g.inCombat, g.afterCombat, g.EQUIPPED),
+)
+check(
+    g.said("Questing mode: gear re-worn.") == 2 and g.said("bars switched") == 0,
+    "says gear re-worn, not bars switched",
+    list(g.printed.values()),
+)
+check(g.POPUP == 0, "no Reload popup", g.POPUP)
+
 # 15: healing/questing swap fills learned melee spells as /startattack macros.
 L, g = setup()
 L.execute(r"""

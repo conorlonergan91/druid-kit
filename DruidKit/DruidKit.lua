@@ -477,42 +477,44 @@ local function fillLearned(layout)
   return n
 end
 
-local queuedMode
-local function switchMode(mode)
+-- explicit: asked by /dk heal or /dk quest, so the current mode re-wears its set; Alt+H back to it changes nothing.
+local queuedMode, queuedExplicit
+local function switchMode(mode, explicit)
   if InCombatLockdown() then
-    queuedMode = mode
+    queuedMode, queuedExplicit = mode, explicit
     defer(function()
-      local m = queuedMode; queuedMode = nil
-      if m and m ~= (DruidKitDB.barMode or "quest") then switchMode(m) end
+      local m, ex = queuedMode, queuedExplicit; queuedMode, queuedExplicit = nil, nil
+      if m and (ex or m ~= (DruidKitDB.barMode or "quest")) then switchMode(m, ex) end
     end, "mode")
     local name = mode == "heal" and "Healing" or "Questing"
-    if mode == (DruidKitDB.barMode or "quest") then say("stays in " .. name:lower() .. " mode.")
-    else say(name .. " mode after combat.") end
+    if mode ~= (DruidKitDB.barMode or "quest") then say(name .. " mode after combat.")
+    elseif explicit then say("stays in " .. name:lower() .. " mode: gear re-worn after combat.")
+    else say("stays in " .. name:lower() .. " mode.") end
     return
   end
-  queuedMode = nil
+  queuedMode, queuedExplicit = nil, nil
   DruidKitDB.layouts = DruidKitDB.layouts or {}
   local cur = DruidKitDB.barMode or "quest"
-  if cur == mode then
-    -- already in this mode: just re-wear the set and fill any newly learned spells
-  else
+  local switched = cur ~= mode
+  if switched then
     DruidKitDB.layouts["mode_" .. cur] = captureBars()
-  end
-  DruidKitDB.barMode = mode
-  local snap = DruidKitDB.layouts["mode_" .. mode]
-  if cur ~= mode and snap then
-    restoreBars(snap)
-    fillLearned(layoutFor(mode))
-  elseif cur ~= mode then
-    applyGuideLayout()
+    DruidKitDB.barMode = mode
+    local snap = DruidKitDB.layouts["mode_" .. mode]
+    if snap then
+      restoreBars(snap)
+      fillLearned(layoutFor(mode))
+    else
+      applyGuideLayout()
+    end
   end
   DruidKitDB.knownSpells = knownLayoutSpells()
   local missing, noSet = wearGearSet(mode)
   local label = mode == "heal" and "Healing mode" or "Questing mode"
   local gear = noSet and ("no " .. (mode == "heal" and "healing" or "questing") .. " set saved yet (/dk " .. mode .. "set)")
-    or (missing > 0 and (missing .. " set piece(s) not in your bags: check the bank") or "gear swapped")
-  say(label .. ": bars switched, " .. gear .. ".")
-  askReload()
+    or (missing > 0 and (missing .. " set piece(s) not in your bags: check the bank")
+      or (switched and "gear swapped" or "gear re-worn"))
+  say(label .. (switched and ": bars switched, " or ": ") .. gear .. ".")
+  if switched then askReload() end
   if DruidKitBagsAPI and DruidKitBagsAPI.refresh then pcall(DruidKitBagsAPI.refresh) end
 end
 
@@ -617,9 +619,9 @@ SlashCmdList["DRUIDKIT"] = function(msg)
       else say("on your bars now: " .. table.concat(list, ", ") .. "."); askReload() end
     end, "Placing new spells")
   elseif cmd == "heal" then
-    switchMode("heal")
+    switchMode("heal", true)
   elseif cmd == "quest" or cmd == "bear" then
-    switchMode("quest")
+    switchMode("quest", true)
   elseif cmd == "healset" and (rest or ""):lower() == "best" then
     buildGearSet("heal")
   elseif cmd == "questset" and (rest or ""):lower() == "best" then
