@@ -465,8 +465,13 @@ local queuedMode
 local function switchMode(mode)
   if InCombatLockdown() then
     queuedMode = mode
-    defer(function() local m = queuedMode; queuedMode = nil; if m then switchMode(m) end end, "mode")
-    say((mode == "heal" and "Healing" or "Questing") .. " mode after combat.")
+    defer(function()
+      local m = queuedMode; queuedMode = nil
+      if m and m ~= (DruidKitDB.barMode or "quest") then switchMode(m) end
+    end, "mode")
+    local name = mode == "heal" and "Healing" or "Questing"
+    if mode == (DruidKitDB.barMode or "quest") then say("stays in " .. name:lower() .. " mode.")
+    else say(name .. " mode after combat.") end
     return
   end
   queuedMode = nil

@@ -16,7 +16,8 @@ tools: Bash, Read, Write, Edit
 - `fp` at every flight master reached for the first time; `home` before any trip that hearths back; `abandon` with
   `qs` for quests to drop; one `fly` step per flight leg.
 - A sell stop when the save has < 8 free bag slots, and at the end of each hub.
-- `est` from `python3 planner/rk.py minutes ID... --level L` (`quest_minutes`), `--party 2` where the sequencer flagged it.
+- `est` from `python3 planner/rk.py minutes ID... --level L` (`quest_minutes`). Set `party=True` on steps the
+  sequencer flagged and size their `est` with `--party 3` (`rk.GROUP_SIZE`, the split xpsim uses).
 - When quest text and data disagree on the NPC, name both.
 
 - Levels (RULES v18): run `tools/xpsim.py ROUTE LEVEL XP --done DONE.json`. Fix every ERROR (accept before the

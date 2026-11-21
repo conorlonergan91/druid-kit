@@ -397,11 +397,13 @@ local function xpGained(c)
   return (c.mx - c.xp) + xp      -- crossed a level (close enough for one step)
 end
 
--- DB.loggedTo: steps before it are logged already, so rewinding (reset, unskip, Back) doesn't log them again.
+-- DB.logged[i]: true once step i is logged as finished, so rewinding (reset, unskip, Back) doesn't log it again;
+-- "skipped" while its only entry is a skip, so finishing it after an unskip still logs the real time, XP and trail.
 local function logStep(i, how)
   local st, c = steps[i], DB.cur
-  if not st or i < (DB.loggedTo or 1) then return end
-  DB.loggedTo = i + 1
+  local was = DB.logged[i]
+  if not st or was == true or (was and how == "skipped") then return end
+  DB.logged[i] = how == "skipped" and "skipped" or true
   local mine = c and c.i == i
   table.insert(DB.stepLog, { route = DruidKitRoute and DruidKitRoute.id, i = i, ["do"] = st["do"], q = st.q,
     name = st.name or st.text, est = st.est, secs = mine and math.floor(c.secs) or 0,
@@ -1120,7 +1122,7 @@ local function pickReward(st)
       say(("took %s (%s)."):format(safe(GetQuestItemInfo, "choice", i) or "a reward", why))
       return true
     end
-    say("pick your reward yourself (the guide couldn't read the rewards).")
+    say("pick your reward yourself (" .. (why or "the guide couldn't read the rewards") .. ").")
     return false
   end
   for i = 1, n do
@@ -1184,12 +1186,17 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     DB.titleDone = DB.titleDone or {}
     DB.skipQ = DB.skipQ or {}
     DB.stepLog = DB.stepLog or {}
+    if not DB.logged then
+      DB.logged = {}
+      for i = 1, (DB.loggedTo or 1) - 1 do DB.logged[i] = true end
+    end
+    DB.loggedTo = nil
     titleDone = DB.titleDone
     flatten()
     local id = DruidKitRoute and DruidKitRoute.id
     DB.passedQ = DB.passedQ or {}
     if DB.routeId ~= id then
-      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.passedQ = {}; DB.cur = nil; DB.bossKilled = nil; DB.loggedTo = nil
+      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.passedQ = {}; DB.cur = nil; DB.bossKilled = nil; DB.logged = {}
       for i = 1, #steps do
         local key = stepKey(i)
         if key and DB.doneKeys and DB.doneKeys[key] then DB.manual[i] = true end
@@ -1253,13 +1260,13 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
   elseif e == "TAXIMAP_OPENED" then
     -- Talking to the step's flight master learns its flight path, so the "fp" step is done.
     local st = steps[pos]
-    if st and st["do"] == "fp" and atFlightMaster(st.to) then tickStep(pos) end
+    if st and st["do"] == "fp" and atFlightMaster(st.to) then logStep(pos, "ticked"); tickStep(pos) end
     C_Timer.After(0.5, soon)
   elseif e == "MERCHANT_SHOW" then
     -- A "Sell ..." step is done once you've talked to a vendor (the autopilot sells and repairs first).
     local st, at = steps[pos], pos
     if st and st["do"] == "note" and (st.text or ""):find("^Sell") then
-      C_Timer.After(4, function() if pos == at then tickStep(at); soon() end end)
+      C_Timer.After(4, function() if pos == at then logStep(at, "ticked"); tickStep(at); soon() end end)
     end
   elseif e == "TRAINER_SHOW" then
     local n = safe(UnitName, "npc")
@@ -1267,7 +1274,7 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     trainer = { name = n, class = DruidKit_IsDruidTrainer and DruidKit_IsDruidTrainer(n) or false }
   elseif e == "TRAINER_CLOSED" then
     local st = steps[pos]
-    if st and st["do"] == "train" and trainerFits(st) then tickStep(pos) end
+    if st and st["do"] == "train" and trainerFits(st) then logStep(pos, "ticked"); tickStep(pos) end
     trainer = nil
     soon()
   elseif e == "QUEST_DETAIL" then

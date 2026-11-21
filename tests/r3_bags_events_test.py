@@ -9,7 +9,9 @@ L.execute(r"""
 UISpecialFrames = {}
 DruidKitDB = {}
 ITEMS.gog = {"Flying Goggles","gog",1,20,10,"","",1,"INVTYPE_HEAD",1,300,4,1}
-C_TooltipInfo = { GetHyperlink = function(l) return { lines = { { leftText = "Requires Engineering (150)" } } } end }
+C_TooltipInfo = { GetHyperlink = function(l)
+  local c = RANK < 150 and { r = 1, g = 0.1, b = 0.1 } or { r = 1, g = 1, b = 1 }
+  return { lines = { { leftText = "Requires Engineering (150)", leftColor = c } } } end }
 RANK = 100
 function GetNumSkillLines() return 2 end
 local cf = CreateFrame

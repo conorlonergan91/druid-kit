@@ -17,7 +17,9 @@ SOLD = {}
 C_Container.UseContainerItem = function(b, s) SOLD[#SOLD+1] = BAG[b][s]; BAG[b][s] = nil end
 DruidKitDB = {}
 TIP = {}
-C_TooltipInfo = { GetHyperlink = function(l) local t = TIP[KEY(l)]; return { lines = t and { { leftText = t } } or {} } end }
+-- the client paints unmet requirement lines red
+C_TooltipInfo = { GetHyperlink = function(l) local t = TIP[KEY(l)]
+  return { lines = t and { { leftText = t, leftColor = { r = 1, g = 0.1, b = 0.1 } } } or {} } end }
 LINES = { { "Professions", true, true }, { "Engineering", false, false, 100 },
           { "Secondary Skills", true, true }, { "First Aid", false, false, 40 } }
 function GetNumSkillLines() return #LINES end

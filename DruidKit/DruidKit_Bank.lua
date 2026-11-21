@@ -109,6 +109,12 @@ end
 DruidKit_PackEssential = function(link, bag, slot) local ok, r = pcall(essential, link, bag, slot); return ok and r end
 
 -- Decide ---------------------------------------------------------------------------------------
+-- "needs First Aid 50 (you're 40)": Bag check banks it till you reach the rank.
+local function rankLocked(link)
+  local why = DruidKit_ItemRestriction and DruidKit_ItemRestriction(link)
+  return why and why:find("(you're", 1, true) and why
+end
+
 local function classify()
   local deposit, take = {}, {}
   local freeBags = 0
@@ -138,6 +144,11 @@ local function classify()
               why = ("recipe for %s %d (you're %d)"):format(skill, need, have) })
             name = nil
           end
+        end
+        local why = name and rankLocked(link)
+        if why then
+          table.insert(deposit, { bag = bag, slot = slot, link = link, icon = icon, count = count or 1, why = why })
+          name = nil
         end
         local minLevel = select(5, API.getInfo(link)) or 0
         if name and minLevel > (UnitLevel("player") or 0) and API.upgradeFor then
@@ -176,7 +187,7 @@ local function classify()
       local link, count = API.slotInfo(bag, slot)
       local name = link and API.getInfo(link)
       local stored = name and ((DruidKit_IsLibraryBook and DruidKit_IsLibraryBook(name))
-        or (DruidKit_BankLater and DruidKit_BankLater(name)))
+        or (DruidKit_BankLater and DruidKit_BankLater(name)) or rankLocked(link))
       if link and not stored then
         local _, _, q, _, _, _, _, _, _, icon, _, classID = API.getInfo(link)
         local isQuest, questID, active = API.questInfo(bag, slot)

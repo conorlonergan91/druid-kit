@@ -47,8 +47,20 @@ check(api.runchunk("x = 1 + 1", "ok") is None and L.globals().x == 2, "plain dat
 bytecode = LuaRuntime(encoding=None).execute("return string.dump(function() escaped = true end)")
 err = api.runchunk(bytecode, "bytecode")
 check(L.eval("rawget(_G, 'escaped')") is None and "binary" in str(err), "a bytecode chunk is refused", err)
-L.execute("escaped = nil")
-L.globals().bc = bytecode
-api.runchunk("runchunk(bc, 'nested')", "nested")
-check(L.eval("rawget(_G, 'escaped')") is None, "foreign Lua can't reach the chunk runner", "escaped")
+api.runchunk("pcall(runchunk, 'reached = true', 'nested')", "nested")
+check(L.eval("rawget(_G, 'reached')") is None, "foreign Lua can't reach the chunk runner", "reached")
+
+api.runchunk(
+    "string.byte = function() return 0 end; type = function() return 'string' end; "
+    "getmetatable('').__index = { byte = function() return 0 end }",
+    "tamper",
+)
+for entry in ("runchunk", "loadfix", "exec"):
+    try:
+        res = getattr(api, entry)(bytecode, "bytecode")
+    except Exception as e:  # noqa: BLE001
+        res = e
+    check(
+        L.eval("rawget(_G, 'escaped')") is None and "binary" in str(res), f"tampered Lua: {entry} refuses bytecode", res
+    )
 done("py_score_test")

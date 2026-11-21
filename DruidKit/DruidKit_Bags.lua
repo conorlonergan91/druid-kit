@@ -133,7 +133,8 @@ end
 
 -- Can you wield it? Two checks that need no guessing (20 Nov: Smite's Mighty Hammer was called an upgrade, but the
 -- player hasn't trained Two-Handed Maces):
---  1. the game's own tooltip: any line it paints red (weapon type you can't use, class, race...), except the level line;
+--  1. the game's own tooltip: any line it paints red (weapon type you can't use, class, race...), except the level line
+--     and profession lines ("Requires Engineering (150)": restrictionNow tells a rank you'll reach from none at all);
 --  2. the weapon skill's proficiency spell (Night Elf druids start with Staves and Daggers only).
 local WEAPON_SKILL = { [0] = { 196, "Axes" }, [1] = { 197, "Two-Handed Axes" }, [2] = { 264, "Bows" }, [3] = { 266, "Guns" },
   [4] = { 198, "Maces" }, [5] = { 199, "Two-Handed Maces" }, [6] = { 200, "Polearms" }, [7] = { 201, "Swords" },
@@ -157,7 +158,9 @@ local function redLine(link)
       for _, l in ipairs(data.lines) do
         for _, side in ipairs({ { l.leftText, l.leftColor }, { l.rightText, l.rightColor } }) do
           local txt = side[1]
-          if txt and isRed(side[2]) and not txt:find(levelWord, 1, true) and not txt:find("Durability", 1, true) then return txt end
+          local prof = txt and txt:match("^Requires ([%a' ]+) %(%d+%)")
+          if txt and isRed(side[2]) and not txt:find(levelWord, 1, true) and not txt:find("Durability", 1, true)
+            and not PROFESSIONS[prof] then return txt end
         end
       end
     end
@@ -470,8 +473,10 @@ local function upgradeFor(link, w, anyLevel)
   if not equipLoc or not usable(classID, subID, equipLoc) then return end
   if not anyLevel and (minLevel or 0) > UnitLevel("player") then return end
   if restriction(link) then return end
+  if score(link, WEIGHTS) <= 0 and score(link, HEAL_WEIGHTS) <= 0 then
+    return false, "no stats to compare (idol, on-use effect?): judge it yourself"
+  end
   local mine = score(link, w)
-  if mine <= 0 then return false, "no stats to compare (idol, on-use effect?): judge it yourself" end
   local slots = SLOTS[equipLoc]
   local current
   if equipLoc == "INVTYPE_2HWEAPON" then
@@ -502,13 +507,14 @@ local function keepReason(link)
   end
 end
 -- Quest reward choice when the route names none: the biggest upgrade for your active role, else the one that sells
--- for the most. Returns index, reason.
+-- for the most. Returns index, reason; nil when a choice can't be compared (you pick).
 local function rewardPick(n)
   local best, bestGain, bestPrice, cash = nil, 0, -1, nil
   for i = 1, n do
     local link = GetQuestItemLink and GetQuestItemLink("choice", i)
     if link then
-      local gain = upgradeFor(link, nil, true)
+      local gain, why = upgradeFor(link, nil, true)
+      if gain == false then return nil, why end
       if gain and gain > bestGain then best, bestGain = i, gain end
       local price = select(11, getInfo(link)) or 0
       if price > bestPrice then cash, bestPrice = i, price end
@@ -1257,7 +1263,7 @@ local function autoPilot()
     local e = list[i]
     if not e or buybackLeft() <= 0 or not (MerchantFrame and MerchantFrame:IsShown()) then return finish() end
     local link, count = slotInfo(e.bag, e.slot)
-    if link == e.link and (count or 1) == (e.count or 1) then
+    if link == e.link and (count or 1) == (e.count or 1) and not protectedReason(link, e.bag, e.slot) then
       useSlot(e.bag, e.slot)
       soldThisVisit = soldThisVisit + 1
       -- Sold log (last 60): the update reads it, so nothing the autopilot sells is a mystery.
@@ -1422,6 +1428,7 @@ local function lootVerdict(link, qty, isQuest, cheapest)
   if name and name:find("Waylaid") then return "take", "Waylaid Crate: fill it for Merchant's Favor" end
   if stacksWithBags(link) then return "take", "stacks with what you have: no new slot" end
   local gain, slotName = upgradeFor(link)
+  if gain == false then return "take", "can't compare: " .. slotName end
   if gain then return "take", ("upgrade for your %s (+%d)"):format(slotName:lower(), math.floor(gain + 0.5)) end
   local keep = keepReason(link)
   if keep then return "take", keep end
@@ -1575,6 +1582,7 @@ local function rollAdvice(link, canNeed, canGreed)
     return "GREED", ("crafting material: Greed (sells for %s)"):format(sells), 2, true
   end
   local gain, slotName = upgradeFor(link)
+  if gain == false then return "YOUR CALL", "can't compare: " .. slotName end
   if gain and canNeed then
     local g = math.floor(gain + 0.5)
     if subID == 1 and classID == 4 and who then
@@ -1596,6 +1604,7 @@ local function rollAdvice(link, canNeed, canGreed)
   local myLevel = UnitLevel("player") or 0
   if minLevel > myLevel and minLevel - myLevel <= 5 then
     local later, laterSlot = upgradeFor(link, nil, true)
+    if later == false then return "YOUR CALL", "can't compare: " .. laterSlot end
     if later and canNeed and bindType == 1 and minLevel - myLevel <= 4 and later >= SMALL and not keepReason(link) then
       return "NEED", ("upgrade for your %s at level %d (+%d), binds when picked up: Need is fair for your role. "
         .. "Say in /p \"need for level %d\""):format(laterSlot:lower(), minLevel, math.floor(later + 0.5), minLevel), 1
