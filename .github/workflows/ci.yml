@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lua-syntax:
+    name: Lua 5.1 syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Compile every addon file with luac 5.1 (the Lua version WoW uses)
+        run: for f in DruidKit/*.lua ClaudeProgress/*.lua; do luac5.1 -p "$f" || exit 1; done
+
+  tests:
+    name: Lint and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - name: Guide is up to date with its JSON
+        run: |
+          python3 tools/make_guide.py tools/example_guide.json /tmp/guide.lua
+          diff -u DruidKit/DruidKit_Guide.lua /tmp/guide.lua
+      - run: sh tests/run_all.sh

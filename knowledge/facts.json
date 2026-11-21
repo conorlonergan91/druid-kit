@@ -1,0 +1,409 @@
+{
+ "last_watch": "2026-11-18",
+ "facts": [
+  {
+   "id": "flight-nighthaven",
+   "topic": "travel",
+   "statement": "Nighthaven (Moonglade) has one Alliance flight: druid-only, one-way to Rut'theran Village; nothing flies to Nighthaven (use Teleport: Moonglade).",
+   "sources": [
+    "https://warcraft.wiki.gg/wiki/Silva_Fil%27naveth"
+   ],
+   "verified": "2026-11-17",
+   "confidence": "high",
+   "review_days": 60,
+   "used_by": [
+    "planner/travel.json",
+    "tools/route_check.py"
+   ]
+  },
+  {
+   "id": "boat-auberdine-menethil",
+   "topic": "travel",
+   "statement": "Auberdine has boats to Rut'theran and to Menethil Harbor from the west pier; exact pier and ship names unverified.",
+   "sources": [
+    "player report 17 Nov"
+   ],
+   "verified": "2026-11-17",
+   "confidence": "low",
+   "review_days": 14,
+   "used_by": [
+    "planner/travel.json",
+    "build/route_vN.py how"
+   ]
+  },
+  {
+   "id": "hearth-cooldown",
+   "topic": "travel",
+   "statement": "Hearthstone cooldown assumed 60 minutes (Classic); not verified for Forever.",
+   "sources": [
+    "Classic default"
+   ],
+   "verified": "2026-11-17",
+   "confidence": "low",
+   "review_days": 14,
+   "used_by": [
+    "planner/travel.json hearth_cooldown_min",
+    "planner/rk.py sim"
+   ]
+  },
+  {
+   "id": "cat-form-chain",
+   "topic": "class",
+   "statement": "Cat Form (20): starts with Mathrengyl Bearwalker (Darnassus), Dendrite Starblaze and the Great Cat Spirit (Moonglade); 'To Darnassus' teaches Cat Form, Claw, Prowl, Rip.",
+   "sources": [
+    "https://warcraft.wiki.gg/wiki/To_Darnassus_(Forever)",
+    "https://www.wowhead.com/forever/quest=98405"
+   ],
+   "verified": "2026-11-17",
+   "confidence": "high",
+   "review_days": 90,
+   "used_by": [
+    "build/route_vN.py",
+    "planner/rk.py FORM_QUESTS"
+   ],
+   "levels": [
+    20,
+    20
+   ]
+  },
+  {
+   "id": "aquatic-form-handin",
+   "topic": "class",
+   "statement": "Aquatic Form (5061) is handed in to Mathrengyl Bearwalker in Darnassus with the Pendant of the Sea Lion.",
+   "sources": [
+    "QuestieDB Forever"
+   ],
+   "verified": "2026-11-17",
+   "confidence": "high",
+   "review_days": 90,
+   "used_by": [
+    "build/route_vN.py"
+   ],
+   "levels": [
+    16,
+    20
+   ]
+  },
+  {
+   "id": "mage-scrolls",
+   "topic": "items",
+   "statement": "Mage skill scrolls drop for every class; only mages with Comprehension can use them; some sell on the Auction House.",
+   "sources": [
+    "https://www.warcrafttavern.com/forever/guides/mage-scrolls/",
+    "https://www.method.gg/wow-forever/mage-comprehension-and-study-guide-in-wow-forever-how-scrolls-work-and-all-scroll-effects"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "high",
+   "review_days": 60,
+   "used_by": [
+    "DruidKit/DruidKit_Bags.lua restriction"
+   ]
+  },
+  {
+   "id": "excavation-tools-handin",
+   "topic": "quests",
+   "statement": "Excavation Tools (86613) starts from an item; quest text names Magmar Fellhew, QuestieDB names Prospector Ironband.",
+   "sources": [
+    "QuestieDB Forever",
+    "quest text in game"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "medium",
+   "review_days": 30,
+   "used_by": [
+    "build/route_vN.py"
+   ],
+   "levels": [
+    18,
+    21
+   ]
+  },
+  {
+   "id": "well-fed",
+   "topic": "systems",
+   "statement": "Cooked food buff Well Fed gives +5% kill XP for 15 minutes.",
+   "sources": [
+    "HANDOFF research 15 Nov (Warcraft Tavern, Overgear)"
+   ],
+   "verified": "2026-11-15",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "World tab Food",
+    "DruidKit_Helpers HUD"
+   ]
+  },
+  {
+   "id": "camping",
+   "topic": "systems",
+   "statement": "Camping: Basic Campfire (1 Simple Wood) + up to 3 camp items, sit ~1 min -> Camp Benefits 1 h; tier-1 items at profession skill 20.",
+   "sources": [
+    "HANDOFF research 15 Nov"
+   ],
+   "verified": "2026-11-15",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "World tab Camp",
+    "PROFESSIONS.md"
+   ]
+  },
+  {
+   "id": "riding",
+   "topic": "systems",
+   "statement": "Riding: 100g at level 40 (mount included), 1,000g at 60.",
+   "sources": [
+    "HANDOFF research 15 Nov"
+   ],
+   "verified": "2026-11-15",
+   "confidence": "medium",
+   "review_days": 60,
+   "used_by": [
+    "World tab Gold",
+    "bag check Auction House note"
+   ],
+   "levels": [
+    30,
+    60
+   ]
+  },
+  {
+   "id": "legacy",
+   "topic": "systems",
+   "statement": "Legacy: 65 account points, 16 spendable per character (window key Y); first points from a 15-25 final boss, level 25, crafting 150, full map.",
+   "sources": [
+    "HANDOFF research 15 Nov"
+   ],
+   "verified": "2026-11-15",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "World tab Legacy"
+   ]
+  },
+  {
+   "id": "waylaid-crates",
+   "topic": "systems",
+   "statement": "Waylaid Crates go to the Azeroth Commerce Authority camp (Elwynn/Redridge/Duskwood crossing); first crate +50 Merchant's Favor; recipes cost 30.",
+   "sources": [
+    "Mobalytics (HANDOFF)"
+   ],
+   "verified": "2026-11-15",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "World tab Crates",
+    "DruidKit_Bags protectedReason",
+    "DruidKit_Trainers crate pin"
+   ]
+  },
+  {
+   "id": "battlegrounds",
+   "topic": "systems",
+   "statement": "Battlegrounds: Warsong 10+ (brackets of 10), Arathi Basin 20+, Darkspear Islands 30+.",
+   "sources": [
+    "HANDOFF research 15 Nov"
+   ],
+   "verified": "2026-11-15",
+   "confidence": "medium",
+   "review_days": 60,
+   "used_by": [
+    "World tab PvP"
+   ]
+  },
+  {
+   "id": "dungeon-ranges",
+   "topic": "dungeons",
+   "statement": "Alliance dungeons to 33: Hall of Thanes 13-18, Deadmines 16+, BFD 22+, Stockade 23+, Gnomeregan 25+, Excavation Site 26+, City of Dalaran 28-33.",
+   "sources": [
+    "HANDOFF research 15 Nov"
+   ],
+   "verified": "2026-11-15",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "Dungeons tab For you",
+    "dungeon-advisor"
+   ],
+   "levels": [
+    13,
+    33
+   ]
+  },
+  {
+   "id": "healing-potions-first-aid",
+   "topic": "professions",
+   "statement": "Healing potions moved from Alchemy to First Aid; First Aid doesn't use a profession slot.",
+   "sources": [
+    "PROFESSIONS.md (Nov 2026 guides)"
+   ],
+   "verified": "2026-11-16",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "PROFESSIONS.md",
+    "Crafting tab"
+   ]
+  },
+  {
+   "id": "journeyman-training",
+   "topic": "professions",
+   "statement": "Journeyman (75-150) needs skill 50 and level 10 at any trainer; Apprentice has no level requirement.",
+   "sources": [
+    "PROFESSIONS.md"
+   ],
+   "verified": "2026-11-16",
+   "confidence": "medium",
+   "review_days": 60,
+   "used_by": [
+    "PROFESSIONS.md",
+    "DruidKit_Helpers professionLines"
+   ]
+  },
+  {
+   "id": "feral-levelling",
+   "topic": "talents",
+   "statement": "Feral is the recommended levelling spec; order 20-21 Sharpened Claws, 22-23 Savage Fury, 24 Feral Charge, 25 Primal Bite, 26-27 Blood Frenzy, 28-29 Predatory Strikes, 30 Leader of the Pack.",
+   "sources": [
+    "Mobalytics, Method, Icy Veins (TALENTS.md)"
+   ],
+   "verified": "2026-11-16",
+   "confidence": "medium",
+   "review_days": 30,
+   "used_by": [
+    "TALENTS.md",
+    "Talents tab",
+    "Combat tab"
+   ],
+   "levels": [
+    20,
+    40
+   ]
+  },
+  {
+   "id": "feral-swiftness-dodge",
+   "topic": "talents",
+   "statement": "Feral Swiftness gives +4% Dodge at all times in Forever (not only in Cat Form).",
+   "sources": [
+    "theforeverera.com, allthings.how (TALENTS.md)"
+   ],
+   "verified": "2026-11-16",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "TALENTS.md"
+   ]
+  },
+  {
+   "id": "resto-milestones",
+   "topic": "talents",
+   "statement": "Restoration milestones: Bloom 11th point, Swiftmend 16th (doesn't eat the HoT), Nature's Swiftness 21st, Wild Growth 31st.",
+   "sources": [
+    "mobalytics, wowforevercompass, wowfdb (TALENTS.md)"
+   ],
+   "verified": "2026-11-16",
+   "confidence": "medium",
+   "review_days": 60,
+   "used_by": [
+    "TALENTS.md At 60"
+   ]
+  },
+  {
+   "id": "gear-weights",
+   "topic": "gear",
+   "statement": "Questing stat weights (Stamina 1.0, Agility 0.8, Strength 0.8, Intellect 0.7, Spirit 0.6, armour 0.06, AP 0.4) are a house estimate, not from a Forever source; review for Feral (Agility/Strength value in Cat Form).",
+   "sources": [
+    "DruidKit_Bags.lua WEIGHTS"
+   ],
+   "verified": "2026-11-16",
+   "confidence": "low",
+   "review_days": 14,
+   "used_by": [
+    "DruidKit/DruidKit_Bags.lua WEIGHTS",
+    "rollAdvice"
+   ]
+  },
+  {
+   "id": "bank-towns",
+   "topic": "travel",
+   "statement": "Banks (Alliance, to level 30): Stormwind, Ironforge, Darnassus only.",
+   "sources": [
+    "Classic geography"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "medium",
+   "review_days": 90,
+   "used_by": [
+    "planner/rk.py BANK_ZONES",
+    "DruidKit_Steps BANK_ZONES"
+   ]
+  },
+  {
+   "id": "vendor-flags",
+   "topic": "data",
+   "statement": "QuestieDB npcFlags: vendor = 4, repair = 16384.",
+   "sources": [
+    "QuestieDB data inspection"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "high",
+   "review_days": 120,
+   "used_by": [
+    "planner/rk.py vendors"
+   ]
+  },
+  {
+   "id": "auctionator-api",
+   "topic": "addons",
+   "statement": "Auctionator.API.v1.GetAuctionPriceByItemLink(callerID, link) returns the last scanned price in copper.",
+   "sources": [
+    "Auctionator/Source/API/v1/GetAuctionPrice.lua on the player's Mac"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "high",
+   "review_days": 60,
+   "used_by": [
+    "DruidKit/DruidKit_Bags.lua ahPrice"
+   ]
+  },
+  {
+   "id": "druid-spells-20",
+   "topic": "class",
+   "statement": "Druid new spells: 18 Faerie Fire, Hibernate; 20 Cat Form (quest), Claw, Prowl, Rip, Shred, Starfire, Rebirth, Omen of Clarity, Feral Charge (talent); 22 Soothe Animal; 24 Ferocious Bite, Rake, Remove Curse.",
+   "sources": [
+    "https://www.method.gg/wow-forever/all-class-spells/druid"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "medium",
+   "review_days": 45,
+   "used_by": [
+    "DruidKit/DruidKit.lua LAYOUT",
+    "keybind-manager",
+    "combat-coach"
+   ],
+   "levels": [
+    18,
+    26
+   ]
+  },
+  {
+   "id": "althers-mill-prereq",
+   "topic": "quests",
+   "statement": "Alther's Mill (98386, Foreman Oslow, Lakeshire) was not offered while The Everstill Bridge (89) was in the log; likely needs 89 handed in first (QuestieDB lists no prerequisite).",
+   "sources": [
+    "player report 18 Nov 22:45"
+   ],
+   "verified": "2026-11-18",
+   "confidence": "medium",
+   "review_days": 30,
+   "used_by": [
+    "build/route_vN.py",
+    "planner/RULES.md v12c"
+   ],
+   "levels": [
+    20,
+    24
+   ]
+  }
+ ]
+}

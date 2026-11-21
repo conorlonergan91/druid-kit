@@ -1,0 +1,725 @@
+{
+ "_note": "Approximate: zone sizes from classic map data, travel minutes estimated (walk/boat/flight incl. waits). Town spots from QuestieDB NPC spawns. fm = the town has an Alliance-usable flight master (classic geography; Ratchet is neutral). Edge how = walk | flight | boat | tram | portal; flights need both flight paths learned; boats list where to board (board) and the usual wait.",
+ "towns": {
+  "Shadowglen": {
+   "zone": "Teldrassil",
+   "x": 58.7,
+   "y": 44.3,
+   "fm": false
+  },
+  "Dolanaar": {
+   "zone": "Teldrassil",
+   "x": 55.6,
+   "y": 59.8,
+   "fm": false
+  },
+  "Darnassus": {
+   "zone": "Darnassus",
+   "x": 35.4,
+   "y": 8.4,
+   "fm": false
+  },
+  "Rut'theran": {
+   "zone": "Teldrassil",
+   "x": 58.4,
+   "y": 94.0,
+   "fm": true
+  },
+  "Nighthaven": {
+   "zone": "Moonglade",
+   "x": 44.2,
+   "y": 45.2,
+   "fm": true,
+   "always_known": true,
+   "note": "druid-only flight master: never listed among known flight paths; usable by any druid"
+  },
+  "Auberdine": {
+   "zone": "Darkshore",
+   "x": 36.3,
+   "y": 45.6,
+   "fm": true
+  },
+  "Astranaar": {
+   "zone": "Ashenvale",
+   "x": 34.4,
+   "y": 48.0,
+   "fm": true
+  },
+  "Menethil": {
+   "zone": "Wetlands",
+   "x": 9.5,
+   "y": 59.7,
+   "fm": true
+  },
+  "Thelsamar": {
+   "zone": "Loch Modan",
+   "x": 33.9,
+   "y": 51.0,
+   "fm": true
+  },
+  "Ironforge": {
+   "zone": "Ironforge",
+   "x": 55.5,
+   "y": 47.7,
+   "fm": true
+  },
+  "Stormwind": {
+   "zone": "Stormwind City",
+   "x": 71.0,
+   "y": 72.5,
+   "fm": true
+  },
+  "Goldshire": {
+   "zone": "Elwynn Forest",
+   "x": 43.8,
+   "y": 65.8,
+   "fm": false
+  },
+  "Sentinel Hill": {
+   "zone": "Westfall",
+   "x": 56.6,
+   "y": 52.6,
+   "fm": true
+  },
+  "Lakeshire": {
+   "zone": "Redridge Mountains",
+   "x": 25.5,
+   "y": 59.4,
+   "fm": true
+  },
+  "Darkshire": {
+   "zone": "Duskwood",
+   "x": 77.5,
+   "y": 44.3,
+   "fm": true
+  },
+  "Stonetalon Peak": {
+   "zone": "Stonetalon Mountains",
+   "x": 36.4,
+   "y": 7.2,
+   "fm": true
+  },
+  "Southshore": {
+   "zone": "Hillsbrad Foothills",
+   "x": 51.0,
+   "y": 58.0,
+   "fm": true
+  },
+  "Refuge Pointe": {
+   "zone": "Arathi Highlands",
+   "x": 45.8,
+   "y": 47.6,
+   "fm": true
+  },
+  "Rebel Camp": {
+   "zone": "Stranglethorn Vale",
+   "x": 38.0,
+   "y": 3.0,
+   "fm": false
+  },
+  "Booty Bay": {
+   "zone": "Stranglethorn Vale",
+   "x": 27.0,
+   "y": 77.0,
+   "fm": true
+  },
+  "Nijel's Point": {
+   "zone": "Desolace",
+   "x": 66.0,
+   "y": 7.0,
+   "fm": true
+  },
+  "Shimmering Flats": {
+   "zone": "Thousand Needles",
+   "x": 78.0,
+   "y": 76.0,
+   "fm": false
+  },
+  "Forest Song": {
+   "zone": "Ashenvale",
+   "x": 85.0,
+   "y": 44.0,
+   "fm": false
+  },
+  "Ratchet": {
+   "zone": "The Barrens",
+   "x": 62.5,
+   "y": 37.0,
+   "fm": true
+  }
+ },
+ "edges": [
+  {
+   "a": "Shadowglen",
+   "b": "Dolanaar",
+   "min": 3,
+   "how": "walk"
+  },
+  {
+   "a": "Dolanaar",
+   "b": "Darnassus",
+   "min": 3,
+   "how": "walk"
+  },
+  {
+   "a": "Darnassus",
+   "b": "Rut'theran",
+   "min": 1,
+   "how": "portal"
+  },
+  {
+   "a": "Dolanaar",
+   "b": "Rut'theran",
+   "min": 6,
+   "how": "walk"
+  },
+  {
+   "a": "Rut'theran",
+   "b": "Auberdine",
+   "min": 4,
+   "how": "boat",
+   "board": {
+    "Rut'theran": [
+     "Teldrassil",
+     54.9,
+     96.8,
+     "Rut'theran dock, south of the village"
+    ],
+    "Auberdine": [
+     "Darkshore",
+     33.2,
+     40.2,
+     "Auberdine pier: the ship to Rut'theran Village (unverified spot)"
+    ],
+    "wait_min": 4
+   }
+  },
+  {
+   "a": "Auberdine",
+   "b": "Menethil",
+   "min": 7,
+   "how": "boat",
+   "board": {
+    "Auberdine": [
+     "Darkshore",
+     32.4,
+     43.7,
+     "end of the Auberdine pier, west of the town: the ship to Menethil Harbor (unverified spot; two ships use this pier, check the destination)"
+    ],
+    "Menethil": [
+     "Wetlands",
+     4.6,
+     57.2,
+     "end of the long Menethil pier, west of the town (unverified spot)"
+    ],
+    "wait_min": 4
+   }
+  },
+  {
+   "a": "Auberdine",
+   "b": "Astranaar",
+   "min": 4,
+   "how": "flight"
+  },
+  {
+   "a": "Nighthaven",
+   "b": "Rut'theran",
+   "min": 7,
+   "oneway": true,
+   "how": "flight",
+   "note": "druid-only flight; Nighthaven's only Alliance link, and it can't be flown TO (use Teleport: Moonglade)"
+  },
+  {
+   "a": "Menethil",
+   "b": "Thelsamar",
+   "min": 9,
+   "how": "walk"
+  },
+  {
+   "a": "Menethil",
+   "b": "Ironforge",
+   "min": 4,
+   "how": "flight"
+  },
+  {
+   "a": "Thelsamar",
+   "b": "Ironforge",
+   "min": 3,
+   "how": "flight"
+  },
+  {
+   "a": "Ironforge",
+   "b": "Stormwind",
+   "min": 3,
+   "how": "tram"
+  },
+  {
+   "a": "Stormwind",
+   "b": "Goldshire",
+   "min": 3,
+   "how": "walk"
+  },
+  {
+   "a": "Stormwind",
+   "b": "Sentinel Hill",
+   "min": 3,
+   "how": "flight"
+  },
+  {
+   "a": "Goldshire",
+   "b": "Sentinel Hill",
+   "min": 6,
+   "how": "walk"
+  },
+  {
+   "a": "Stormwind",
+   "b": "Lakeshire",
+   "min": 3,
+   "how": "flight"
+  },
+  {
+   "a": "Goldshire",
+   "b": "Lakeshire",
+   "min": 7,
+   "how": "walk"
+  },
+  {
+   "a": "Lakeshire",
+   "b": "Darkshire",
+   "min": 8,
+   "how": "walk"
+  },
+  {
+   "a": "Stormwind",
+   "b": "Darkshire",
+   "min": 3,
+   "how": "flight"
+  },
+  {
+   "a": "Astranaar",
+   "b": "Stonetalon Peak",
+   "min": 10,
+   "how": "walk"
+  },
+  {
+   "a": "Shadowglen",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Dolanaar",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Darnassus",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Rut'theran",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Auberdine",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Astranaar",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Menethil",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Thelsamar",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Ironforge",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Stormwind",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Goldshire",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Sentinel Hill",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Lakeshire",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Darkshire",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Stonetalon Peak",
+   "b": "Nighthaven",
+   "min": 0.5,
+   "oneway": true,
+   "note": "Teleport: Moonglade"
+  },
+  {
+   "a": "Darkshire",
+   "b": "Rebel Camp",
+   "min": 7,
+   "how": "walk",
+   "note": "run through Duskwood west road"
+  },
+  {
+   "a": "Rebel Camp",
+   "b": "Booty Bay",
+   "min": 10,
+   "how": "walk",
+   "note": "run south"
+  },
+  {
+   "a": "Stormwind",
+   "b": "Booty Bay",
+   "min": 6,
+   "how": "flight",
+   "note": "flight after discovery"
+  },
+  {
+   "a": "Booty Bay",
+   "b": "Ratchet",
+   "min": 5,
+   "how": "boat"
+  },
+  {
+   "a": "Menethil",
+   "b": "Southshore",
+   "min": 9,
+   "how": "walk",
+   "note": "run through Thandol Span / flight after discovery"
+  },
+  {
+   "a": "Ironforge",
+   "b": "Southshore",
+   "min": 5,
+   "how": "flight",
+   "note": "flight after discovery"
+  },
+  {
+   "a": "Southshore",
+   "b": "Refuge Pointe",
+   "min": 4,
+   "how": "flight",
+   "note": "flight after discovery / run"
+  },
+  {
+   "a": "Stonetalon Peak",
+   "b": "Nijel's Point",
+   "min": 4,
+   "how": "flight",
+   "note": "flight after discovery"
+  },
+  {
+   "a": "Astranaar",
+   "b": "Forest Song",
+   "min": 6,
+   "how": "walk",
+   "note": "run east"
+  },
+  {
+   "a": "Shimmering Flats",
+   "b": "Booty Bay",
+   "min": 12,
+   "how": "boat",
+   "note": "Ratchet boat + run (rough)"
+  },
+  {
+   "a": "Ratchet",
+   "b": "Shimmering Flats",
+   "min": 10,
+   "how": "walk",
+   "note": "run (rough)"
+  },
+  {
+   "a": "Rut'theran",
+   "b": "Auberdine",
+   "min": 3,
+   "how": "flight"
+  },
+  {
+   "a": "Stonetalon Peak",
+   "b": "Auberdine",
+   "min": 5,
+   "how": "flight",
+   "note": "classic geography (unverified in Forever)"
+  },
+  {
+   "a": "Stormwind",
+   "b": "Ironforge",
+   "min": 4,
+   "how": "flight",
+   "note": "Forever: gryphon between the two cities once both flight paths are known; faster than tram + walking"
+  }
+ ],
+ "zone_yards": {
+  "Teldrassil": [
+   5091.7,
+   3393.8
+  ],
+  "Darnassus": [
+   1058.3,
+   705.7
+  ],
+  "Darkshore": [
+   6550.0,
+   4366.7
+  ],
+  "Ashenvale": [
+   5766.7,
+   3843.8
+  ],
+  "Moonglade": [
+   2308.3,
+   1539.6
+  ],
+  "Stonetalon Mountains": [
+   4883.3,
+   3256.3
+  ],
+  "The Barrens": [
+   10133.3,
+   6756.3
+  ],
+  "Loch Modan": [
+   2758.3,
+   1839.6
+  ],
+  "Wetlands": [
+   4135.4,
+   2756.3
+  ],
+  "Dun Morogh": [
+   4925.0,
+   3283.3
+  ],
+  "Ironforge": [
+   790.6,
+   527.6
+  ],
+  "Elwynn Forest": [
+   3470.8,
+   2314.6
+  ],
+  "Stormwind City": [
+   1737.5,
+   1158.3
+  ],
+  "Westfall": [
+   3500.0,
+   2333.3
+  ],
+  "Redridge Mountains": [
+   2170.8,
+   1447.9
+  ],
+  "Duskwood": [
+   2700.0,
+   1800.0
+  ],
+  "Hillsbrad Foothills": [
+   3200,
+   2133
+  ],
+  "Arathi Highlands": [
+   3600,
+   2400
+  ],
+  "Stranglethorn Vale": [
+   6381,
+   4254
+  ],
+  "Desolace": [
+   4495,
+   2997
+  ],
+  "Thousand Needles": [
+   4400,
+   2933
+  ],
+  "Alterac Mountains": [
+   2800,
+   1866
+  ]
+ },
+ "zone_ids": {
+  "141": "Teldrassil",
+  "1657": "Darnassus",
+  "148": "Darkshore",
+  "331": "Ashenvale",
+  "493": "Moonglade",
+  "406": "Stonetalon Mountains",
+  "17": "The Barrens",
+  "38": "Loch Modan",
+  "11": "Wetlands",
+  "1": "Dun Morogh",
+  "1537": "Ironforge",
+  "12": "Elwynn Forest",
+  "1519": "Stormwind City",
+  "40": "Westfall",
+  "44": "Redridge Mountains",
+  "10": "Duskwood",
+  "1581": "The Deadmines",
+  "719": "Blackfathom Deeps",
+  "717": "The Stockade",
+  "188": "Teldrassil",
+  "6450": "Teldrassil",
+  "267": "Hillsbrad Foothills",
+  "45": "Arathi Highlands",
+  "33": "Stranglethorn Vale",
+  "405": "Desolace",
+  "400": "Thousand Needles",
+  "36": "Alterac Mountains",
+  "16593": "Zephras Isle"
+ },
+ "hubs": {
+  "Teldrassil": {
+   "town": "Dolanaar",
+   "zones": [
+    "Teldrassil",
+    "Darnassus"
+   ]
+  },
+  "Darkshore": {
+   "town": "Auberdine",
+   "zones": [
+    "Darkshore"
+   ]
+  },
+  "Ashenvale": {
+   "town": "Astranaar",
+   "zones": [
+    "Ashenvale"
+   ]
+  },
+  "Loch Modan": {
+   "town": "Thelsamar",
+   "zones": [
+    "Loch Modan"
+   ]
+  },
+  "Westfall": {
+   "town": "Sentinel Hill",
+   "zones": [
+    "Westfall"
+   ]
+  },
+  "Elwynn": {
+   "town": "Goldshire",
+   "zones": [
+    "Elwynn Forest",
+    "Stormwind City"
+   ]
+  },
+  "Redridge": {
+   "town": "Lakeshire",
+   "zones": [
+    "Redridge Mountains"
+   ]
+  },
+  "Duskwood": {
+   "town": "Darkshire",
+   "zones": [
+    "Duskwood"
+   ]
+  },
+  "Wetlands": {
+   "town": "Menethil",
+   "zones": [
+    "Wetlands"
+   ]
+  },
+  "Stonetalon": {
+   "town": "Stonetalon Peak",
+   "zones": [
+    "Stonetalon Mountains"
+   ]
+  },
+  "Hillsbrad": {
+   "town": "Southshore",
+   "zones": [
+    "Hillsbrad Foothills",
+    "Alterac Mountains"
+   ]
+  },
+  "Arathi": {
+   "town": "Refuge Pointe",
+   "zones": [
+    "Arathi Highlands"
+   ]
+  },
+  "Stranglethorn": {
+   "town": "Rebel Camp",
+   "zones": [
+    "Stranglethorn Vale"
+   ]
+  },
+  "Desolace": {
+   "town": "Nijel's Point",
+   "zones": [
+    "Desolace"
+   ]
+  },
+  "Thousand Needles": {
+   "town": "Shimmering Flats",
+   "zones": [
+    "Thousand Needles"
+   ]
+  }
+ },
+ "notes": [
+  "20-30 towns/edges added 17 Nov from classic geography; minutes are rough estimates."
+ ],
+ "hearth_cooldown_min": 60
+}
