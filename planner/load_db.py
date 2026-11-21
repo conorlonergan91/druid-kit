@@ -2,7 +2,8 @@
 (Questie users' QuestieTrace data: custom Forever quests, real NPC/object spots), into planner/db.json.
 
 Sources (GPLv3): github.com/Questie/QuestieDB data/Forever + src/corrections/Forever.
-The Lua files are third-party code: they run with no Python bridge and no os/io/loaders in _G (UNSAFE).
+The Lua files are third-party code: they run with no Python bridge and no os/io/loaders in _G (UNSAFE), source
+text only (no bytecode, no string.dump); the chunk runner stays a Lua local that Python holds.
 """
 
 import json
@@ -20,7 +21,12 @@ DATA = os.path.join(HERE, "data")
 UNSAFE = ("os", "io", "package", "debug", "require", "module", "dofile", "loadfile", "load", "loadstring", "python")
 
 PRELUDE = r"""
-local compile = loadstring
+local loadstring = loadstring
+local function compile(src, name)
+  if type(src) ~= "string" or src:byte(1) == 27 then return nil, "binary chunks are not loaded" end
+  return loadstring(src, name)
+end
+string.dump = nil
 modules = {}
 QuestieLoader = {
   CreateModule = function(self, name) modules[name] = modules[name] or {}; return modules[name] end,
@@ -32,21 +38,21 @@ local stubmt = {}
 stubmt.__index = function(t, k) local v = setmetatable({}, stubmt); rawset(t, k, v); return v end
 stubmt.__call = function() return nil end
 setmetatable(_G, { __index = function(t, k) return setmetatable({}, stubmt) end })
-function runchunk(src, name)
+local function runchunk(src, name)
   local f, e = compile(src, name)
   if not f then return "LOAD " .. tostring(e) end
   local ok, err = pcall(f, nil, LibQuestieDB)
   if not ok then return "RUN " .. tostring(err) end
   return nil
 end
-function merge(dst, src)
+local function merge(dst, src)
   if type(src) ~= "table" or type(dst) ~= "table" then return src end
   for k, v in pairs(src) do
     if type(v) == "table" and type(dst[k]) == "table" then merge(dst[k], v) else dst[k] = v end
   end
   return dst
 end
-function apply(db, patch)
+local function apply(db, patch)
   local n = 0
   for id, fields in pairs(patch) do
     if type(fields) == "table" then
@@ -64,7 +70,7 @@ function apply(db, patch)
   end
   return n
 end
-function loadfix(src, name)
+local function loadfix(src, name)
   local before = {}
   for k in pairs(modules) do before[k] = true end
   local err = runchunk(src, name)
@@ -80,6 +86,12 @@ function loadfix(src, name)
   end
   return nil, "no Load()"
 end
+local function exec(src, name)
+  local f, e = compile(src, name)
+  if not f then error(e, 0) end
+  return f()
+end
+return { runchunk = runchunk, loadfix = loadfix, apply = apply, exec = exec }
 """
 
 KEYS = r"""
@@ -102,24 +114,25 @@ addKeys(QDB.questKeys); addKeys(QDB.npcKeys); addKeys(QDB.objectKeys); addKeys(Q
 
 
 def runtime():
-    """Lua 5.1 for QuestieDB's files: helpers defined first, then the Python bridge and every loader/OS library go."""
+    """Lua 5.1 for QuestieDB's files and the helpers that run them (runchunk, loadfix, apply, exec), kept out of _G:
+    helpers defined first, then the Python bridge and every loader/OS library go."""
     lua = LuaRuntime(unpack_returned_tuples=True, register_eval=False, register_builtins=False)
-    lua.execute(PRELUDE)
+    api = lua.execute(PRELUDE)
     lua.execute("".join(f"{name} = nil\n" for name in UNSAFE))
-    return lua
+    return lua, api
 
 
-def run(L, path):
-    err = L.globals().runchunk(Path(path).read_text(encoding="utf-8"), os.path.basename(path))
+def run(api, path):
+    err = api.runchunk(Path(path).read_text(encoding="utf-8"), os.path.basename(path))
     if err:
         print("warn", path, str(err)[:160])
 
 
-def load_data(L, path, var):
+def load_data(api, path, var):
     src = Path(path).read_text(encoding="utf-8")
     head, rest = src.split(f"QuestieDB.{var} = [[", 1)
-    L.execute(head)
-    return L.execute(rest.rsplit("]]", 1)[0])
+    api.exec(head, os.path.basename(path))
+    return api.exec(rest.rsplit("]]", 1)[0], os.path.basename(path))
 
 
 def fix_files(Q):
@@ -179,27 +192,27 @@ def keys_of(L, name):
 
 
 def main(Q):
-    L = runtime()
+    L, api = runtime()
     for f in ("constants", "zones", "quests", "expansions", "professions", "items", "factions", "phases"):
         p = f"{Q}/src/corrections/enum/{f}.lua"
         if os.path.exists(p):
-            run(L, p)
-    quests = load_data(L, f"{Q}/data/Forever/foreverQuestDB.lua", "questData")
-    npcs = load_data(L, f"{Q}/data/Forever/foreverNpcDB.lua", "npcData")
-    objects = load_data(L, f"{Q}/data/Forever/foreverObjectDB.lua", "objectData")
-    items = load_data(L, f"{Q}/data/Forever/foreverItemDB.lua", "itemData")
+            run(api, p)
+    quests = load_data(api, f"{Q}/data/Forever/foreverQuestDB.lua", "questData")
+    npcs = load_data(api, f"{Q}/data/Forever/foreverNpcDB.lua", "npcData")
+    objects = load_data(api, f"{Q}/data/Forever/foreverObjectDB.lua", "objectData")
+    items = load_data(api, f"{Q}/data/Forever/foreverItemDB.lua", "itemData")
     L.execute(KEYS)
     db = {"quest": quests, "npc": npcs, "object": objects, "item": items}
     for kind, paths in fix_files(Q).items():
         for p in paths:
             if not os.path.exists(p):
                 continue
-            res = L.globals().loadfix(Path(p).read_text(encoding="utf-8"), os.path.basename(p))
+            res = api.loadfix(Path(p).read_text(encoding="utf-8"), os.path.basename(p))
             patch, err = res if isinstance(res, tuple) else (res, None)
             if patch is None:
                 print("skip", os.path.basename(p), str(err)[:140])
                 continue
-            n = L.globals().apply(db[kind], patch)
+            n = api.apply(db[kind], patch)
             print("applied", os.path.basename(p), n)
     qk, nk, ok, ik = (keys_of(L, k) for k in ("questKeys", "npcKeys", "objectKeys", "itemKeys"))
     out = {

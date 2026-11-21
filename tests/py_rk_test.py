@@ -1,6 +1,9 @@
 """planner/rk.py simulator and item plan on fake data (no db.json): last-event level, unknown quests, training
 with no start spot, flight paths, item grouping, objective counts, SavedVariables read without Lua."""
 
+import contextlib
+import io
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -67,6 +70,48 @@ fake_db(
     npcs={"30": {"name": "A"}, "31": {"name": "B"}},
 )
 check(rk.quest(3)["kills"] == 18, "a two-mob quest needs both counts", rk.quest(3)["kills"])
+
+fake_db(
+    quests={
+        "4": {"name": "Stones", "objectives": {"2": [[50]]}, "objectivesText": ["Find the 3 stones."]},
+        "5": {"name": "Look", "objectivesText": ["Explore the 2 towers."], "triggerEnd": ["Towers", {"40": [[1, 2]]}]},
+    },
+)
+for qid in (4, 5):
+    try:
+        got = rk.quest(qid)["kills"]
+    except ZeroDivisionError as e:
+        got = e
+    check(got == 0, f"quest {qid} with no kill/item objectives but a number in its text", got)
+
+wolf_pelts = {"objectives": {"1": [[30]], "3": [[40]]}}
+fake_db(
+    quests={
+        "6": wolf_pelts | {"objectivesText": ["Kill 10 Wolves and bring 3 Pelts."]},
+        "7": wolf_pelts | {"objectivesText": ["Bring 3 Wolf Pelts to me, and kill 10 Timber Wolves."]},
+    },
+    npcs={"30": {"name": "Timber Wolf"}},
+    items={"40": {"name": "Wolf Pelt", "npcDrops": [30]}},
+)
+for qid in (6, 7):
+    q = rk.quest(qid)
+    check((q["kills"], q["drop_count"]) == (10 + int(3 / 0.45), 3), f"quest {qid}: each number to its objective", q)
+
+fake_db(
+    quests={"8": {"objectives": {"1": [[60]]}}, "9": {"objectives": {"1": [[61]]}}},
+    npcs={
+        "60": {"name": "Scorched Guardian", "spawns": {"141": [[50, 50]]}},
+        "61": {"name": "Mottled Gnoll", "spawns": {"141": [[50, 50]]}},
+    },
+)
+check(rk.crowd(8)["runners"] is False, "runner words match whole words only ('orc' in Scorched)", rk.crowd(8))
+check(rk.crowd(9)["runners"] is True, "a runner word in the name still flees", rk.crowd(9))
+
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    rk.main(["minutes", "8", "--level", "8"])
+row = json.loads(out.getvalue())
+check(row["q"] == 8 and row["min"] > 1, "rk.py minutes prints quest_minutes per quest", row)
 
 sv = Path(tempfile.mkdtemp()) / "DruidKit.lua"
 sv.write_text(

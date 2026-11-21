@@ -129,7 +129,9 @@ local samples, lastXP, lastMax = {}, nil, nil
 
 -- Friends (saved, the default catch-up target) and guild members (this session only: /dk catchup <name> finds them).
 local guild = {}
-local function friendLevels()
+local friendsLoaded = false
+local function friendLevels(loaded)
+  friendsLoaded = friendsLoaded or loaded
   DB.friends = DB.friends or {}
   local isFriend = {}
   if C_FriendList and C_FriendList.GetNumFriends then
@@ -150,14 +152,18 @@ local function friendLevels()
     end
   end
   if IsInGuild and IsInGuild() and GetNumGuildMembers then
-    for i = 1, (safe(GetNumGuildMembers) or 0) do
+    -- Guildies saved by older versions: pruned once, after the friend list has loaded.
+    local prune = friendsLoaded and not DB.friendsMigrated
+    local n = safe(GetNumGuildMembers) or 0
+    for i = 1, n do
       local name, _, _, level = safe(GetGuildRosterInfo, i)
       if name and level then
         name = name:match("^[^-]+") or name
         guild[name] = level
-        if not isFriend[name] then DB.friends[name] = nil end   -- saved by older versions
+        if prune and not isFriend[name] then DB.friends[name] = nil end
       end
     end
+    if prune and n > 0 then DB.friendsMigrated = true end
   end
 end
 
@@ -557,7 +563,7 @@ local function onEvent(_, e, a1)
   elseif e == "UPDATE_INVENTORY_DURABILITY" then checkDurability()
   elseif e == "BAG_UPDATE_DELAYED" then checkBags()
   elseif e == "SKILL_LINES_CHANGED" or e == "PLAYER_MONEY" then updateTracker()
-  elseif e == "FRIENDLIST_UPDATE" or e == "BN_FRIEND_INFO_CHANGED" or e == "GUILD_ROSTER_UPDATE" then friendLevels(); updateTracker()
+  elseif e == "FRIENDLIST_UPDATE" or e == "BN_FRIEND_INFO_CHANGED" or e == "GUILD_ROSTER_UPDATE" then friendLevels(e == "FRIENDLIST_UPDATE"); updateTracker()
   elseif e == "NAME_PLATE_UNIT_ADDED" or e == "NAME_PLATE_UNIT_REMOVED" then updateHud()
   end
 end

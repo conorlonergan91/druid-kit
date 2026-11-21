@@ -12,7 +12,6 @@ local arrived = {}        -- step index -> true once its spot was reached
 local frame
 local pos = 1
 local lastArrowFor
-local routeQuest
 
 local Y, G, W, R = "|cffffd100", "|cff9d9d9d", "|cffffffff", "|r"
 BINDING_NAME_DRUIDKIT_STEPS = "Show / hide route steps and arrow"
@@ -274,7 +273,7 @@ isDone = function(i)
     return DB.bossKilled ~= nil and st.name ~= nil and DB.bossKilled[st.name:lower()] == true
   end
   if d == "note" and st.freeBags and bagsFreeNow and bagsFreeNow() >= st.freeBags then return true end
-  return false   -- note, train: you tick them (train also ticks when you close the trainer)
+  return false
 end
 
 -- Bags: when they fill up, name the nearest vendor (DruidKitVendors, generated from the quest data) ---------
@@ -332,8 +331,8 @@ local function nearestVendor(kind)
   return best, bd
 end
 
--- Bag-derived lines (bag scans, nearest vendor, quest log text) are cached so the 2-second redraw stays cheap;
--- dropped on bag updates and step changes.
+-- Quest log text is cached so the 2-second redraw doesn't reselect the quest log; dropped on bag updates and
+-- step changes. Bag lines aren't: Bags memoises its scan, and the vendor distance changes as you walk.
 local cache = {}
 local function cached(key, fn, ...)
   local v = cache[key]
@@ -398,9 +397,11 @@ local function xpGained(c)
   return (c.mx - c.xp) + xp      -- crossed a level (close enough for one step)
 end
 
+-- DB.loggedTo: steps before it are logged already, so rewinding (reset, unskip, Back) doesn't log them again.
 local function logStep(i, how)
   local st, c = steps[i], DB.cur
-  if not st then return end
+  if not st or i < (DB.loggedTo or 1) then return end
+  DB.loggedTo = i + 1
   local mine = c and c.i == i
   table.insert(DB.stepLog, { route = DruidKitRoute and DruidKitRoute.id, i = i, ["do"] = st["do"], q = st.q,
     name = st.name or st.text, est = st.est, secs = mine and math.floor(c.secs) or 0,
@@ -503,7 +504,7 @@ local function detailLines(st)
   if st["do"] == "complete" then
     local p = progressText(st.q, st.name)
     if p then table.insert(out, "Progress: " .. p) end
-    local how = not st.how and cached("how", questHowText, st.q, st.name)
+    local how = not st.how and cached("how:" .. tostring(st.q or st.name), questHowText, st.q, st.name)
     if how then table.insert(out, "Quest says: " .. how) end
   end
   if st.pick then table.insert(out, "Reward: " .. st.pick) end
@@ -517,9 +518,9 @@ local function detailLines(st)
   end
   if st.tip then table.insert(out, "Tip: " .. st.tip) end
   if st.lv then table.insert(out, G .. "Level after this step (pessimistic): " .. st.lv .. R) end
-  local bl = cached("bagLine", bagLine)
+  local bl = bagLine()
   if bl then table.insert(out, bl) end
-  local starters = DruidKit_QuestStarters and cached("starters", DruidKit_QuestStarters) or {}
+  local starters = DruidKit_QuestStarters and DruidKit_QuestStarters() or {}
   if #starters > 0 then
     local names = {}
     for i = 1, math.min(2, #starters) do names[i] = starters[i].name end
@@ -685,7 +686,7 @@ updateBuff = function()
     if b.SetFrameLevel and frame.GetFrameLevel then b:SetFrameLevel((frame:GetFrameLevel() or 1) + 5) end
   end
   local nb, all = nil, nil
-  if DruidKit_NextBuff then nb, all = cached("buff", DruidKit_NextBuff) end
+  if DruidKit_NextBuff then nb, all = DruidKit_NextBuff() end
   if nb then
     b:SetAttribute("type", "item"); b:SetAttribute("item", nb.name)
     b:SetText("Buff"); if b.Enable then b:Enable() end
@@ -714,7 +715,7 @@ end
 -- Lore: the quest's own story text, kept when you meet the quest giver (auto-accept skips past it), shown on
 -- parchment next to the step window. The Lore button shows or hides it; it follows the step you look at.
 local lore
-routeQuest = function(q)
+local function routeQuest(q)
   for _, st in ipairs(steps) do if st.q == q then return true end end
   return false
 end
@@ -856,14 +857,14 @@ local function draw()
     adv = adv and (adv .. "\n" .. line) or line
   end
   if st["do"] == "note" and (st.text or ""):find("^Sell") and DruidKit_SellCount then
-    local n = cached("sell", DruidKit_SellCount)
+    local n = DruidKit_SellCount()
     local line = n == 0 and (Y .. "Nothing to sell right now" .. R .. " (bag check is empty): talk to the vendor to repair, or press Done.")
       or n and (Y .. n .. " item" .. (n == 1 and "" or "s") .. " to sell" .. R .. ": talk to the vendor and the addon sells them and repairs.")
     if line then adv = adv and (adv .. "\n" .. line) or line end
   end
   -- Hard fight ahead (group quest, or you died on this step): offer the Buff button.
   local hard = st["do"] == "complete" and (st.party or (DB.cur and DB.cur.i == cur and DB.cur.deaths > 0))
-  local nb = hard and DruidKit_NextBuff and cached("buff", DruidKit_NextBuff)
+  local nb = hard and DruidKit_NextBuff and DruidKit_NextBuff()
   if nb then
     local line = Y .. "Hard fight:" .. R .. " press " .. W .. "Buff" .. R .. " to use " .. nb.name .. " (" .. nb.count .. ")."
     adv = adv and (adv .. "\n" .. line) or line
@@ -879,16 +880,13 @@ local function draw()
 end
 
 -- Advancing ------------------------------------------------------------------------------------
--- rewoundFrom: the route was sent back from there (reset, unskip); steps before it were already logged.
-local function evaluate(rewoundFrom)
+local function evaluate()
   if not DB then return end
   dropCache()
   local moved = false
   while pos <= #steps and isDone(pos) do
     local k = steps[pos].q or steps[pos].name
-    if not DB.manual[pos] and not (k and DB.skipQ[k]) and not (rewoundFrom and pos < rewoundFrom) then
-      logStep(pos, "done")
-    end
+    if not DB.manual[pos] and not (k and DB.skipQ[k]) then logStep(pos, "done") end
     pos = pos + 1; moved = true
   end
   DB.routeStep = pos
@@ -1015,7 +1013,7 @@ function DruidKit_StepBack()
   viaAt[pos] = nil
   DB.routeStep = pos
   lastArrowFor = nil
-  pointArrow(); draw()
+  dropCache(); pointArrow(); draw()
 end
 
 
@@ -1024,7 +1022,6 @@ local function unskip(i)
   local k = skipKey(i)
   if not (k and DB.skipQ[k]) then return end
   DB.skipQ[k] = nil
-  local from = pos
   for j = 1, #steps do
     if (steps[j].q or steps[j].name) == k and not isDone(j) then
       if j < pos then pos = j end
@@ -1033,7 +1030,7 @@ local function unskip(i)
   end
   view = nil; customNav = false; lastArrowFor = nil
   say(("%s is back in the route."):format(steps[i].name or "the quest"))
-  evaluate(from)
+  evaluate()
 end
 
 -- Skip: leave this quest (every step of it) for now. Recorded for the next re-plan.
@@ -1165,7 +1162,7 @@ for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUES
   pcall(ev.RegisterEvent, ev, e)
 end
 
-local trainer   -- { name, class = true for a class trainer } from TRAINER_SHOW
+local trainer   -- { name, class = true for a druid trainer } from TRAINER_SHOW
 local function trainerFits(st)
   if not trainer then return false end
   if st.npc then return sameName(trainer.name, st.npc) end
@@ -1192,7 +1189,7 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     local id = DruidKitRoute and DruidKitRoute.id
     DB.passedQ = DB.passedQ or {}
     if DB.routeId ~= id then
-      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.passedQ = {}; DB.cur = nil; DB.bossKilled = nil
+      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.passedQ = {}; DB.cur = nil; DB.bossKilled = nil; DB.loggedTo = nil
       for i = 1, #steps do
         local key = stepKey(i)
         if key and DB.doneKeys and DB.doneKeys[key] then DB.manual[i] = true end
@@ -1267,7 +1264,7 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
   elseif e == "TRAINER_SHOW" then
     local n = safe(UnitName, "npc")
     if issecretvalue and issecretvalue(n) then n = nil end
-    trainer = { name = n, class = not (IsTradeskillTrainer and safe(IsTradeskillTrainer)) }
+    trainer = { name = n, class = DruidKit_IsDruidTrainer and DruidKit_IsDruidTrainer(n) or false }
   elseif e == "TRAINER_CLOSED" then
     local st = steps[pos]
     if st and st["do"] == "train" and trainerFits(st) then tickStep(pos) end
@@ -1420,16 +1417,14 @@ end
 function DruidKit_StepsCommand(arg)
   arg = (arg or ""):lower()
   if arg == "reset" then
-    local from = pos
     DB.manual = {}; DB.passedQ = {}; DB.doneKeys = {}; pos = 1; DB.routeStep = 1; arrived = {}; lastArrowFor = nil
-    evaluate(from)
+    evaluate()
     DruidKit_ToggleSteps(true)
     say("route restarted: finished steps skip themselves.")
   elseif arg == "unskip" then
     local n = 0
     for k in pairs(DB.skipQ) do DB.skipQ[k] = nil; n = n + 1 end
-    local from = pos
-    pos = 1; lastArrowFor = nil; evaluate(from)
+    pos = 1; lastArrowFor = nil; evaluate()
     say(("%d skipped quest%s back in the route."):format(n, n == 1 and " is" or "s are"))
   elseif arg == "log" then
     say("last steps (actual vs projected):")

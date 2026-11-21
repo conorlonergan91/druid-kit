@@ -20,7 +20,8 @@ base = base.replace(
 L.execute(base)
 L.execute("local mt=getmetatable(CreateFrame()) ")
 L.execute(
-    "local cf=CreateFrame; CreateFrame=function(...) local f=cf(...); f.SetAttribute=function(s,k,v) s.attrs=s.attrs or {}; s.attrs[k]=v end; f.GetAttribute=function(s,k) return s.attrs and s.attrs[k] end; f.EnableMouse=function(s,on) s.mouse=on end; return f end"
+    "PROTECTED={}; function protect(n) if COMBAT then PROTECTED[#PROTECTED+1]=n; error(n..' called in combat') end end "
+    "local cf=CreateFrame; CreateFrame=function(...) local f=cf(...); f.SetAttribute=function(s,k,v) protect('SetAttribute'); s.attrs=s.attrs or {}; s.attrs[k]=v end; f.GetAttribute=function(s,k) return s.attrs and s.attrs[k] end; f.EnableMouse=function(s,on) protect('EnableMouse'); s.mouse=on end; return f end"
 )
 L.execute(r"""
 DruidKitDB={}
@@ -93,4 +94,9 @@ check(r[3] == "false", "after combat: the faded P button stops taking clicks", r
 check(r[4] == 0, "events for other units (nameplates, target) draw nothing", r[4])
 check(r[5] == 0, "events only mark the cards: nothing drawn inside the event", r[5])
 check(r[6] is True, "the next frame draws the cards once", r[6])
+check(
+    len(L.globals().PROTECTED) == 0,
+    "no protected call (EnableMouse/SetAttribute) in combat",
+    list(L.globals().PROTECTED.values()),
+)
 done("bagsfix_party_test")

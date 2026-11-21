@@ -1,5 +1,6 @@
 """Quest items needed much later: the update's plan (DruidKitRoute.items) banks or drops them; without a plan, an
-item for a quest the route doesn't do goes to the bank list when a bank is on the way."""
+item for a quest the route doesn't do goes to the bank list when a bank is on the way. A starter the plan
+drops is only listed to check."""
 
 from expect import check, done
 from wowenv import runtime, source
@@ -54,5 +55,10 @@ check(
     bank,
 )
 check("Parker's Lunch" not in bank and "Parker's Lunch" not in drop, "an item the route still needs stays put", text)
-check("Excavation Tools" in drop and "drops again" in drop, "the plan can drop a starter that drops again", drop)
+chk = text.split("Quest items to check")[1].split("Sell at a vendor")[0] if "Quest items to check" in text else ""
+check(
+    "Excavation Tools" in chk and "drops again" in chk and "Excavation Tools" not in drop,
+    "a starter the plan drops is shown to check, never offered to sell or destroy",
+    text,
+)
 done("laterbank_test")

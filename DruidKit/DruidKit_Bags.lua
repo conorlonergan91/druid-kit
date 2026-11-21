@@ -200,6 +200,8 @@ local function restrictionNow(link)
     end
   end
 end
+-- "needs First Aid 50 (you're 40)": usable later, so banked, never sold.
+local function rankLow(why) return why and why:find("(you're", 1, true) ~= nil end
 local restrictCache = {}
 local function restriction(link)
   local r = restrictCache[link]
@@ -227,7 +229,7 @@ local function recipeCheck(link)
   end
   if known then return "known" end
   local why = restriction(link)
-  if why and not why:find("you're", 1, true) then return "noclass", why end   -- other class, mage scroll, no skill
+  if why and not rankLow(why) then return "noclass", why end   -- other class, mage scroll, no skill
   if not skill then return "learn" end
   local have = skillRank(skill)
   if have == nil then return "unknown", skill, need end
@@ -462,14 +464,14 @@ local function setOf(link)
   end
 end
 
--- Returns gain, slot name for an item, or nil if it isn't an upgrade.
+-- Returns gain, slot name for an item; nil if it isn't an upgrade; false, why when it can't be compared.
 local function upgradeFor(link, w, anyLevel)
   local _, _, _, _, minLevel, _, _, _, equipLoc, _, _, classID, subID = getInfo(link)
   if not equipLoc or not usable(classID, subID, equipLoc) then return end
   if not anyLevel and (minLevel or 0) > UnitLevel("player") then return end
   if restriction(link) then return end
   local mine = score(link, w)
-  if mine <= 0 then return end
+  if mine <= 0 then return false, "no stats to compare (idol, on-use effect?): judge it yourself" end
   local slots = SLOTS[equipLoc]
   local current
   if equipLoc == "INVTYPE_2HWEAPON" then
@@ -477,7 +479,7 @@ local function upgradeFor(link, w, anyLevel)
   elseif equipLoc == "INVTYPE_HOLDABLE" then
     local mh = GetInventoryItemLink("player", 16)
     local mhLoc = mh and select(9, getInfo(mh))
-    if mhLoc == "INVTYPE_2HWEAPON" then return end      -- would drop your staff
+    if mhLoc == "INVTYPE_2HWEAPON" then return false, "off-hand: you wield a two-hander, so it can't be compared" end
     current = equippedScore(17, w)
   else
     current = math.huge
@@ -575,12 +577,12 @@ local function scanNow()
           local doneQ = questID and ((C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted
             and C_QuestLog.IsQuestFlaggedCompleted(questID)) or (IsQuestFlaggedCompleted and IsQuestFlaggedCompleted(questID)))
           if questID and doneQ then
-            entry.why, entry.value = "starts a quest you've already done: destroy it", (price or 0) * (count or 1)
-            table.insert(unusable, entry)
+            entry.why = "starts a quest you've already done"
+            table.insert(check, entry)
           elseif questID and not active and laterPlan(name, nil, nil) then
             local action, why = laterPlan(name, nil, nil)
-            entry.why, entry.value = why, 0
-            table.insert(action == "bank" and bank or unusable, entry)
+            entry.why = why
+            table.insert(action == "bank" and bank or check, entry)
           elseif questID and not active then
             if not starterSeen[questID] then
               starterSeen[questID] = entry
@@ -591,6 +593,9 @@ local function scanNow()
               first.copies = (first.copies or 1) + (count or 1)
               first.why = ("starts a quest: right-click one (you have %d; check the quest log after)"):format(first.copies)
             end
+          elseif rankLow(limit) then
+            entry.why = limit .. ": bank it till then"
+            table.insert(bank, entry)
           elseif limit then
             -- Another class's book or scroll, another profession's item: sell, never "use" or "learn".
             entry.why, entry.value = limit, (price or 0) * (count or 1)
@@ -656,7 +661,7 @@ local function scanNow()
             end
           elseif not isQuest and not KEEP_CLASS[classID] and not isTool(classID, subID) then
             local gain, slotName = upgradeFor(link)
-            local keepWhy = SLOTS[equipLoc] and keepReason(link)
+            local keepWhy = SLOTS[equipLoc] and (keepReason(link) or (gain == false and slotName))
             if gain and not setOf(link) then
               entry.gain, entry.slotName = gain, slotName
               table.insert(up, entry)
@@ -666,7 +671,10 @@ local function scanNow()
             elseif SLOTS[equipLoc] and (price or 0) > 0 then
               entry.value = (price or 0) * (count or 1)
               local why = restriction(link)
-              if not usable(classID, subID, equipLoc) or why then
+              if rankLow(why) then
+                entry.why = why .. ": bank it till then"
+                table.insert(bank, entry)
+              elseif not usable(classID, subID, equipLoc) or why then
                 entry.why = (why or "druids can't use this") .. boeHint(link, q)
                 table.insert(unusable, entry)
               elseif (minLevel or 0) <= UnitLevel("player") then
@@ -829,8 +837,8 @@ local sellJunk
 local function sellEntry(e)
   if not (MerchantFrame and MerchantFrame:IsShown()) then say("talk to a vendor first.") return false end
   if buybackLeft() <= 0 then return false, "full" end
-  local link = slotInfo(e.bag, e.slot)
-  if link ~= e.link or protectedReason(link, e.bag, e.slot) then return false end
+  local link, count = slotInfo(e.bag, e.slot)
+  if link ~= e.link or (count or 1) ~= (e.count or 1) or protectedReason(link, e.bag, e.slot) then return false end
   useSlot(e.bag, e.slot)
   soldThisVisit = soldThisVisit + 1
   return true
@@ -870,7 +878,7 @@ refresh = function()
   if #r.kept > 0 then
     S.header(panel, "Gear you're keeping", "Interface\\Icons\\INV_Misc_Bag_10_Green", #r.kept)
     S.note(panel, healMode() and "Healing mode is on. Bear and questing pieces are kept; Bank check offers to store them."
-      or "Kept for healing. Bank check offers to store them while you quest. /dk heal to wear your healing set.")
+      or "Kept for healing, or not comparable (no stats to weigh, or an off-hand while you wield a two-hander). Bank check offers to store healing pieces while you quest.")
     for _, e in ipairs(r.kept) do
       S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)))
     end
@@ -972,7 +980,8 @@ StaticPopupDialogs["DRUIDKIT_DESTROY"] = {
   button1 = "Destroy", button2 = "Keep it",
   OnAccept = function(self, data)
     if not data then return end
-    if slotInfo(data.bag, data.slot) ~= data.link then
+    local link, count = slotInfo(data.bag, data.slot)
+    if link ~= data.link or (count or 1) ~= data.count then
       say("not destroyed: that bag slot has changed since you clicked. Open Bag check again.")
       return
     end
@@ -993,7 +1002,7 @@ StaticPopupDialogs["DRUIDKIT_DESTROY"] = {
 function DruidKit_ConfirmDestroy(e)
   local worth = (e.value or 0) > 0 and ("It would sell for " .. money(e.value) .. " at a vendor.") or "It has no vendor value."
   local dlg = StaticPopup_Show("DRUIDKIT_DESTROY", e.link .. ((e.count or 1) > 1 and (" x" .. e.count) or ""), worth)
-  if dlg then dlg.data = { bag = e.bag, slot = e.slot, link = e.link } end
+  if dlg then dlg.data = { bag = e.bag, slot = e.slot, link = e.link, count = e.count or 1 } end
 end
 
 local function toggle()
@@ -1126,7 +1135,7 @@ local function bandageExtras()
       if link then
         local name, _, q, ilvl, _, _, _, _, _, _, price, classID, subID = getInfo(link)
         if classID == 0 and consumableKind(name, subID) == BANDAGE and (price or 0) > 0 and (q or 1) >= 1
-          and not questInfo(bag, slot) then
+          and not questInfo(bag, slot) and not restriction(link) then
           local g = groups[name] or { name = name, ilvl = ilvl or 0, total = 0, stacks = {} }
           g.total = g.total + (count or 1)
           table.insert(g.stacks, { bag = bag, slot = slot, link = link, count = count or 1, name = name })
@@ -1160,10 +1169,12 @@ autoSellList = function(r)
       local boeGood = (q or 0) >= 2 and bindTypeOf(link) == 2
       local ok = true
       if kind == "gear" then
-        ok = (equipLoc and equipLoc ~= "" and classID ~= 0) or restriction(link) ~= nil
+        local why = restriction(link)
+        ok = (equipLoc and equipLoc ~= "" and classID ~= 0) or why ~= nil
         local w = cantWield(link)
         if w and w:find("haven't learned", 1, true) and (q or 0) >= 2 then ok = false end   -- train the skill, then it may be an upgrade
-        if classID == 0 and not restriction(link) then ok = false end   -- food/drink/consumables: never from here
+        if rankLow(why) then ok = false end
+        if classID == 0 and (not why or consumableKind(name, subID)) then ok = false end   -- consumables: never from here
         if classID == 7 or classID == 5 then ok = false end
       elseif kind == "mats" then
         ok = (classID == 7 or classID == 5) and not (classID == 7 and subID == 9) and not needed(name)
@@ -1245,7 +1256,8 @@ local function autoPilot()
     i = i + 1
     local e = list[i]
     if not e or buybackLeft() <= 0 or not (MerchantFrame and MerchantFrame:IsShown()) then return finish() end
-    if slotInfo(e.bag, e.slot) == e.link then
+    local link, count = slotInfo(e.bag, e.slot)
+    if link == e.link and (count or 1) == (e.count or 1) then
       useSlot(e.bag, e.slot)
       soldThisVisit = soldThisVisit + 1
       -- Sold log (last 60): the update reads it, so nothing the autopilot sells is a mystery.
@@ -1318,12 +1330,16 @@ local function announceNewUpgrades()
 end
 
 local ev = CreateFrame("Frame")
+-- Skill-ups, new spells and quest log changes only mark the scan stale.
+local dirtyOnly = { SKILL_LINES_CHANGED = true, LEARNED_SPELL_IN_TAB = true, SPELLS_CHANGED = true, QUEST_LOG_UPDATE = true }
 for _, e in ipairs({ "PLAYER_LOGIN", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED", "MERCHANT_SHOW", "MERCHANT_CLOSED", "PLAYER_LEVEL_UP" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
+for e in pairs(dirtyOnly) do pcall(ev.RegisterEvent, ev, e) end
 local pending = false
 ev:SetScript("OnEvent", function(_, e)
   if e ~= "MERCHANT_CLOSED" then invalidate() end
+  if dirtyOnly[e] then return end
   if e == "PLAYER_LOGIN" then
     C_Timer.After(5, function()
       pcall(scan)

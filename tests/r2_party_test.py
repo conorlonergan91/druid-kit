@@ -20,7 +20,8 @@ base = base.replace(
 L.execute(base)
 L.execute("local mt=getmetatable(CreateFrame()) ")
 L.execute(
-    "local cf=CreateFrame; CreateFrame=function(...) local f=cf(...); f.SetAttribute=function(s,k,v) s.attrs=s.attrs or {}; s.attrs[k]=v end; f.GetAttribute=function(s,k) return s.attrs and s.attrs[k] end; f.EnableMouse=function(s,on) s.mouse=on end; return f end"
+    "PROTECTED={}; function protect(n) if COMBAT then PROTECTED[#PROTECTED+1]=n; error(n..' called in combat') end end "
+    "local cf=CreateFrame; CreateFrame=function(...) local f=cf(...); f.SetAttribute=function(s,k,v) protect('SetAttribute'); s.attrs=s.attrs or {}; s.attrs[k]=v end; f.GetAttribute=function(s,k) return s.attrs and s.attrs[k] end; f.EnableMouse=function(s,on) protect('EnableMouse'); s.mouse=on end; return f end"
 )
 L.execute(r"""
 DruidKitDB={}
@@ -101,5 +102,10 @@ check(R.p1 == "true" and R.c1 == "true" and R.r1 == "true", "combat starts: P, C
 check(R.p2 == "true" and R.p3 == "true", "in combat P stays clickable as poison comes and goes", dict(R))
 check(
     R.p4 == "false" and R.c4 == "false" and R.r4 == "false", "after combat hidden P, C, R stop taking clicks", dict(R)
+)
+check(
+    len(L.globals().PROTECTED) == 0,
+    "no protected call (EnableMouse/SetAttribute) in combat",
+    list(L.globals().PROTECTED.values()),
 )
 done("r2_party_test")

@@ -48,6 +48,7 @@ L.execute(source("DruidKit/DruidKit_Helpers.lua"))
 L.execute(r"""
 ev = frames[1]
 ev.on_OnEvent(ev, "PLAYER_LOGIN")
+ev.on_OnEvent(ev, "FRIENDLIST_UPDATE")
 ev.on_OnEvent(ev, "GUILD_ROSTER_UPDATE")
 function trackerText() for _, f in ipairs(frames) do if type(f.text) == "string" and f.text:find("Catch") then return f.text end end end
 DEFAULT = trackerText()

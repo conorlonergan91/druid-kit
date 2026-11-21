@@ -9,6 +9,7 @@ travel (home, flights, hearthCooldown), route (id, step, manual step indexes, sk
 """
 
 import json
+import math
 import re
 import sys
 
@@ -16,12 +17,13 @@ TOKEN = re.compile(
     r"""\s*(?:
         (?P<comment>--[^\n]*)
       | (?P<str>"(?:[^"\\]|\\.)*")
-      | (?P<num>-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)
+      | (?P<num>-?(?:0[xX][0-9a-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?|-(?:inf|nan)\b))
       | (?P<word>[A-Za-z_][A-Za-z0-9_]*)
       | (?P<sym>[{}\[\]=,;])
     )""",
-    re.X,
+    re.X | re.S,
 )
+ESCAPES = {"a": 7, "b": 8, "f": 12, "n": 10, "r": 13, "t": 9, "v": 11, "\n": 10}
 
 
 def tokens(src):
@@ -40,8 +42,18 @@ def tokens(src):
 
 
 def _unquote(s):
-    body = s[1:-1]
-    return re.sub(r"\\(.)", lambda m: {"n": "\n", "t": "\t"}.get(m.group(1), m.group(1)), body)
+    """A Lua string literal's value: \\ddd are bytes, so a %q-escaped UTF-8 name decodes whole."""
+    out = bytearray()
+    for lit, esc in re.findall(r"([^\\]+)|\\(\d{1,3}|.)", s[1:-1], re.S):
+        if lit:
+            out += lit.encode("utf-8")
+        elif esc.isdigit():
+            out.append(int(esc) & 0xFF)
+        elif esc in ESCAPES:
+            out.append(ESCAPES[esc])
+        else:
+            out += esc.encode("utf-8")
+    return out.decode("utf-8", errors="replace")
 
 
 class Parser:
@@ -64,9 +76,11 @@ class Parser:
         if kind == "str":
             return _unquote(v)
         if kind == "num":
-            return float(v) if any(c in v for c in ".eE") else int(v)
+            if v.lstrip("-")[:2] in ("0x", "0X"):
+                return int(v, 16)
+            return float(v) if any(c in v for c in ".eEin") else int(v)
         if kind == "word":
-            return {"true": True, "false": False, "nil": None}.get(v, v)
+            return {"true": True, "false": False, "nil": None, "inf": math.inf, "nan": math.nan}.get(v, v)
         if v == "{":
             return self.table()
         raise ValueError(f"unexpected {v}")
