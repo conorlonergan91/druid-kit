@@ -390,9 +390,25 @@ local function saveGearSet(mode)
   say(("saved %d pieces as your %s set. Bag check will keep them, and Bank check offers to store them when you're in the other mode."):format(n, mode == "heal" and "healing" or "questing"))
 end
 
+-- No set saved for this mode: wear the best pieces from your bags for it, then save what you wear as the set.
+local function buildGearSet(mode)
+  local api = DruidKitBagsAPI
+  if not (api and api.bestSet) then return 0 end
+  local ok, picks = pcall(api.bestSet, mode)
+  if not ok or type(picks) ~= "table" then return 0 end
+  local names = {}
+  for _, e in ipairs(picks) do
+    if C_Item and C_Item.EquipItemByName then safe(C_Item.EquipItemByName, e.link) else safe(EquipItemByName, e.link) end
+    table.insert(names, (e.link:match("%[(.-)%]") or "?"))
+  end
+  if #names > 0 then say("wearing your best " .. (mode == "heal" and "healing" or "questing") .. " pieces: " .. table.concat(names, ", ") .. ".") end
+  C_Timer.After(1.5, function() saveGearSet(mode) end)
+  return #names
+end
+
 local function wearGearSet(mode)
   local set = DruidKitDB.gearSets and DruidKitDB.gearSets[mode]
-  if not set then return 0, true end
+  if not set then buildGearSet(mode); return 0, false end
   local missing = 0
   for slot, link in pairs(set) do
     local worn = GetInventoryItemLink("player", slot)
@@ -546,6 +562,10 @@ SlashCmdList["DRUIDKIT"] = function(msg)
     switchMode("heal")
   elseif cmd == "quest" or cmd == "bear" then
     switchMode("quest")
+  elseif cmd == "healset" and (rest or ""):lower() == "best" then
+    buildGearSet("heal")
+  elseif cmd == "questset" and (rest or ""):lower() == "best" then
+    buildGearSet("quest")
   elseif cmd == "healset" then
     saveGearSet("heal")
   elseif cmd == "questset" or cmd == "bearset" then

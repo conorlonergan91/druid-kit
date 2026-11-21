@@ -1537,6 +1537,31 @@ local function rollAdvice(link, canNeed, canGreed)
   return "PASS", "you can't roll Greed on this", 0
 end
 DruidKitBagsAPI.rollAdvice = rollAdvice
+
+-- Best gear in your bags for a role ("heal" or "quest"): the biggest upgrade per equip slot type, by that role's
+-- weights. Only gear you can wear now (level, armour type, weapon skill, no red tooltip line).
+-- Returns { { link = , gain = , slot = "chest" }, ... } (21 Nov: healing mode never swapped gear, no set saved).
+DruidKitBagsAPI.bestSet = function(mode)
+  local w = mode == "heal" and HEAL_WEIGHTS or WEIGHTS
+  local best = {}
+  for bag = 0, 4 do
+    for slot = 1, (safe(numSlots, bag) or 0) do
+      local link = select(1, safe(slotInfo, bag, slot))
+      if link then
+        local ok, gain, slotName = pcall(upgradeFor, link, w)
+        local loc = ok and gain and select(9, getInfo(link))
+        if loc then
+          if loc == "INVTYPE_ROBE" then loc = "INVTYPE_CHEST" end
+          if not best[loc] or gain > best[loc].gain then best[loc] = { link = link, gain = gain, slot = slotName } end
+        end
+      end
+    end
+  end
+  local out = {}
+  for _, e in pairs(best) do table.insert(out, e) end
+  table.sort(out, function(a, b) return a.gain > b.gain end)
+  return out
+end
 DruidKitBagsAPI.protectedReason = protectedReason
 
 local function drawRolls()
