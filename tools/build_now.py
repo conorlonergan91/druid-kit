@@ -25,6 +25,7 @@ VERB = {
     "fp": "Learn flight path",
     "home": "Set hearth",
     "abandon": "Abandon",
+    "boss": "Boss",
 }
 
 
@@ -47,6 +48,8 @@ def line(n, st):
         main = f"{Y}Level {st['level']}{R} {st.get('text', '')}"
     elif d == "train":
         main = f"{Y}Train{R} {st.get('npc', '')}"
+    elif d == "boss":
+        main = f"{Y}Boss:{R} {st.get('name', '')}"
     else:
         main = f"{Y}{VERB[d]}:{R} {st.get('text') or st.get('name', '')}"
     extra = []
@@ -56,11 +59,23 @@ def line(n, st):
         extra.append(f"({st['goto'][1]}, {st['goto'][2]})")
     if st.get("pick"):
         extra.append(f"reward: {st['pick']}")
-    return f"- {n}. {main}" + (f" {G}· {' '.join(extra)}{R}" if extra else "")
+    lv = f" {LEAF}→ {st['lv']}{R}" if st.get("lv") and d in ("turnin", "complete", "boss", "level") else ""
+    return f"- {n}. {main}" + (f" {G}· {' '.join(extra)}{R}" if extra else "") + lv
 
 
-def main(route_path, guide_path, updated, you_lines):
+def main(route_path, guide_path, updated, you_lines, xp_from=None):
     route = load(route_path)
+    if xp_from:
+        # RULES v18: project level after every step (pessimistic quest + kill XP) and stop on level errors
+        import xpsim
+        level, xp, done = xp_from
+        route, rows, errors, warns = xpsim.run(route_path, level, xp, done)
+        for w in warns:
+            print("xp: " + w)
+        if errors:
+            for e in errors:
+                print("xp ERROR: " + e)
+            sys.exit(2)
     with open(guide_path, encoding="utf-8") as f:
         g = json.load(f)
     g["route"] = route
@@ -115,4 +130,11 @@ def main(route_path, guide_path, updated, you_lines):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:])
+    args = sys.argv[1:]
+    xp_from = None
+    if "--xp" in args:
+        i = args.index("--xp")
+        level, xp, done_path = int(args[i + 1]), int(args[i + 2]), args[i + 3]
+        xp_from = (level, xp, json.load(open(done_path)))
+        del args[i:i + 4]
+    main(args[0], args[1], args[2], args[3:], xp_from)

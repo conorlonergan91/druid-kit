@@ -206,6 +206,9 @@ local function isDone(i)
     end
     return true
   end
+  if d == "boss" then
+    return DB.bossKilled ~= nil and st.name ~= nil and DB.bossKilled[st.name:lower()] == true
+  end
   if d == "note" and st.freeBags and bagsFreeNow and bagsFreeNow() >= st.freeBags then return true end
   return false   -- note, train: you tick them (train also ticks when you close the trainer)
 end
@@ -347,7 +350,7 @@ end
 -- Text -----------------------------------------------------------------------------------------
 local VERB = { accept = "Accept", turnin = "Hand in", complete = "Do", ["goto"] = "Go to", fly = "Fly to",
   hearth = "Hearth to", train = "Train", level = "Level", note = "Do", fp = "Learn flight path", home = "Set hearth",
-  abandon = "Abandon" }
+  abandon = "Abandon", boss = "Boss" }
 
 local function mainLine(st)
   local d = st["do"]
@@ -361,12 +364,46 @@ local function mainLine(st)
     return Y .. "Train" .. R .. " " .. W .. (st.npc or "new spells") .. R
   elseif d == "level" then
     return Y .. "Level " .. (st.level or "?") .. R .. "  " .. W .. (st.text or "") .. R
+  elseif d == "boss" then
+    return "|cffff7040Boss:|r " .. W .. (st.name or "?") .. R .. (st.level and (G .. "  (level " .. st.level .. ")" .. R) or "")
   end
   return Y .. VERB[d or "note"] .. ":" .. R .. " " .. W .. (st.text or st.name or "") .. R
 end
 
+local function nextBoss(st)
+  local seen = false
+  for _, o in ipairs(steps) do
+    if seen and o["do"] == "boss" and not (DB.bossKilled and o.name and DB.bossKilled[o.name:lower()]) then return o end
+    if o == st then seen = true end
+  end
+end
+local function bossLines(b, out, short)
+  for k, t in ipairs(b.tactic or {}) do
+    if short and k > 1 then break end
+    table.insert(out, "|cffff7040-|r " .. t)
+  end
+end
 local function detailLines(st)
   local out = {}
+  if st["do"] == "boss" then
+    bossLines(st, out)
+    table.insert(out, G .. "Ticks when the boss dies, or press Done." .. R)
+    return table.concat(out, "\n")
+  end
+  if st.inside then
+    -- dungeon steps stay short: what to do, progress, and the next fight
+    if st.how then table.insert(out, st.how) end
+    if st["do"] == "complete" then
+      local p = progressText(st.q, st.name)
+      if p then table.insert(out, "Progress: " .. p) end
+    end
+    local b = nextBoss(st)
+    if b then
+      table.insert(out, "|cffff7040Next: " .. (b.name or "?") .. "|r")
+      bossLines(b, out, true)
+    end
+    return table.concat(out, "\n")
+  end
   if st.where then table.insert(out, "Where: " .. st.where .. (st.at and ("  (" .. st.at[2] .. ", " .. st.at[3] .. ")") or "")) end
   if st.how then table.insert(out, "How: " .. st.how) end
   if st["do"] == "complete" then
@@ -385,6 +422,7 @@ local function detailLines(st)
     table.insert(out, "WARNING: you have not learned the " .. (st.to or "?") .. " flight path. Walk there instead, then press Done.")
   end
   if st.tip then table.insert(out, "Tip: " .. st.tip) end
+  if st.lv then table.insert(out, G .. "Level after this step (pessimistic): " .. st.lv .. R) end
   local bl = bagLine()
   if bl then table.insert(out, bl) end
   local starters = DruidKit_QuestStarters and DruidKit_QuestStarters() or {}
@@ -1006,7 +1044,8 @@ local ev = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUEST_TURNED_IN", "QUEST_REMOVED",
   "ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED_INDOORS", "PLAYER_LEVEL_UP", "TRAINER_CLOSED",
   "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "MERCHANT_SHOW", "GOSSIP_SHOW", "QUEST_GREETING", "PLAYER_DEAD",
-  "TAXIMAP_OPENED", "CHAT_MSG_SYSTEM", "HEARTHSTONE_BOUND", "BAG_UPDATE_DELAYED" }) do
+  "TAXIMAP_OPENED", "CHAT_MSG_SYSTEM", "HEARTHSTONE_BOUND", "BAG_UPDATE_DELAYED", "ENCOUNTER_END", "BOSS_KILL",
+  "COMBAT_LOG_EVENT_UNFILTERED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 
@@ -1017,7 +1056,7 @@ local function soon()
   C_Timer.After(0.3, function() pending = false; pcall(evaluate) end)
 end
 
-ev:SetScript("OnEvent", function(_, e, a1)
+ev:SetScript("OnEvent", function(_, e, a1, ...)
   if e == "PLAYER_LOGIN" then
     DruidKitDB = DruidKitDB or {}
     DB = DruidKitDB
@@ -1030,7 +1069,7 @@ ev:SetScript("OnEvent", function(_, e, a1)
     local id = DruidKitRoute and DruidKitRoute.id
     DB.passedQ = DB.passedQ or {}
     if DB.routeId ~= id then
-      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.passedQ = {}; DB.cur = nil
+      DB.routeId = id; DB.routeStep = 1; DB.manual = {}; DB.skipQ = {}; DB.passedQ = {}; DB.cur = nil; DB.bossKilled = nil
     end
     pos = DB.routeStep or 1
     DruidKit_ToggleSteps(not DB.stepsHidden and #steps > 0)
@@ -1039,6 +1078,27 @@ ev:SetScript("OnEvent", function(_, e, a1)
     return
   end
   if not DB then return end
+  if e == "ENCOUNTER_END" or e == "BOSS_KILL" or e == "COMBAT_LOG_EVENT_UNFILTERED" then
+    -- a boss step ticks when that boss dies (encounter end, boss kill, or its death in the combat log)
+    local st = steps[pos]
+    if not (st and st["do"] == "boss" and st.name) then return end
+    local name
+    if e == "ENCOUNTER_END" then
+      local n, _, _, ok = ...
+      if ok == 1 or ok == true then name = n end
+    elseif e == "BOSS_KILL" then
+      local n = ...; name = n
+    else
+      local info = CombatLogGetCurrentEventInfo and { pcall(CombatLogGetCurrentEventInfo) }
+      if info and info[1] and info[3] == "UNIT_DIED" then name = info[10] end
+    end
+    if type(name) == "string" and not (issecretvalue and issecretvalue(name)) and name:lower() == st.name:lower() then
+      DB.bossKilled = DB.bossKilled or {}
+      DB.bossKilled[name:lower()] = true
+      soon()
+    end
+    return
+  end
   if e == "PLAYER_DEAD" then
     if DB.cur and DB.cur.i == pos then
       DB.cur.deaths = DB.cur.deaths + 1

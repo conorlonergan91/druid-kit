@@ -219,3 +219,35 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 - Healer by default: heal mode, healing set, party view, drinks, then pack and 20 free slots.
 - Every travel step that only exists to reach a quest giver carries onlyFor = {ids}; friends sharing quests make
   those steps and the accept steps tick themselves (shared route quests are auto-accepted).
+
+## Added in v15 (20 Nov, player: "you were wrong but Questie had the right marker")
+- Every step spot comes from planner/db.json (QuestieDB Forever): NPC spawns for accept/hand-in/train, quest
+  target_center for objectives. Run coordcheck (build/coordcheck.py) before deploy: any spot more than 1.0 from the
+  data is wrong. Never take coordinates from Classic-era web guides: Forever's Stormwind map uses different
+  coordinates (Maldryn 34.4,65.2; Woo Ping 63.9,69.1; tram 66.4,35.0).
+- Weapon masters: Woo Ping (Stormwind) teaches polearms/staves/daggers for druids; Buliwyf Stonehand (Ironforge
+  Military Ward 61.2,89.5) teaches maces, two-handed maces and fist weapons.
+- Dungeon portals on hills get a 'via' at the start of the path (Excavation Site: path at Thelgen Rock 53.9,65.4,
+  portal 47.9,56.5).
+
+## Added in v16 (20 Nov, player: "speed routes take quests with lower-level enemies; yours are higher; I keep dying")
+- Solo steps: no hostile monster 3+ levels above the player within 3 map units of the step spot (build/dangercheck.py
+  ROUTE LEVEL; run with planner/ as cwd). Quest XP does not depend on the monster level, so the fast choice is the
+  quest whose monsters are at or below your level.
+- Steps that fail the check either go to a party step (a group or a higher friend) or out of the route. Duskwood failed it at 22
+  (Raven Hill cemetery 25-31, Defias 25-27 at Sven's farm and near Dodds): 4 deaths on 20 Nov.
+- Grind steps name only monsters at or below the player's level.
+- (v16c) Before a step uses a Forever-new quest, check its giver's other questStarts and the preQuestSingle chain in
+  db.json: Karl Boran gives Return the Statuette (98189) only after the classic chain 281 > 284 > 285 > 286.
+- (v16e) Run build/prereqcheck.py ROUTE DONE.json LOG_IDS before every deploy: each accept needs its preQuestSingle
+  (one of) / preQuestGroup (all) done or handed in earlier in the route. Karl Boran's chain: 279 > 281 > 284 > 285 > 286 > 98189.
+
+## Added in v18 (21 Nov, player: "with the raptor quests and the extra ones I can't still be short of 24")
+- Every route runs through tools/xpsim.py before release (build_now.py ... --xp LEVEL XP DONE.json does it and
+  writes "lv" into every step). Pessimistic by rule: Classic quest XP from the data (Forever values only where
+  published, FOREVER_XP), the grey-quest cut, only the kills a quest needs, no rested XP, group steps split 3 ways,
+  about one bubble (1.25% of the bar per boss) for a dungeon run.
+- No 'level' (grind) step unless the projection is short of the level a later step needs; size it to the gap.
+- An accept whose quest needs a higher level than projected is a release blocker (xpsim ERROR).
+- The Now tab shows "-> level" after each hand-in, kill and boss step; the step window shows "Level after this step".
+- Release gate for every route (qa-gatekeeper): coordcheck, dangercheck, prereqcheck, xpsim, route_check, tests.

@@ -19,4 +19,9 @@ tools: Bash, Read, Write, Edit
 - `est` from `rk.py quest_minutes`, `party=True` where the sequencer flagged it.
 - When quest text and data disagree on the NPC, name both.
 
+- Levels (RULES v18): run `tools/xpsim.py ROUTE LEVEL XP --done DONE.json`. Fix every ERROR (accept before the
+  level is reached). Add a `level` step only where the projection is short, sized to the gap; remove any `level`
+  step it reports as not needed. Spots: `tools/coordcheck.py`; danger: `tools/dangercheck.py`; story order:
+  `tools/prereqcheck.py`.
+
 Hand the file to travel-checker, bag-advisor and plan-reviewer. Don't deploy.

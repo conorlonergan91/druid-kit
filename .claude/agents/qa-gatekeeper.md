@@ -17,3 +17,5 @@ tools: Bash, Read
    colour-only signal; ui-ux-reviewer has seen any UI change.
 5. Taint/secret rules (see addon-engineer) by reading the diff.
 6. Live file md5 equals the version the change was based on (no lost player-side edits).
+7. Route releases: `tools/coordcheck.py`, `tools/dangercheck.py`, `tools/prereqcheck.py` and `tools/xpsim.py` all
+   clean (RULES v15, v16, v16e, v18). An xpsim ERROR is NO-GO.

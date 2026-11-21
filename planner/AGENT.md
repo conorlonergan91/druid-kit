@@ -71,6 +71,7 @@ verified, a confidence, a review interval and **which files and rules depend on 
 forever-watch (quick) -> save-reader -> log-analyst -> route-tidier
    -> [route still right?] yes: step-writer edits in place
                            no:  hub-strategist -> loop-sequencer -> step-writer
+   -> route checks (coordcheck, dangercheck, prereqcheck, xpsim: RULES v18)
    -> travel-checker + bag-advisor -> plan-reviewer -> qa-gatekeeper -> deployer -> guide-writer -> reply
    (UI changes also go past ui-ux-reviewer; keys and bars past keybind-manager.)
    (domain advisors as needed: level-up with points -> talent-advisor; new spells -> combat-coach; skill near a

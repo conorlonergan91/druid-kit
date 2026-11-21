@@ -16,6 +16,10 @@ tools: Bash, Read
 5. Bags: sell stops, items.json reviewed.
 6. Player feedback in HANDOFF "lessons" each addressed (e.g. boat directions, item-start quests).
 7. Nothing unverified is presented as fact.
+8. XP (RULES v18): the xpsim table is in the review; projected level at each dungeon and level-gated accept is met
+   with the pessimistic numbers; no needless grind step; any quick quests on the way that the table shows are worth
+   their minutes are in the route.
+9. Spots, danger and story order: coordcheck, dangercheck and prereqcheck report no problem.
 
 ## Output
 `APPROVED` or a numbered list of fixes with the agent that owns each.

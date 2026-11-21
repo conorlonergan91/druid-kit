@@ -99,6 +99,7 @@ local function packing() return DruidKitDB and (DruidKitDB.packDungeon or (Druid
 local function essential(link, bag, slot)
   local name, _, _, _, _, _, _, _, equipLoc, _, _, classID, subID = API.getInfo(link)
   if name and name:find("Hearthstone") then return true end
+  if name and name:find("Waylaid") then return false end   -- crates are no use in a dungeon: bank them
   if API.questInfo(bag, slot) then return true end
   if DruidKit_Protected and DruidKit_Protected(link, bag, slot) then return true end
   if classID == 0 then return true end   -- every consumable (Classic data files many under subclass 0)

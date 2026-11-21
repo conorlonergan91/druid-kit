@@ -1451,6 +1451,7 @@ end
 -- Rolls
 local rollBox
 local rolls = {}      -- rollID -> info
+local autoRolled = {} -- rollID -> roll we made by ourselves
 -- Who else in the party wears what (for polite rolling). Hunters and shamans wear leather until 40.
 local CLOTH = { MAGE = "mage", PRIEST = "priest", WARLOCK = "warlock" }
 local LEATHER = { ROGUE = "rogue", DRUID = "druid", HUNTER = "hunter", SHAMAN = "shaman" }
@@ -1479,7 +1480,7 @@ local function rollAdvice(link, canNeed, canGreed)
     return "GREED", "recipe: Greed. If you want it for your profession, ask in /p first", 2
   end
   if (classID == 7 or classID == 5) and canGreed then
-    return "GREED", ("crafting material: Greed (sells for %s)"):format(sells), 2
+    return "GREED", ("crafting material: Greed (sells for %s)"):format(sells), 2, true
   end
   local gain, slotName = upgradeFor(link)
   if gain and canNeed then
@@ -1503,6 +1504,10 @@ local function rollAdvice(link, canNeed, canGreed)
   local myLevel = UnitLevel("player") or 0
   if minLevel > myLevel and minLevel - myLevel <= 5 then
     local later, laterSlot = upgradeFor(link, nil, true)
+    if later and canNeed and bindType == 1 and minLevel - myLevel <= 4 and later >= SMALL and not keepReason(link) then
+      return "NEED", ("upgrade for your %s at level %d (+%d), binds when picked up: Need is fair for your role. "
+        .. "Say in /p \"need for level %d\""):format(laterSlot:lower(), minLevel, math.floor(later + 0.5), minLevel), 1
+    end
     if later and canGreed then
       return "GREED", ("upgrade for your %s at level %d (+%d): Greed. If nobody Needs it, ask in /p if you can have it"):format(
         laterSlot:lower(), minLevel, math.floor(later + 0.5)), 2
@@ -1517,12 +1522,12 @@ local function rollAdvice(link, canNeed, canGreed)
     if equipLoc and equipLoc ~= "" and not usable(classID, subID, equipLoc) then
       local kind = (classID == 4 and (subID == 3 and "mail" or subID == 4 and "plate" or subID == 6 and "a shield"))
         or (classID == 2 and "that weapon type") or "it"
-      return "GREED", ("druids can never use %s; sells for %s"):format(kind, sells), 2
+      return "GREED", ("druids can never use %s; sells for %s"):format(kind, sells), 2, true
     end
     local tail = ""
     if bindType == 2 and (quality or 0) >= 2 then tail = ". Never Need just to sell it" end
     if who and equipLoc and equipLoc ~= "" then tail = (". The %s may Need it"):format(who) .. tail end
-    return "GREED", ("not an upgrade for you; sells for %s%s"):format(sells, tail), 2
+    return "GREED", ("not an upgrade for you; sells for %s%s"):format(sells, tail), 2, not who
   end
   return "PASS", "you can't roll Greed on this", 0
 end
@@ -1570,13 +1575,20 @@ local function onStartRoll(id)
   local link = GetLootRollItemLink and GetLootRollItemLink(id)
   local icon, name, _, _, _, canNeed, canGreed = GetLootRollItemInfo(id)
   if not link then return end
-  local advice, why, pick = rollAdvice(link, canNeed, canGreed)
+  local advice, why, pick, auto = rollAdvice(link, canNeed, canGreed)
+  if auto and pick == 2 and DruidKitDB.autoRoll ~= false then
+    autoRolled = autoRolled or {}
+    autoRolled[id] = pick
+    pcall(RollOnLoot, id, pick)
+    say(("Greed on %s (%s). /dk autoroll off to choose yourself."):format(link, why))
+    return
+  end
   rolls[id] = { icon = icon, name = name, advice = advice, why = why, pick = pick, canNeed = canNeed, canGreed = canGreed }
   drawRolls()
 end
 
 local lev = CreateFrame("Frame")
-for _, e in ipairs({ "LOOT_OPENED", "LOOT_SLOT_CLEARED", "LOOT_CLOSED", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL" }) do pcall(lev.RegisterEvent, lev, e) end
+for _, e in ipairs({ "LOOT_OPENED", "LOOT_SLOT_CLEARED", "LOOT_CLOSED", "START_LOOT_ROLL", "CANCEL_LOOT_ROLL", "CONFIRM_LOOT_ROLL" }) do pcall(lev.RegisterEvent, lev, e) end
 lev:SetScript("OnEvent", function(_, e, a1)
   if e == "LOOT_SLOT_CLEARED" and a1 then lootPending[a1] = nil end
   if e == "LOOT_OPENED" or e == "LOOT_SLOT_CLEARED" then
@@ -1586,7 +1598,11 @@ lev:SetScript("OnEvent", function(_, e, a1)
     pcall(lootLeftBehind)
   elseif e == "START_LOOT_ROLL" then
     local ok, err = pcall(onStartRoll, a1); if not ok then say("roll advice: " .. tostring(err)) end
+  elseif e == "CONFIRM_LOOT_ROLL" then
+    -- a Greed we rolled by ourselves on a bind-on-pickup item asks to confirm: confirm it
+    if autoRolled and autoRolled[a1] and ConfirmLootRoll then pcall(ConfirmLootRoll, a1, autoRolled[a1]) end
   elseif e == "CANCEL_LOOT_ROLL" then
+    if autoRolled then autoRolled[a1] = nil end
     rolls[a1] = nil; pcall(drawRolls)
   end
 end)
@@ -1595,6 +1611,12 @@ end)
 do
   local prev = DruidKit_HelperCommand
   DruidKit_HelperCommand = function(cmd, rest)
+    if cmd == "autoroll" then
+      rest = (rest or ""):lower()
+      DruidKitDB.autoRoll = not (rest == "off")
+      say("Automatic Greed on items you can't use, materials and non-upgrades: " .. (DruidKitDB.autoRoll and "on" or "off"))
+      return true
+    end
     if cmd == "autosell" then
       rest = (rest or ""):lower()
       if rest == "off" then DruidKitDB.autoSell = false elseif rest == "on" or rest == "" then DruidKitDB.autoSell = true end

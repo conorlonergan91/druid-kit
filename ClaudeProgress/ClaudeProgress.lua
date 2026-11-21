@@ -10,6 +10,15 @@ local function safe(fn, ...)
   return nil
 end
 
+local function realmName()
+  -- GetRealmName can read "" early at login: then use the last good name, so the save keeps one key.
+  local r = safe(GetRealmName)
+  if not r or r == "" then r = safe(GetNormalizedRealmName) end
+  ClaudeProgressDB = ClaudeProgressDB or {}
+  if r and r ~= "" then ClaudeProgressDB._realm = r; return r end
+  return ClaudeProgressDB._realm or "realm"
+end
+
 local function snapshotBasics()
   local x, y
   if C_Map and C_Map.GetBestMapForUnit then
@@ -25,7 +34,7 @@ local function snapshotBasics()
   local money = safe(GetMoney) or 0
   return {
     name = safe(UnitName, "player"),
-    realm = safe(GetRealmName),
+    realm = realmName(),
     class = safe(UnitClass, "player"),
     race = safe(UnitRace, "player"),
     level = safe(UnitLevel, "player"),
@@ -500,7 +509,7 @@ local function bankBagIDs()
   for _, b in ipairs(list) do if not seen[b] then seen[b] = true; table.insert(out, b) end end
   return out
 end
-local function charKey() return (safe(UnitName, "player") or "unknown") .. "-" .. (safe(GetRealmName) or "realm") end
+local function charKey() return (safe(UnitName, "player") or "unknown") .. "-" .. realmName() end
 
 local function snapshotInventory()
   local items, used, total = countBags({ 0, 1, 2, 3, 4 })
@@ -686,7 +695,7 @@ local function hollow()
 end
 
 local function snapshot()
-  local key = (safe(UnitName, "player") or "unknown") .. "-" .. (safe(GetRealmName) or "realm")
+  local key = (safe(UnitName, "player") or "unknown") .. "-" .. realmName()
   ClaudeProgressDB = ClaudeProgressDB or {}
   if hollow() and ClaudeProgressDB[key] then
     ClaudeProgressDB[key].lastQuit = date("%Y-%m-%d %H:%M")
