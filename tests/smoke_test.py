@@ -4,12 +4,10 @@ the same in combat. Any Lua error fails. DK_LIVE=/path runs it on the live copie
 import sys
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
-import os
-from pathlib import Path
 
-from wowenv import runtime
+from wowenv import addon_dir, runtime
 
-Q = Path(os.environ.get("DK_LIVE") or (Path(__file__).resolve().parent.parent / "DruidKit"))
+Q = addon_dir()
 L = runtime("ui")
 L.execute(r"""
 UISpecialFrames={}; SlashCmdList={}; DruidKitDB=nil

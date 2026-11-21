@@ -2,8 +2,11 @@
 
 L = runtime("ui")              # mocks/ui.lua loaded
 L.execute(source("DruidKit/DruidKit_Bags.lua"))
+
+DK_LIVE=<live DruidKit folder> reads the DruidKit/ files from there instead of the repo copies.
 """
 
+import os
 from pathlib import Path
 
 from lupa.lua51 import LuaRuntime
@@ -12,8 +15,15 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 
+def addon_dir() -> Path:
+    """The DruidKit folder under test: $DK_LIVE if set, else the repository copy."""
+    return Path(os.environ.get("DK_LIVE") or ROOT / "DruidKit")
+
+
 def source(rel: str) -> str:
     """Text of a file in the repository, e.g. source("DruidKit/DruidKit.lua")."""
+    if rel.startswith("DruidKit/"):
+        return (addon_dir() / rel.removeprefix("DruidKit/")).read_text(encoding="utf-8")
     return (ROOT / rel).read_text(encoding="utf-8")
 
 

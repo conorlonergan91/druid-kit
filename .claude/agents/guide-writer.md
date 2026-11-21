@@ -6,8 +6,10 @@ tools: Read, Edit, Write
 
 # Guide writer
 
-- Now tab "You": level+XP+place, hearth, bags, next milestone (4 lines).
+- Now tab "You": level+XP+place, hearth, bags, next milestone (4 lines). When a dungeon is next, say if he is
+  ready: food, drink, potions, free bags, gear set.
 - Commands tab: every new command or button (e.g. Prev/Next/Go/Now/Vendor, `/dk steps vendor`,
   `/dk steps vendorprompt`).
 - Quest Guide doc (ids in HANDOFF): mirror the route's sections; read first, replace one block.
-- Phone-friendly reply wording: answer first, short steps.
+- Replies are read on a phone, in ASD-STE100 wording: answer first, short sentences, one instruction per sentence,
+  short vertical lists.

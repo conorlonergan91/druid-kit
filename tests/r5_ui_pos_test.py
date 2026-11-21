@@ -4,7 +4,7 @@ and frames apart; /dk resetpos clears saved spots and moves frames back (secure 
 import re
 
 from expect import check, done
-from wowenv import ROOT, runtime, source
+from wowenv import addon_dir, runtime, source
 
 L = runtime("ui")
 L.execute(r"""
@@ -38,7 +38,7 @@ POS = g.DruidKitPos.DEFAULT
 
 # 1. One table: no frame picks its own UIParent spot with numbers any more.
 own = []
-for f in sorted((ROOT / "DruidKit").glob("*.lua")):
+for f in sorted(addon_dir().glob("*.lua")):
     for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
         if re.search(r'SetPoint\("\w+",\s*UIParent,\s*"\w+",\s*-?\d', line):
             own.append(f"{f.name}:{n}")

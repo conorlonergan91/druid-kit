@@ -149,7 +149,8 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   the spot is verified), how to tell the right ship (its destination; two ships share some piers), the usual wait,
   the trip time, and where you get off. `rk.py travel` lists the boarding spot and wait for each boat leg.
 - Every walk between zones gets a `how` too: the road, the pass, what to avoid off the road.
-- `tools/route_check.py` flags a fly step with no direct flight (error) and a transport step without `how`.
+- `tools/route_check.py` flags a fly step whose chain isn't all known regular flights (error; pass the save's
+  `--flights`, or a chain the save knows is reported as missing) and a transport step without `how`.
 - Quests to drop are an `abandon` step (`qs=[ids]`), not a note: it ticks itself when they leave the log.
 - Every walk or transport step has a `goto` or is followed within 4 steps by one; the arrow then points at the
   next spot. A new route id no longer restarts the player: the tracker catches up to the last handed-in quest.
@@ -255,3 +256,13 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 - An accept whose quest needs a higher level than projected is a release blocker (xpsim ERROR).
 - The Now tab shows "-> level" after each hand-in, kill and boss step; the step window shows "Level after this step".
 - Release gate for every route (qa-gatekeeper): coordcheck, dangercheck, prereqcheck, xpsim, route_check, tests.
+
+## Added in v19 (21 Nov, review of this week's play): every new route starts from these
+- Default plan: dungeon-first as a healer with groups of strangers, quests between runs (v14b). Find a group with
+  the Group Finder (I) as Healer first, then a chat LFG line.
+- Collect every dungeon quest, pre-quests on the route's path included (v14).
+- No collect-from-drops quests needing more than 3 items (v13b).
+- No packs (v13c, SKIP_PACKS). Fleeing humanoids: avoid them in solo steps; `rk.py` only prices them +25% (v13c).
+- Solo steps only near monsters at or below the player's level; higher only as `party` steps with a group (v16).
+- Flights over the tram: the Stormwind <-> Ironforge gryphon when both paths are known (v11). One `fly` step may
+  chain through known regular flight points (v11).

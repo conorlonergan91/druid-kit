@@ -8,7 +8,8 @@ starting flight paths are unknown and only learned-in-route paths count.
 Errors (exit 1):
   - a hearth step to a town the hearthstone isn't set to (no earlier `home` step there, and not the save's home)
   - a fly step to, or from, a flight path that isn't known (no earlier `fp` step, not in the save)
-  - a fly step with no direct flight between its two towns (each flight hop is its own step)
+  - a fly step whose chain has an unlearned flight point, a special one-way flight, or no chain in travel.json
+    (a chain of known regular flights is only a warning: the game flies on by itself)
 Warnings:
   - the route walks through a town with a flight master without an `fp` step there
   - a note step that sets the hearth or learns a flight path (use do="home" / do="fp" so the step ticks itself)

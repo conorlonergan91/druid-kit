@@ -51,11 +51,11 @@ check(r[5] == 3, "the boss kill ticks the step", r[5])
 check(r[6] == 3, "looting the dead boss (your target) ticks the step", r[6])
 import re
 
-from wowenv import ROOT
+from wowenv import addon_dir
 
 cleu = [
     f.name
-    for f in (ROOT / "DruidKit").glob("*.lua")
+    for f in addon_dir().glob("*.lua")
     if re.search(r'RegisterEvent[^\n]*COMBAT_LOG_EVENT_UNFILTERED|"COMBAT_LOG_EVENT_UNFILTERED"', f.read_text())
 ]
 check(not cleu, "no file registers the combat log (Forever blocks it: 'only available to the Blizzard UI')", cleu)

@@ -3,6 +3,7 @@
 Pure Python (no lupa), so it runs on the player's Mac as well as in the cloud.
 
 Usage: python3 tools/save_state.py ClaudeProgress.lua DruidKit.lua [--char "Name-Realm"]  -> JSON on stdout
+Without --char it reads the character key with the newest savedAt and names it on stderr.
 
 State: level, xp, zone, subzone, x, y, gold, bags_free, quest log (id -> title, complete), completed quest ids,
 travel (home, flights, hearthCooldown), route (id, step, manual step indexes, skipped and passed quests).
@@ -132,7 +133,8 @@ def as_list(t):
 def state(claude_progress, druidkit, char=None):
     cp = read_lua(claude_progress).get("ClaudeProgressDB", {})
     chars = [k for k, v in cp.items() if isinstance(v, dict) and "basics" in v]
-    key = char or (chars[0] if chars else None)
+    dated = [k for k in chars if isinstance(cp[k].get("savedAt"), str)]
+    key = char or (max(dated, key=lambda k: cp[k]["savedAt"]) if dated else (chars[0] if chars else None))
     me = cp.get(key, {})
     b = me.get("basics", {})
     log = {}
@@ -185,4 +187,5 @@ def state(claude_progress, druidkit, char=None):
 if __name__ == "__main__":
     a = sys.argv
     out = state(a[1], a[2], a[a.index("--char") + 1] if "--char" in a else None)
+    print(f"save_state: read {json.dumps(out['char'], ensure_ascii=False)} savedAt {out['savedAt']}", file=sys.stderr)
     print(json.dumps(out, ensure_ascii=False, indent=1))
