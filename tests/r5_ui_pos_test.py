@@ -81,12 +81,19 @@ INCOMBAT = ["arrow", "steps", "tracker", "party", "rolls", "warn"]  # shown whil
 OUTOFCOMBAT = ["herb", "rest", "hud"]
 
 
+PARTY_W, PARTY_H = 384, 26 + 5 * 146  # one column of 5 cards (with pet bars)
+
+
+def party_scale(uw, uh):
+    return max(0.8, min(1, (uw / 3 - 20) / PARTY_W, uh * 0.85 / PARTY_H))
+
+
 def rect(name, uw, uh):
     p = POS[name]
     w, h = SIZE.get(name, (0, 0))
     if name == "party":
-        sc = min(1, (uw / 3 - 20) / 776)
-        w, h = 776 * sc, 464 * sc
+        sc = party_scale(uw, uh)
+        w, h = PARTY_W * sc, PARTY_H * sc
     ax = {"LEFT": 0, "CENTER": uw / 2, "RIGHT": uw}
     ay = {"TOP": uh, "CENTER": uh / 2, "BOTTOM": 0}
 
@@ -118,6 +125,8 @@ for uw, label in [(1365, "16:9"), (1792, "21:9")]:
     check(rect("arrow", uw, uh)[0] < uw / 2 < rect("arrow", uw, uh)[2], f"{label}: the arrow is top-centre")
     check(rect("steps", uw, uh)[0] > 2 * uw / 3, f"{label}: the step window is on the right")
     check(rect("party", uw, uh)[2] < uw / 3, f"{label}: the party view is on the left")
+    check(rect("party", uw, uh)[1] >= 0, f"{label}: the party view fits above the bottom edge", rect("party", uw, uh))
+    check(party_scale(uw, uh) > 0.85, f"{label}: party text stays big (13pt shows above 11)", party_scale(uw, uh))
 
 # 3. Saved spots: new, and the ones saved before this table.
 L.execute(r"""
@@ -133,11 +142,21 @@ A.pt={ "BOTTOMLEFT", "BOTTOMLEFT", 300, 400 }; DruidKitPos.save(A); DruidKitPos.
 """)
 R = g.R
 check(R.steps == "TOPRIGHT TOPRIGHT -50 -300", "a step window dragged before keeps its spot", R.steps)
-check(R.party == "TOPLEFT TOPLEFT 40 -200", "a party view dragged before keeps its spot", R.party)
+check(R.party == "TOPLEFT TOPLEFT 80 -400", "an old party spot (saved at scale 1) keeps its place on screen", R.party)
 check(R.hud == "CENTER CENTER 5 5", "a helper panel dragged before keeps its spot", R.hud)
 check(R.guide == "LEFT LEFT 1 2", "a guide dragged before keeps its spot", R.guide)
 check(R.arrow == "TOP TOP 0 -215", "the arrow gets its default", R.arrow)
 check(R.dragged == "BOTTOMLEFT BOTTOMLEFT 300 400", "a drag saves the whole anchor, not just x and y", R.dragged)
+
+# 3b. A scaled frame's spot is saved in screen units, so a size change doesn't move it.
+L.execute(r"""
+Q=MOVABLE("DruidKitParty", 0.5); Q.pt={ "TOPLEFT", "TOPLEFT", 100, -100 }; DruidKitPos.save(Q, "party")
+R.qsaved=table.concat(DruidKitDB.pos.party, " ")
+Q.scale=1; DruidKitPos.place(Q, "party"); R.qbig=table.concat(Q.pt, " ")
+DruidKitDB.pos.party=nil; _G.DruidKitParty=P
+""")
+check(R.qsaved == "TOPLEFT TOPLEFT 50 -50", "the party spot is saved in screen units", R.qsaved)
+check(R.qbig == "TOPLEFT TOPLEFT 50 -50", "a size change keeps the dragged party view where it was", R.qbig)
 
 # 4. /dk resetpos in combat: everything forgotten, the secure party view moves after combat.
 L.execute(r"""
@@ -161,10 +180,10 @@ check(
     "frames go back now",
     (R.steps, R.arrow),
 )
-check(R.partyIn == "TOPLEFT TOPLEFT 40 -200", "the secure party view is not moved in combat", R.partyIn)
+check(R.partyIn == "TOPLEFT TOPLEFT 80 -400", "the secure party view is not moved in combat", R.partyIn)
 check("after combat: party" in R.out and "steps" in R.out and "arrow" in R.out, "it lists what it reset", R.out)
 check(
-    R.partyAfter == "TOPLEFT TOPLEFT 20 -280",
+    R.partyAfter == "TOPLEFT TOPLEFT 20 -216",
     "the party view moves after combat (default in screen units)",
     R.partyAfter,
 )

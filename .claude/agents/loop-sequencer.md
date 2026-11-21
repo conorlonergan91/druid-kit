@@ -13,6 +13,6 @@ tools: Bash, Read, Write
 - Quests already in the log start from "accepted" (don't send the player back to the giver).
 - Timed quests: accept right before the objective.
 - Write `build/loops.json`: per hub, the quest ids in stop order with accept/do/turnin and party flags.
-- Candidates follow the player preferences in RULES v19 (drops <= 3, no packs or fleeing humanoids, solo only at
-  or below his level, others `party`, flights over the tram).
+- Candidates follow the player preferences in RULES v19 (drops <= 3, no packs or fleeing humanoids, no monster 3+
+  levels above him solo (dangercheck, the gate; prefer at or below), others `party`, flights over the tram).
 - Dungeon quests are always candidates when a dungeon is on the outline.

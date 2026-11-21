@@ -6,7 +6,7 @@ from expect import check, done
 from wowenv import runtime, source
 
 
-def run(cooking, bag):
+def run(cooking, bag, window=""):
     L = runtime("ui")
     L.execute("UISpecialFrames={}")
     L.execute(source("DruidKit/DruidKit_Style.lua"))
@@ -22,6 +22,7 @@ ITEMS.crawler = {"Crawler Meat","crawler",1,15,0,"","",10,"",1,12,7,8}
 ITEMS.fish = {"Raw Brilliant Smallfish","fish",1,5,0,"","",20,"",1,1,0,5}
 ITEMS.cheese = {"Dalaran Sharp","cheese",1,15,5,"","",20,"",1,25,0,5}
 ITEMS.bread = {"Tough Hunk of Bread","bread",1,5,1,"","",20,"",1,1,0,5}
+ITEMS.wolf = {"Stringy Wolf Meat","wolf",1,5,0,"","",10,"",1,10,7,8}
 ITEMS.water = {"Refreshing Spring Water","water",1,5,1,"","",20,"",1,1,0,5}
 LINES = { { "Secondary Skills", true, true } """
         + cooking
@@ -35,6 +36,7 @@ BAG[0] = """
 BAG[-1] = {}
 C_Container.GetContainerNumSlots = function(b) if b == 0 then return #BAG[0] elseif b == -1 then return 1 end return 0 end
 """
+        + window
     )
     L.execute(source("DruidKit/DruidKit_Bags.lua"))
     L.execute(source("DruidKit/DruidKit_Bank.lua"))
@@ -42,6 +44,7 @@ C_Container.GetContainerNumSlots = function(b) if b == 0 then return #BAG[0] els
 function fire(e) for _, f in ipairs(frames) do if f.on_OnEvent then f.on_OnEvent(f, e) end end end
 function shown() local t = {} for _, f in ipairs(allfs) do if f.text ~= "" then t[#t+1] = f.text end end return table.concat(t, "\n") end
 fire('PLAYER_LOGIN')
+if GetTradeSkillLine then fire('TRADE_SKILL_SHOW') end
 allfs = {}; fire('BANKFRAME_OPENED'); BANKTEXT = shown(); fire('BANKFRAME_CLOSED')
 allfs = {}; DruidKit_ToggleBags(); BAGTEXT = shown()
 MerchantFrame.IsShown = function() return true end
@@ -103,6 +106,29 @@ check(
     text,
 )
 check("Crawler Meat" not in bank, "Bank check leaves it in your bags", bank)
+
+# Reviewer's probe: the Cooking window lists both wolf recipes; the reagent map keeps only one recipe per reagent.
+WOLF = r"""
+RECIPES = { "Charred Wolf Meat", "Spiced Wolf Meat" }
+GetTradeSkillLine = function() return "Cooking" end
+GetNumTradeSkills = function() return #RECIPES end
+GetTradeSkillInfo = function(i) return RECIPES[i], "trivial" end
+GetTradeSkillNumReagents = function() return 1 end
+GetTradeSkillReagentInfo = function() return "Stringy Wolf Meat" end
+"""
+sold, text, _ = run(', { "Cooking", false, false, 75, 75 }', '{ "wolf" }', WOLF)
+check(COOK not in text, "75/75, both wolf recipes known: not kept as a cooking ingredient", text)
+check(
+    sold == [] and "Stringy Wolf Meat" not in section(text, "Sell at a vendor"),
+    "old rule: a material a known recipe uses isn't sold",
+    (sold, text),
+)
+sold, text, _ = run(', { "Cooking", false, false, 75, 75 }', '{ "wolf" }', WOLF.replace('"Charred Wolf Meat", ', ""))
+check(
+    sold == [] and "Trainable recipe Charred Wolf Meat uses it" in section(text, COOK),
+    "an unknown trainable recipe still keeps it",
+    (sold, text),
+)
 
 sold, text, _ = run(', { "Cooking", false, false, 40, 75 }', '{ "cheese", "bread", "water" }')
 check(

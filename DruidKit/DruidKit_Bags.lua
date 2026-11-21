@@ -282,7 +282,8 @@ for _, r in ipairs(COOK_RECIPES) do
   for i = 5, #r do COOK_USES[r[i]] = COOK_USES[r[i]] or {}; table.insert(COOK_USES[r[i]], r) end
 end
 -- Cooking ingredients to keep: Cooking below its cap (or not learned yet: any trainer teaches it), or an unlearned
--- recipe you can learn now, not yet grey, uses it. Returns a reason, or nil.
+-- recipe you can learn now, not yet grey, uses it (known recipes: read from the Cooking window). Returns a reason,
+-- or nil.
 local function cookKeep(name)
   local known = DruidKitDB and DruidKitDB.reagentsAll and DruidKitDB.reagentsAll.Cooking or {}
   if not name or not (COOK_USES[name] or known[name]) then return end
@@ -292,6 +293,7 @@ local function cookKeep(name)
   if rank < max then return ("Cooking %d/%d: cook it for skill"):format(rank, max) end
   local learned = {}
   for _, recipe in pairs(known) do learned[recipe] = true end
+  for recipe in pairs(DruidKitDB.recipesKnown and DruidKitDB.recipesKnown.Cooking or {}) do learned[recipe] = true end
   for _, r in ipairs(COOK_USES[name] or {}) do
     if rank >= r[2] and rank < r[3] and not learned[r[1]] then
       return ("%s recipe %s uses it"):format(r[4] == "T" and "trainable" or "vendor", r[1])
@@ -1416,6 +1418,8 @@ ev:SetScript("OnEvent", function(_, e)
   if e ~= "MERCHANT_CLOSED" then invalidate() end
   if dirtyOnly[e] then return end
   if e == "PLAYER_LOGIN" then
+    -- older versions saved autoRoll = true for any /dk autoroll but "off": they start off, once
+    if DruidKitDB and DruidKitDB.autoRollOptIn ~= 1 then DruidKitDB.autoRoll, DruidKitDB.autoRollOptIn = nil, 1 end
     C_Timer.After(5, function()
       pcall(scan)
       for _, x in ipairs(results.upgrades) do known[x.link] = true end

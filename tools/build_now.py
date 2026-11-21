@@ -3,7 +3,8 @@
 Usage: python3 tools/build_now.py tools/example_route.py tools/example_guide.json "updated text" "You line" ...
        [--state STATE.json] [--xp LEVEL XP DONE.json]
 
---state (from tools/save_state.py) gives the travel check the save's hearth home and known flight paths.
+--state (from tools/save_state.py) gives the travel check the save's hearth home and known flight paths (flights
+count only with flightsKnown: before any flight map is seen they are unknown, not none).
 """
 
 import json
@@ -119,15 +120,17 @@ def main(route_path, guide_path, updated, you_lines, xp_from=None, travel=None):
     with open(guide_path, "w", encoding="utf-8") as f:
         json.dump(g, f, ensure_ascii=False, indent=1)
     print(f"{n} steps in {len(route['sections'])} sections")
-    if travel is None:
-        print("travel: checked WITHOUT the save's flights and home (no --state): 'no flight' errors may be false")
-        errors, warnings = route_check.check(route)
-    else:
-        errors, warnings = route_check.check(route, travel.get("home"), travel.get("flights") or [])
+    known = travel is not None and travel.get("flightsKnown") is True
+    if not known:
+        why = "no --state" if travel is None else "the save has no flight list yet"
+        print(f"travel: checked WITHOUT the save's flights ({why}): 'no flight' errors may be false")
+    t = travel or {}
+    errors, warnings = route_check.check(route, t.get("home"), (t.get("flights") or []) if known else None)
     for e in errors:
         print("travel: " + e)
     if warnings:
-        print(f"travel: {len(warnings)} notes; run tools/route_check.py with --home/--flights from the save")
+        hint = "" if travel is not None else "; run tools/route_check.py with --home/--flights from the save"
+        print(f"travel: {len(warnings)} notes{hint}")
 
 
 if __name__ == "__main__":

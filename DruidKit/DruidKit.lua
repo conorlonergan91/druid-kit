@@ -25,7 +25,7 @@ local POS = {
   tracker  = { "TOPRIGHT", "TOPRIGHT", -220, -165, frame = "DruidKit_tracker" },
   herb     = { "TOPRIGHT", "TOPRIGHT", -220, -280, frame = "DruidKitHerbButton" },
   -- combat: near the middle, never on it
-  party    = { "TOPLEFT", "TOPLEFT", 10, -140, frame = "DruidKitParty", secure = true },
+  party    = { "TOPLEFT", "TOPLEFT", 10, -108, frame = "DruidKitParty", secure = true },
   rolls    = { "TOP", "TOP", 0, -8, frame = "DruidKitRolls" },
   warn     = { "CENTER", "CENTER", 0, -238, frame = "DruidKitAttackWarn" },
   -- out of combat only
@@ -66,22 +66,24 @@ function DruidKitPos.saved(name)
   if not db or not name then return nil end
   return db.pos and db.pos[name] or oldSpot(db, name)
 end
--- name defaults to the frame's own (by its global name). Default offsets are screen units, whatever the frame's scale.
+-- name defaults to the frame's own (by its global name). Spots (default and saved) are screen units, whatever the
+-- frame's scale; spots saved by older versions were at scale 1.
+local function scaleOf(f) return f.GetScale and f:GetScale() or 1 end
 function DruidKitPos.place(f, name)
   name = keyOf(f, name)
-  local s, d = DruidKitPos.saved(name), POS[name]
-  if not (s or d) then return end
+  local s = DruidKitPos.saved(name) or POS[name]
+  if not s then return end
+  local k = scaleOf(f)
   f:ClearAllPoints()
-  if s then f:SetPoint(s[1], UIParent, s[2], s[3], s[4]); return end
-  local k = f.GetScale and f:GetScale() or 1
-  f:SetPoint(d[1], UIParent, d[2], d[3] / k, d[4] / k)
+  f:SetPoint(s[1], UIParent, s[2], s[3] / k, s[4] / k)
 end
 function DruidKitPos.save(f, name)
   name = keyOf(f, name)
   local p, _, rp, x, y = f:GetPoint(1)
   if not (name and p and DruidKitDB) then return end
+  local k = scaleOf(f)
   DruidKitDB.pos = DruidKitDB.pos or {}
-  DruidKitDB.pos[name] = { p, rp or p, x or 0, y or 0 }
+  DruidKitDB.pos[name] = { p, rp or p, (x or 0) * k, (y or 0) * k }
 end
 
 -- ---------------------------------------------------------------------------

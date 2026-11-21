@@ -3,7 +3,8 @@
 L = runtime("ui")              # mocks/ui.lua loaded
 L.execute(source("DruidKit/DruidKit_Bags.lua"))
 
-DK_LIVE=<live DruidKit folder> reads the DruidKit/ files from there instead of the repo copies.
+DK_LIVE=<live DruidKit folder, absolute path> reads the DruidKit/ files from there instead of the repo copies
+(tests/run_all.sh makes a relative one absolute before it changes into tests/).
 """
 
 import os

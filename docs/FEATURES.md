@@ -78,7 +78,7 @@ box reach into the middle, drag them if they bother you. Drag a window and it st
 | `steps` | Step window (Buff button on its bottom row) | bottom right, above the action bars | travel: right side, below the minimap and the game's quest tracker, clear of buffs |
 | `tracker` | Catch-up tracker | top right, left of the quest tracker, under your buffs | always on, out of the way |
 | `herb` | Find Herbs button | under the catch-up tracker | travel prompt |
-| `party` | Party view | left, under your portrait, where the game's party frames are | combat: near the middle, never on it. Its normal size fits the left third of the screen; turn off the game's party frames (Interface options, Raid & Party) if they show under it |
+| `party` | Party view | left, under your portrait, where the game's party frames are | combat: near the middle, never on it. One column of cards, so its normal size fits the left third of the screen without shrinking the text; turn off the game's party frames (Interface options, Raid & Party) if they show under it |
 | `rolls` | Loot roll advice | top centre, at the top edge | combat: rolls come mid-fight; above the arrow |
 | `warn` | "AUTO ATTACK OFF" warning | bottom centre, just above the action bars | combat: near the keys you press |
 | `rest`, `hud` | Rest prompt, pre-pull check | under your character, above the warning's spot | out of combat only (hidden in combat) |
@@ -301,7 +301,8 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
   while either: Cooking is below its current cap, or not learned yet (any Cooking trainer teaches it): "Cooking 40/75:
   cook it for skill"; or a recipe you don't know, can learn at your rank and isn't grey yet uses it: "trainable recipe
   Crab Cake uses it" ("vendor recipe ..." for one sold by a cooking supplier). "Trainable" means at any Cooking
-  trainer, not one near you. At the cap with no such recipe they are sold like any unused material. If the skill
+  trainer, not one near you. Which recipes you know is read from the Cooking window (open it once after learning
+  one). At the cap with no such recipe they are sold like any unused material. If the skill
   list can't be read they are kept. The loot helper says take them, with the same reason.
 - Recipes: "learn now", "bank till skill X", "already known" or "not your profession" (sell). A recipe whose
   profession rank can't be read is kept and not listed.
@@ -352,7 +353,8 @@ loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is drop
 - Recipes and crafting materials: GREED. Gear druids can never wear: GREED.
 - Gear it can't compare (idols, on-use trinkets, an off-hand while you wield a two-hander), at any level: YOUR CALL,
   with no button marked and no automatic roll.
-- Automatic Greed is off until you type `/dk autoroll on` (saves from older versions start off too). When on:
+- Automatic Greed is off until you type `/dk autoroll on`. Older versions turned it on for any `/dk autoroll` but
+  `off`, so the first login with this version turns it off once; after that `/dk autoroll on` sticks. When on:
   crafting materials, gear druids can't use, and non-upgrades nobody in the party wears are greeded for you, with a
   chat line saying `/dk autoroll off` stops it. It confirms the bind-on-pickup prompt only for rolls it made itself.
   When off, those rolls show in the window with their advice like any other.
@@ -403,8 +405,12 @@ Touch, Alt Cure Poison.
   clickable when combat ends, and one that disappears stops taking clicks then.
 - Which spells get buttons is read from your bars out of combat only.
 - `/dk party test`, `on`, `off` and `size` are refused in combat; `reset` moves it back when combat ends.
-- Size: `normal` is as big as fits the left third of the screen (never past full size), `small` 0.8 and `big` 1.2
-  times that; never more than 62% of the screen width or 85% of its height.
+- Cards are in one column (you on top), so it fits the left third of the screen with the middle clear.
+- Size: `normal` is as big as fits the left third of the screen and 85% of its height (never past full size, never
+  under 0.8 so the text stays readable; about 0.86 on 16:9), `small` 0.8 and `big` 1.2 times that; never wider than
+  62% of the screen or taller than it. A size change waits for the end of combat (a reload in combat too).
+- A dragged spot is kept in screen units, so a size change doesn't move it (spots from older versions were saved at
+  full size).
 - Errors are logged to the saved variables instead of breaking the view.
 
 ## Helpers: HUD, rest prompt, catch-up, professions

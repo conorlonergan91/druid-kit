@@ -260,6 +260,7 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 - Collect every dungeon quest, pre-quests on the route's path included (v14).
 - No collect-from-drops quests needing more than 3 items (v13b).
 - No packs (v13c, SKIP_PACKS). Fleeing humanoids: avoid them in solo steps; `rk.py` only prices them +25% (v13c).
-- Solo steps only near monsters at or below the player's level; higher only as `party` steps with a group (v16).
+- No monster 3+ levels above the player in solo steps (dangercheck, the gate); prefer at or below his level. Higher
+  only as `party` steps with a group (v16).
 - Flights over the tram: the Stormwind <-> Ironforge gryphon when both paths are known (v11). One `fly` step may
   chain through known regular flight points (v11).
