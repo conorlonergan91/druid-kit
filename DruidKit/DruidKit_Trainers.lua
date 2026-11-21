@@ -645,18 +645,16 @@ end
 
 local function buildArrow()
   arrowF = CreateFrame("Frame", "DruidKitArrow", UIParent)
-  arrowF:SetSize(240, 120)
+  arrowF:SetSize(200, 120)
   arrowF:SetFrameStrata("HIGH"); arrowF:SetClampedToScreen(true)
   arrowF:SetMovable(true); arrowF:EnableMouse(true); arrowF:RegisterForDrag("LeftButton")
   arrowF:SetScript("OnDragStart", arrowF.StartMoving)
   arrowF:SetScript("OnDragStop", function(f)
     f:StopMovingOrSizing()
-    local _, _, _, x, y = f:GetPoint()
-    if DB then DB.arrowPos = { x, y } end
+    if DruidKitPos then DruidKitPos.save(f, "arrow") end
   end)
   arrowF:SetScript("OnMouseUp", function(_, b) if b == "RightButton" then DruidKit_NavClear() end end)
-  local pos = DB and DB.arrowPos
-  arrowF:SetPoint("CENTER", UIParent, "CENTER", pos and pos[1] or 0, pos and pos[2] or 200)
+  if DruidKitPos then DruidKitPos.place(arrowF, "arrow") end
   arrowF.tex = arrowF:CreateTexture(nil, "ARTWORK")
   arrowF.tex:SetSize(64, 64); arrowF.tex:SetPoint("TOP", 0, 0)
   arrowF.tex:SetTexture("Interface\\Minimap\\MinimapArrow")

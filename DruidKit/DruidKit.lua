@@ -15,6 +15,76 @@ local function safe(fn, ...)
 end
 
 -- ---------------------------------------------------------------------------
+-- Window places: every frame's default spot { point, relPoint on UIParent, x, y }, in one table. A dragged frame
+-- keeps its own spot (DruidKitDB.pos); /dk resetpos clears them. Layout and reasons: FEATURES "Window positions".
+-- ---------------------------------------------------------------------------
+local POS = {
+  -- travel: where the eye goes while moving
+  arrow    = { "TOP", "TOP", 0, -215, frame = "DruidKitArrow" },
+  steps    = { "BOTTOMRIGHT", "BOTTOMRIGHT", -10, 140, frame = "DruidKitSteps" },
+  tracker  = { "TOPRIGHT", "TOPRIGHT", -220, -165, frame = "DruidKit_tracker" },
+  herb     = { "TOPRIGHT", "TOPRIGHT", -220, -280, frame = "DruidKitHerbButton" },
+  -- combat: near the middle, never on it
+  party    = { "TOPLEFT", "TOPLEFT", 10, -140, frame = "DruidKitParty", secure = true },
+  rolls    = { "TOP", "TOP", 0, -8, frame = "DruidKitRolls" },
+  warn     = { "CENTER", "CENTER", 0, -238, frame = "DruidKitAttackWarn" },
+  -- out of combat only
+  rest     = { "CENTER", "CENTER", 0, -140, frame = "DruidKit_rest" },
+  hud      = { "CENTER", "CENTER", 0, -190, frame = "DruidKit_hud" },
+  questxp  = { "BOTTOM", "BOTTOM", 0, 60, frame = "DruidKitQuestXP" },   -- only when there is no XP bar to sit on
+  -- reading windows: the left panel slot, where the game opens the quest log and spellbook
+  guide    = { "TOPLEFT", "TOPLEFT", 20, -104, frame = "DruidKitGuideFrame" },
+  lore     = { "TOPLEFT", "TOPLEFT", 20, -104, frame = "DruidKitLore" },
+  dungeons = { "TOPLEFT", "TOPLEFT", 20, -104, frame = "DruidKitDungeonQuests" },
+  share    = { "TOPLEFT", "TOPLEFT", 20, -104, frame = "DruidKitQuestShare" },
+  ["goto"] = { "TOPLEFT", "TOPLEFT", 20, -104, frame = "DruidKitGoTo" },
+  keys     = { "TOPLEFT", "TOPLEFT", 20, -104, frame = "DruidKitKeymap" },
+  -- item lists: beside the bags (bottom right), which open with the vendor, the bank and loot
+  bags     = { "RIGHT", "RIGHT", -240, 0, frame = "DruidKitBagCheck" },
+  bank     = { "RIGHT", "RIGHT", -240, 0, frame = "DruidKitBankCheck" },
+  loot     = { "RIGHT", "RIGHT", -240, 0, frame = "DruidKitLootHelp" },
+}
+local BYFRAME = {}
+for name, p in pairs(POS) do BYFRAME[p.frame] = name end
+-- Spots saved before DruidKitDB.pos: still read, cleared by a reset.
+local OLDKEY = { steps = "stepsPos", arrow = "arrowPos", party = "partyPos3" }
+local function oldSpot(db, name)
+  if name == "guide" then
+    local g = db.guideFrame
+    return g and g.point and { g.point, g.relPoint or g.point, g.x or 0, g.y or 0 }
+  end
+  local p = OLDKEY[name] and db[OLDKEY[name]] or db.panels and db.panels[name]
+  local at = name == "steps" and "TOPRIGHT" or "CENTER"   -- older steps/arrow saves kept only x, y
+  if p and #p == 2 then return { at, at, p[1], p[2] } end
+  return p
+end
+local function keyOf(f, name) return name or BYFRAME[f.GetName and f:GetName() or ""] end
+
+DruidKitPos = { DEFAULT = POS }
+function DruidKitPos.saved(name)
+  local db = DruidKitDB
+  if not db or not name then return nil end
+  return db.pos and db.pos[name] or oldSpot(db, name)
+end
+-- name defaults to the frame's own (by its global name). Default offsets are screen units, whatever the frame's scale.
+function DruidKitPos.place(f, name)
+  name = keyOf(f, name)
+  local s, d = DruidKitPos.saved(name), POS[name]
+  if not (s or d) then return end
+  f:ClearAllPoints()
+  if s then f:SetPoint(s[1], UIParent, s[2], s[3], s[4]); return end
+  local k = f.GetScale and f:GetScale() or 1
+  f:SetPoint(d[1], UIParent, d[2], d[3] / k, d[4] / k)
+end
+function DruidKitPos.save(f, name)
+  name = keyOf(f, name)
+  local p, _, rp, x, y = f:GetPoint(1)
+  if not (name and p and DruidKitDB) then return end
+  DruidKitDB.pos = DruidKitDB.pos or {}
+  DruidKitDB.pos[name] = { p, rp or p, x or 0, y or 0 }
+end
+
+-- ---------------------------------------------------------------------------
 -- Layout from the Combat Guide. Slots: 1-12 main bar (caster), 97-108 Bear Form bar,
 -- 61-72 bottom-left bar, 49-60 bottom-right bar.
 -- ---------------------------------------------------------------------------
@@ -264,6 +334,39 @@ local function outOfCombat(fn, label)
   else
     fn()
   end
+end
+
+-- /dk resetpos [name]: forget saved spots and put frames back now. Frames holding secure buttons move after combat.
+-- Only movable frames ever leave their default, so only they are moved.
+function DruidKitPos.reset(only)
+  if only and not POS[only] then
+    local names = {}
+    for n in pairs(POS) do names[#names + 1] = n end
+    table.sort(names)
+    say(("no window called '%s'. Names: %s."):format(only, table.concat(names, ", ")))
+    return
+  end
+  local db = DruidKitDB or {}
+  local done, later = {}, {}
+  for name, d in pairs(POS) do
+    if not only or only == name then
+      if db.pos then db.pos[name] = nil end
+      if OLDKEY[name] then db[OLDKEY[name]] = nil end
+      if db.panels then db.panels[name] = nil end
+      if name == "guide" and db.guideFrame then db.guideFrame.point = nil end
+      local f = _G[d.frame]
+      local function put() DruidKitPos.place(f, name); if f.onPlaced then pcall(f.onPlaced) end end
+      if f and f.IsMovable and f:IsMovable() and d.secure and InCombatLockdown() then
+        defer(put, "pos:" .. name); later[#later + 1] = name
+      else
+        if f and f.IsMovable and f:IsMovable() then put() end
+        done[#done + 1] = name
+      end
+    end
+  end
+  table.sort(done); table.sort(later)
+  if #done > 0 then say("back to the default place: " .. table.concat(done, ", ") .. ".") end
+  if #later > 0 then say("after combat: " .. table.concat(later, ", ") .. " (secure buttons can't move in combat).") end
 end
 
 -- Key bindings the layout takes, with what they were before, so /dk load backup can put them back.
@@ -539,7 +642,7 @@ end
 
 local herbButton = CreateFrame("Button", "DruidKitHerbButton", UIParent, "SecureActionButtonTemplate,UIPanelButtonTemplate")
 herbButton:SetSize(260, 44)
-herbButton:SetPoint("CENTER", UIParent, "CENTER", 0, 160)
+DruidKitPos.place(herbButton, "herb")
 herbButton:SetText("Click to turn on Find Herbs")
 herbButton:SetAttribute("type", "spell")
 herbButton:SetAttribute("spell", "Find Herbs")
@@ -657,12 +760,14 @@ SlashCmdList["DRUIDKIT"] = function(msg)
     ;(cmd == "catkey" and DruidKit_SetCatKey or DruidKit_SetRunKey)(key, force == "force")
   elseif cmd == "keys" then
     DruidKit_SetDefaultKeys()
+  elseif cmd == "resetpos" then
+    DruidKitPos.reset(rest ~= "" and rest:lower() or nil)
   elseif (cmd == "steps" or cmd == "auto" or cmd == "arrow") and DruidKit_StepsCommand then
     DruidKit_StepsCommand(cmd == "steps" and rest or cmd)
   elseif not (DruidKit_HelperCommand and DruidKit_HelperCommand(cmd, rest)) then
     say("/dk bars \194\183 heal \194\183 quest \194\183 healset \194\183 questset \194\183 save NAME \194\183 load NAME \194\183 list \194\183 herbs \194\183 bags \194\183 Full list: Help tab (Alt+6)")
     say("/dk steps (show or hide steps + arrow, Alt+N) \194\183 steps reset \194\183 steps unskip \194\183 steps log \194\183 auto (quest auto accept/hand-in) \194\183 arrow")
-    say("/dk catchup [level] \194\183 tracker/hud/rest/trainers on or off \194\183 unlock \194\183 lock")
+    say("/dk catchup [level] \194\183 tracker/hud/rest/trainers on or off \194\183 unlock \194\183 lock \194\183 resetpos [name]")
   end
 end
 
@@ -890,11 +995,7 @@ local function buildGuide()
   local f = newFrame("Frame", "DruidKitGuideFrame", UIParent, "PortraitFrameTemplate")
   local saved = DruidKitDB and DruidKitDB.guideFrame
   f:SetSize(saved and saved.w or 500, saved and saved.h or 560)
-  if saved and saved.point then
-    f:SetPoint(saved.point, UIParent, saved.relPoint or saved.point, saved.x or 0, saved.y or 0)
-  else
-    f:SetPoint("CENTER", UIParent, "CENTER", 260, 0)
-  end
+  DruidKitPos.place(f, "guide")
   f:SetMovable(true); f:EnableMouse(true); f:SetClampedToScreen(true)
   f:SetResizable(true)
   if f.SetResizeBounds then f:SetResizeBounds(380, 320, 900, 1000)
@@ -902,8 +1003,8 @@ local function buildGuide()
   f:RegisterForDrag("LeftButton")
 
   local function remember()
-    local point, _, relPoint, x, y = f:GetPoint(1)
-    DruidKitDB.guideFrame = { point = point, relPoint = relPoint, x = x, y = y, w = f:GetWidth(), h = f:GetHeight() }
+    DruidKitPos.save(f, "guide")
+    DruidKitDB.guideFrame = { w = f:GetWidth(), h = f:GetHeight() }
   end
   f:SetScript("OnDragStart", f.StartMoving)
   f:SetScript("OnDragStop", function() f:StopMovingOrSizing(); remember() end)
@@ -1241,7 +1342,7 @@ end)
 -- ---------------------------------------------------------------------------
 do
   local warn = CreateFrame("Frame", "DruidKitAttackWarn", UIParent)
-  warn:SetSize(420, 40); warn:SetPoint("CENTER", 0, -120); warn:SetFrameStrata("HIGH")
+  warn:SetSize(420, 40); DruidKitPos.place(warn, "warn"); warn:SetFrameStrata("HIGH")
   warn.text = warn:CreateFontString(nil, "OVERLAY")
   warn.text:SetFont("Fonts\\FRIZQT__.TTF", 24, "THICKOUTLINE"); warn.text:SetAllPoints()
   warn.text:SetText("AUTO ATTACK OFF: press R"); warn.text:SetTextColor(1, 1, 1)

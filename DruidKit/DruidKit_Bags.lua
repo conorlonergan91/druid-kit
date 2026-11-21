@@ -78,10 +78,10 @@ local function readSkillLines()
     if header and not expanded and ExpandSkillHeader then opened[#opened + 1] = name; ExpandSkillHeader(i) end
     i = i + 1
   end
-  local ranks = {}
+  local ranks = { max = {} }
   for j = 1, (GetNumSkillLines() or 0) do
-    local name, header, _, rank = GetSkillLineInfo(j)
-    if name and not header then ranks[name] = rank or 0 end
+    local name, header, _, rank, _, _, max = GetSkillLineInfo(j)
+    if name and not header then ranks[name] = rank or 0; ranks.max[name] = max end
   end
   if #opened > 0 and CollapseSkillHeader then
     local close = {}
@@ -94,11 +94,12 @@ local function readSkillLines()
   return ranks
 end
 local skillCache
+-- Returns rank (as above) and the rank cap when known.
 local function skillRank(skill)
   if GetProfessions and GetProfessionInfo then
     for _, idx in pairs({ GetProfessions() }) do
-      local name, _, rank = GetProfessionInfo(idx)
-      if name == skill then return rank or 0 end
+      local name, _, rank, max = GetProfessionInfo(idx)
+      if name == skill then return rank or 0, max end
     end
     if not (GetNumSkillLines and GetSkillLineInfo) then return PROFESSIONS[skill] and false or nil end
   end
@@ -107,7 +108,7 @@ local function skillRank(skill)
     skillCache = ok and ranks or false
   end
   if not skillCache then return nil end
-  return skillCache[skill] or false
+  return skillCache[skill] or false, skillCache.max[skill]
 end
 
 local scanTip
@@ -241,6 +242,63 @@ local function recipeCheck(link)
   return "learn", skill, need, have
 end
 DruidKit_RecipeCheck = recipeCheck
+
+-- Classic cooking recipes from trainers (T) or vendors/quests/drops (V): learn rank, grey rank, raw reagents (checked against Wowhead Classic 2026-11-21).
+local COOK_RECIPES = {
+  { "Charred Wolf Meat", 1, 85, "T", "Stringy Wolf Meat" },
+  { "Roasted Boar Meat", 1, 85, "T", "Chunk of Boar Meat" },
+  { "Herb Baked Egg", 1, 85, "V", "Small Egg" },
+  { "Brilliant Smallfish", 1, 85, "V", "Raw Brilliant Smallfish" },
+  { "Slitherskin Mackerel", 1, 85, "V", "Raw Slitherskin Mackerel" },
+  { "Spiced Wolf Meat", 10, 90, "T", "Stringy Wolf Meat" },
+  { "Kaldorei Spider Kabob", 10, 90, "V", "Small Spider Leg" },
+  { "Smoked Bear Meat", 40, 120, "V", "Bear Meat" },
+  { "Boiled Clams", 50, 130, "T", "Clam Meat" },
+  { "Coyote Steak", 50, 130, "T", "Coyote Meat" },
+  { "Goretusk Liver Pie", 50, 130, "V", "Goretusk Liver" },
+  { "Longjaw Mud Snapper", 50, 130, "V", "Raw Longjaw Mud Snapper" },
+  { "Loch Frenzy Delight", 50, 130, "V", "Raw Loch Frenzy" },
+  { "Rainbow Fin Albacore", 50, 130, "V", "Raw Rainbow Fin Albacore" },
+  { "Crab Cake", 75, 155, "T", "Crawler Meat" },
+  { "Westfall Stew", 75, 155, "V", "Stringy Vulture Meat", "Murloc Eye", "Goretusk Snout" },
+  { "Dry Pork Ribs", 80, 160, "T", "Boar Ribs" },
+  { "Crocolisk Steak", 80, 160, "V", "Crocolisk Meat" },
+  { "Smoked Sagefish", 80, 160, "V", "Raw Sagefish" },
+  { "Cooked Crab Claw", 85, 165, "V", "Crawler Claw" },
+  { "Murloc Fin Soup", 90, 170, "V", "Murloc Fin" },
+  { "Seasoned Wolf Kabob", 100, 180, "V", "Lean Wolf Flank" },
+  { "Bristle Whisker Catfish", 100, 180, "V", "Raw Bristle Whisker Catfish" },
+  { "Big Bear Steak", 110, 190, "V", "Big Bear Meat" },
+  { "Hot Lion Chops", 125, 215, "V", "Lion Meat" },
+  { "Goblin Deviled Clams", 125, 205, "T", "Tangy Clam Meat" },
+  { "Barbecued Buzzard Wing", 175, 255, "T", "Buzzard Wing" },
+  { "Roast Raptor", 175, 255, "V", "Raptor Flesh" },
+  { "Rockscale Cod", 175, 230, "V", "Raw Rockscale Cod" },
+  { "Mithril Headed Trout", 175, 255, "V", "Raw Mithril Head Trout" },
+  { "Spider Sausage", 200, 280, "T", "White Spider Meat" },
+}
+local COOK_USES = {}
+for _, r in ipairs(COOK_RECIPES) do
+  for i = 5, #r do COOK_USES[r[i]] = COOK_USES[r[i]] or {}; table.insert(COOK_USES[r[i]], r) end
+end
+-- Cooking ingredients to keep: Cooking below its cap (or not learned yet: any trainer teaches it), or an unlearned
+-- recipe you can learn now, not yet grey, uses it. Returns a reason, or nil.
+local function cookKeep(name)
+  local known = DruidKitDB and DruidKitDB.reagentsAll and DruidKitDB.reagentsAll.Cooking or {}
+  if not name or not (COOK_USES[name] or known[name]) then return end
+  local rank, max = skillRank("Cooking")
+  if rank == false then return "Cooking not learned: train it, then cook this for skill" end
+  if not (rank and max) then return "cook it for Cooking skill" end
+  if rank < max then return ("Cooking %d/%d: cook it for skill"):format(rank, max) end
+  local learned = {}
+  for _, recipe in pairs(known) do learned[recipe] = true end
+  for _, r in ipairs(COOK_USES[name] or {}) do
+    if rank >= r[2] and rank < r[3] and not learned[r[1]] then
+      return ("%s recipe %s uses it"):format(r[4] == "T" and "trainable" or "vendor", r[1])
+    end
+  end
+end
+DruidKit_CookKeep = function(name) local ok, why = pcall(cookKeep, name); if ok then return why end end
 
 local function getInfo(item)
   if C_Item and C_Item.GetItemInfo then return C_Item.GetItemInfo(item) end
@@ -548,7 +606,7 @@ local function wellFed(link)
 end
 
 local function scanNow()
-  local up, junk, unusable, use, poles, spare, kept, bank, check = {}, {}, {}, {}, {}, {}, {}, {}, {}
+  local up, junk, unusable, use, poles, spare, kept, bank, check, cook = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
   local starterSeen = {}
   local meals = { Food = {}, Drink = {} }
   local junkValue = 0
@@ -626,6 +684,9 @@ local function scanNow()
             junkValue = junkValue + price * (count or 1)
             entry.value = price * (count or 1)
             table.insert(junk, entry)
+          elseif not isQuest and cookKeep(name) then
+            entry.why = cookKeep(name)
+            table.insert(cook, entry)
           elseif classID == 2 and subID == 20 then
             entry.ilvl, entry.price = select(4, getInfo(link)) or 0, price or 0
             table.insert(poles, entry)
@@ -780,7 +841,7 @@ local function scanNow()
   add(spare)
   add(auction, "worth more at the Auction House: drop it last")
   results = { upgrades = up, junk = junk, unusable = unusable, use = use, junkValue = junkValue, drop = drop, kept = kept,
-    bank = bank, auction = auction, spare = spare, check = check }
+    bank = bank, auction = auction, spare = spare, check = check, cook = cook }
   return results
 end
 local scanDirty = true
@@ -890,6 +951,13 @@ refresh = function()
     end
   end
 
+  if #r.cook > 0 then
+    S.header(panel, "Cooking ingredients you're keeping", "Interface\\Icons\\INV_Misc_Food_15", #r.cook)
+    for _, e in ipairs(r.cook) do
+      S.item(panel, e.link, e.icon, qualityOf(e.link), e.name, (e.why:gsub("^%l", string.upper)))
+    end
+  end
+
   if #r.bank > 0 then
     S.header(panel, "Bank these (not needed yet)", "Interface\\Icons\\INV_Box_02", #r.bank)
     S.note(panel, "Keep them, but they don't need a bag slot now. Bank check stores them at any banker.")
@@ -977,7 +1045,7 @@ refresh = function()
   end
 
   S.finish(panel)
-  panel.footer:SetText("Never suggests quest items, library books, herbs, anything your quests need, recipe materials, potions, your best 2 food and 2 drink stacks, or your best fishing pole.")
+  panel.footer:SetText("Never suggests quest items, library books, herbs, anything your quests need, recipe materials, potions, your best 2 food and 2 drink items, or your best fishing pole.")
 end
 
 -- Destroy with a clear yes/no. Nothing is deleted unless you click Destroy in the dialog.
@@ -1015,7 +1083,6 @@ local function toggle()
   S = S or DruidKitStyle
   if not panel then
     panel = S.window("DruidKitBagCheck", "Bag check", "Interface\\Icons\\INV_Misc_Bag_08", 400, 470)
-    panel:SetPoint("RIGHT", UIParent, "RIGHT", -240, 0)
   end
   if panel:IsShown() then panel:Hide() else panel:Show(); invalidate(); refresh() end
 end
@@ -1185,7 +1252,9 @@ autoSellList = function(r)
       elseif kind == "mats" then
         ok = (classID == 7 or classID == 5) and not (classID == 7 and subID == 9) and not needed(name)
       end
-      if ok and (value or 0) > 0 and not boeGood and not protectedReason(link, e.bag, e.slot) then table.insert(out, e) end
+      if ok and (value or 0) > 0 and not boeGood and not protectedReason(link, e.bag, e.slot) and not cookKeep(name) then
+        table.insert(out, e)
+      end
     end
   end
   addAll(r.junk, "junk"); addAll(r.unusable, "gear"); addAll(r.spare, "mats"); addAll(bandageExtras(), "extra")
@@ -1390,7 +1459,8 @@ local function box(name, w)
   local f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
   f:SetWidth(w); f:SetFrameStrata("DIALOG"); f:SetClampedToScreen(true)
   f:SetMovable(true); f:EnableMouse(true); f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", f.StartMoving); f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  f:SetScript("OnDragStart", f.StartMoving)
+  f:SetScript("OnDragStop", function() f:StopMovingOrSizing(); if DruidKitPos then DruidKitPos.save(f) end end)
   if f.SetBackdrop then
     f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 14,
                     insets = { left = 3, right = 3, top = 3, bottom = 3 } })
@@ -1433,6 +1503,8 @@ local function lootVerdict(link, qty, isQuest, cheapest)
   if gain then return "take", ("upgrade for your %s (+%d)"):format(slotName:lower(), math.floor(gain + 0.5)) end
   local keep = keepReason(link)
   if keep then return "take", keep end
+  local cook = cookKeep(name)
+  if cook then return "take", cook end
   if name and DruidKit_NeededFor then
     local need, _, used = DruidKit_NeededFor(name)
     if need or used then return "take", "your recipes use it" end
@@ -1543,8 +1615,9 @@ local function showLootHelp()
   end
   lootBox:SetHeight(-y + 10)
   lootBox:ClearAllPoints()
-  if LootFrame and LootFrame:IsShown() then lootBox:SetPoint("TOPLEFT", LootFrame, "TOPRIGHT", 8, 0)
-  else lootBox:SetPoint("CENTER", UIParent, "CENTER", 260, 80) end
+  if LootFrame and LootFrame:IsShown() and not (DruidKitPos and DruidKitPos.saved("loot")) then
+    lootBox:SetPoint("TOPLEFT", LootFrame, "TOPRIGHT", 8, 0)
+  elseif DruidKitPos then DruidKitPos.place(lootBox, "loot") end
   lootBox:Show()
 end
 
@@ -1695,7 +1768,7 @@ local function drawRolls()
   end
   if n == 0 then rollBox:Hide() return end
   rollBox:SetHeight(-y + 8)
-  if not rollBox.placed then rollBox:SetPoint("TOP", UIParent, "TOP", 0, -140); rollBox.placed = true end
+  if not rollBox.placed then if DruidKitPos then DruidKitPos.place(rollBox, "rolls") end; rollBox.placed = true end
   rollBox:Show()
 end
 local function onStartRoll(id)
@@ -1703,7 +1776,7 @@ local function onStartRoll(id)
   local icon, name, _, _, _, canNeed, canGreed = GetLootRollItemInfo(id)
   if not link then return end
   local advice, why, pick, auto = rollAdvice(link, canNeed, canGreed)
-  if auto and pick == 2 and DruidKitDB.autoRoll ~= false then
+  if auto and pick == 2 and DruidKitDB.autoRoll == true then
     autoRolled = autoRolled or {}
     autoRolled[id] = pick
     pcall(RollOnLoot, id, pick)
@@ -1740,8 +1813,10 @@ do
   DruidKit_HelperCommand = function(cmd, rest)
     if cmd == "autoroll" then
       rest = (rest or ""):lower()
-      DruidKitDB.autoRoll = not (rest == "off")
-      say("Automatic Greed on items you can't use, materials and non-upgrades: " .. (DruidKitDB.autoRoll and "on" or "off"))
+      if rest == "on" then DruidKitDB.autoRoll = true elseif rest == "off" then DruidKitDB.autoRoll = false end
+      local on = DruidKitDB.autoRoll == true
+      say("Automatic Greed on items you can't use, materials and non-upgrades: " .. (on and "on" or "off")
+        .. (on and " (/dk autoroll off stops it)." or " (/dk autoroll on starts it)."))
       return true
     end
     if cmd == "autosell" then

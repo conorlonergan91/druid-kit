@@ -175,7 +175,7 @@ local function classify()
         local subID = select(13, API.getInfo(link))
         local isHerb = classID == 7 and subID == 9
         if name and not isQuest and (classID == 7 or classID == 5) and q ~= 0 and haveReagentData()
-           and not usedFor(name) and (not isHerb or haveAlchemy()) then
+           and not usedFor(name) and (not isHerb or haveAlchemy()) and not (DruidKit_CookKeep and DruidKit_CookKeep(name)) then
           table.insert(deposit, { bag = bag, slot = slot, link = link, icon = icon, count = count or 1,
             why = isHerb and "for recipes you haven't learned yet" or "none of your recipes use this" })
         end
@@ -298,9 +298,6 @@ ev:SetScript("OnEvent", function(_, e, a1)
     pcall(learnReagents)
   elseif e == "BANKFRAME_OPENED" then
     if not panel then build() end
-    panel:ClearAllPoints()
-    if BankFrame and BankFrame:IsShown() then panel:SetPoint("TOPLEFT", BankFrame, "TOPRIGHT", 4, 0)
-    else panel:SetPoint("LEFT", UIParent, "CENTER", 120, 0) end
     panel:Show()
     pcall(refresh)
   elseif e == "BANKFRAME_CLOSED" then

@@ -1,5 +1,5 @@
-"""Catch-up tracker: guildies saved by older versions are pruned once, only after the friend list has loaded, so a
-friend missing from an unloaded list (login) or an offline Battle.net friend is never deleted."""
+"""Catch-up tracker: saved friends are never deleted, whatever the friend list or guild roster say (an unloaded list
+at login, an offline Battle.net friend, a saved friend who is in the guild)."""
 
 from lupa.lua51 import LuaRuntime
 
@@ -51,13 +51,13 @@ ev = frames[1]
 ev.on_OnEvent(ev, "PLAYER_LOGIN")
 ev.on_OnEvent(ev, "GUILD_ROSTER_UPDATE")
 EARLY = DruidKitDB.friends.Aoife
-FRIENDS = 1; ev.on_OnEvent(ev, "FRIENDLIST_UPDATE")
-PRUNED, MIGRATED = DruidKitDB.friends.Oldtimer == nil, DruidKitDB.friendsMigrated
+FRIENDS = 1; ev.on_OnEvent(ev, "FRIENDLIST_UPDATE"); ev.on_OnEvent(ev, "GUILD_ROSTER_UPDATE")
+KEPT, MIGRATED = DruidKitDB.friends.Oldtimer, DruidKitDB.friendsMigrated
 FRIENDS = 0; ev.on_OnEvent(ev, "FRIENDLIST_UPDATE"); ev.on_OnEvent(ev, "GUILD_ROSTER_UPDATE")
 LATER = DruidKitDB.friends.Aoife
 """)
 g = L.globals()
 check(g.EARLY == 22, "guild roster before the friend list loads: the friend stays", g.EARLY)
-check(g.PRUNED and g.MIGRATED, "after the friend list loads the old guildie is pruned, once", (g.PRUNED, g.MIGRATED))
+check(g.KEPT == 59 and g.MIGRATED is None, "a saved friend in the guild is never pruned", (g.KEPT, g.MIGRATED))
 check(g.LATER == 23, "a friend later missing from the list (offline) is not deleted", g.LATER)
 done("r3_bags_friends_test")

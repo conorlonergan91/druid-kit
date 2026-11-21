@@ -96,19 +96,16 @@ end
 
 -- Movable panels -------------------------------------------------------------
 local panels = {}
-local function makePanel(key, w, h, point, x, y)
+local function makePanel(key, w, h)
   local f = CreateFrame("Frame", "DruidKit_" .. key, UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
   f:SetSize(w, h)
-  local p = DB.panels and DB.panels[key]
-  if p then f:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else f:SetPoint(point, UIParent, point, x, y) end
+  if DruidKitPos then DruidKitPos.place(f, key) end
   f:SetMovable(true); f:SetClampedToScreen(true)
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", f.StartMoving)
   f:SetScript("OnDragStop", function()
     f:StopMovingOrSizing()
-    local a, _, b, px, py = f:GetPoint(1)
-    DB.panels = DB.panels or {}
-    DB.panels[key] = { a, b, px, py }
+    if DruidKitPos then DruidKitPos.save(f, key) end
   end)
   if f.SetBackdrop then
     f:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
@@ -128,16 +125,13 @@ local tracker, trackerText
 local samples, lastXP, lastMax = {}, nil, nil
 
 -- Friends (saved, the default catch-up target) and guild members (this session only: /dk catchup <name> finds them).
+-- Never removes anyone from DB.friends.
 local guild = {}
-local friendsLoaded = false
-local function friendLevels(loaded)
-  friendsLoaded = friendsLoaded or loaded
+local function friendLevels()
   DB.friends = DB.friends or {}
-  local isFriend = {}
   if C_FriendList and C_FriendList.GetNumFriends then
     for i = 1, (safe(C_FriendList.GetNumFriends) or 0) do
       local f = safe(C_FriendList.GetFriendInfoByIndex, i)
-      if f and f.name then isFriend[f.name] = true end
       if f and f.name and f.level and f.level > 0 then DB.friends[f.name] = f.level end
     end
   end
@@ -145,25 +139,16 @@ local function friendLevels(loaded)
     for i = 1, (safe(BNGetNumFriends) or 0) do
       local a = safe(C_BattleNet.GetFriendAccountInfo, i)
       local g = a and a.gameAccountInfo
-      if g and g.clientProgram == "WoW" and g.characterName then
-        isFriend[g.characterName] = true
-        if (g.characterLevel or 0) > 0 then DB.friends[g.characterName] = g.characterLevel end
+      if g and g.clientProgram == "WoW" and g.characterName and (g.characterLevel or 0) > 0 then
+        DB.friends[g.characterName] = g.characterLevel
       end
     end
   end
   if IsInGuild and IsInGuild() and GetNumGuildMembers then
-    -- Guildies saved by older versions: pruned once, after the friend list has loaded.
-    local prune = friendsLoaded and not DB.friendsMigrated
-    local n = safe(GetNumGuildMembers) or 0
-    for i = 1, n do
+    for i = 1, (safe(GetNumGuildMembers) or 0) do
       local name, _, _, level = safe(GetGuildRosterInfo, i)
-      if name and level then
-        name = name:match("^[^-]+") or name
-        guild[name] = level
-        if prune and not isFriend[name] then DB.friends[name] = nil end
-      end
+      if name and level then guild[name:match("^[^-]+") or name] = level end
     end
-    if prune and n > 0 then DB.friendsMigrated = true end
   end
 end
 
@@ -487,12 +472,12 @@ end
 
 -- Build UI and wire events -----------------------------------------------------
 local function build()
-  tracker = makePanel("tracker", 280, 54, "TOPRIGHT", -210, -200)
+  tracker = makePanel("tracker", 280, 54)
   trackerText = tracker:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   trackerText:SetPoint("TOPLEFT", 8, -7); trackerText:SetWidth(264); trackerText:SetJustifyH("LEFT")
   trackerText:SetSpacing(2)
 
-  hud = makePanel("hud", 380, 34, "CENTER", 0, -190)
+  hud = makePanel("hud", 380, 34)
   for i = 1, #CHECK_BUFFS do
     local ic = CreateFrame("Frame", nil, hud)
     ic:SetSize(22, 22)
@@ -515,7 +500,7 @@ local function build()
   hudText = hud:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   hudText:SetPoint("LEFT", hud, "LEFT", left + 66, 0)
 
-  rest = makePanel("rest", 220, 40, "CENTER", 0, 140)
+  rest = makePanel("rest", 220, 40)
   restText = rest:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   restText:SetPoint("TOP", 0, -6)
   rest.hpBar = bar(rest, 0.2, 0.85, 0.2, 180); rest.hpBar:SetPoint("BOTTOM", 0, 13)
@@ -563,7 +548,7 @@ local function onEvent(_, e, a1)
   elseif e == "UPDATE_INVENTORY_DURABILITY" then checkDurability()
   elseif e == "BAG_UPDATE_DELAYED" then checkBags()
   elseif e == "SKILL_LINES_CHANGED" or e == "PLAYER_MONEY" then updateTracker()
-  elseif e == "FRIENDLIST_UPDATE" or e == "BN_FRIEND_INFO_CHANGED" or e == "GUILD_ROSTER_UPDATE" then friendLevels(e == "FRIENDLIST_UPDATE"); updateTracker()
+  elseif e == "FRIENDLIST_UPDATE" or e == "BN_FRIEND_INFO_CHANGED" or e == "GUILD_ROSTER_UPDATE" then friendLevels(); updateTracker()
   elseif e == "NAME_PLATE_UNIT_ADDED" or e == "NAME_PLATE_UNIT_REMOVED" then updateHud()
   end
 end

@@ -46,15 +46,16 @@ All of them can be changed in Options > Keybindings > AddOns > Druid Kit.
 | `/dk arrow` | Route arrow on or off. |
 | `/dk bags` | Open or close Bag check. |
 | `/dk autosell [on\|off]` | Vendor autopilot on or off (blank = on). |
-| `/dk autoroll [off]` | Automatic Greed on or off (anything but `off` = on). |
+| `/dk autoroll [on\|off]` | Automatic Greed on or off (off until you turn it on; blank = show which and how to change it). |
 | `/dk mount` (`/dk gold`) | Mount money line. |
 | `/dk pack [off]` | Dungeon packing in Bank check on or off. |
 | `/dk go` (`/dk goto`) | Open or close Go to. |
 | `/dk trainers [on\|off]` | Trainer and town pins on the maps (blank = toggle). |
-| `/dk party test\|on\|off\|size small\|normal\|big\|reset` | Party view controls (refused in combat). |
+| `/dk party test\|on\|off\|size small\|normal\|big\|reset` | Party view controls (refused in combat; `reset` waits for the end of combat). |
 | `/dk catchup [LEVEL\|NAME]` | Catch-up target: a level, a friend or guild member by name, or blank for your highest friend. |
 | `/dk tracker on\|off`, `/dk hud on\|off`, `/dk rest on\|off` | Show or hide the helper panels. |
 | `/dk unlock` / `/dk lock` | Show the helper panels and party preview so you can drag them / lock them again. |
+| `/dk resetpos [NAME]` | Forget where you dragged the windows and put them all (or just NAME) back at their default place now; names what it moved. See Window positions. |
 | `/dk dq` (`/dk dungeons`) | Dungeon quest list. |
 | `/dk share [on\|off]` | Quest share window; `on`/`off` sets whether it opens when someone joins your group. |
 | `/dk questxp [off]` | Quest XP line above the XP bar on or off. |
@@ -62,6 +63,36 @@ All of them can be changed in Options > Keybindings > AddOns > Druid Kit.
 | `/way [ZONE] X Y [LABEL]`, `/way clear` | Navigation arrow to map coordinates (`/way` only when no other addon owns it). |
 | `/dkway ...` | Same as `/way`, always available. |
 | `/claude` | ClaudeProgress: take a full snapshot now. |
+
+## Window positions
+
+Every window starts in one place, chosen so the middle of the screen (your character and the mob in front of it)
+stays clear while you fight, and so no two windows that stay on screen overlap. Defaults are measured on a 16:9
+screen and anchored to the screen edges or centre, so they follow wider screens; on 4:3 the step window and the roll
+box reach into the middle, drag them if they bother you. Drag a window and it stays there (the party view after
+`/dk unlock`); `/dk resetpos` puts every window back, `/dk resetpos NAME` just one.
+
+| Name | Window | Default place | Why |
+|---|---|---|---|
+| `arrow` | Navigation arrow | top centre, under the zone name | travel: where you look while running, above your character |
+| `steps` | Step window (Buff button on its bottom row) | bottom right, above the action bars | travel: right side, below the minimap and the game's quest tracker, clear of buffs |
+| `tracker` | Catch-up tracker | top right, left of the quest tracker, under your buffs | always on, out of the way |
+| `herb` | Find Herbs button | under the catch-up tracker | travel prompt |
+| `party` | Party view | left, under your portrait, where the game's party frames are | combat: near the middle, never on it. Its normal size fits the left third of the screen; turn off the game's party frames (Interface options, Raid & Party) if they show under it |
+| `rolls` | Loot roll advice | top centre, at the top edge | combat: rolls come mid-fight; above the arrow |
+| `warn` | "AUTO ATTACK OFF" warning | bottom centre, just above the action bars | combat: near the keys you press |
+| `rest`, `hud` | Rest prompt, pre-pull check | under your character, above the warning's spot | out of combat only (hidden in combat) |
+| `questxp` | Quest XP line | on top of the XP bar (bottom centre without one) | out of combat |
+| `guide`, `lore`, `dungeons`, `share`, `goto`, `keys` | Guide, quest lore, dungeon quests, quest share, Go to, key map | top left, where the game opens the quest log and spellbook | reading windows, opened by you |
+| `bags`, `bank`, `loot` | Bag check, Bank check, bags-full loot help | right, beside the game's bags | item lists: the bags open with a vendor, the bank and loot (loot help sits next to the loot window when it is open) |
+
+**Expected behaviour**
+
+- Windows that share a place (the reading windows; the item lists) cover each other when two are open, like the
+  game's own panels. Opened windows cover the step window and tracker; nothing you open lands on your character.
+- `/dk resetpos` forgets every dragged spot (spots saved by older versions too; the guide keeps its size) and moves
+  the windows back at once. The party view holds secure buttons, so in combat it moves when combat ends ("after
+  combat: party"). An unknown NAME lists the names. `/dk party reset` does the same for the party view.
 
 ## Step tracker
 
@@ -76,7 +107,7 @@ every step (`/dk steps log` shows the last 10) is kept for the next re-plan. Eac
 first finished, whether that is before or after a catch-up, an unskip or a reset; a skipped step is logged as skipped,
 and once more with its real time if you unskip it and finish it.
 
-Buttons: **Back**, **Done**, **Skip**/**Unskip**, **Lore** (quest story on parchment), **Keys** (key map), **Hide**;
+Buttons: **Back**, **Done**, **Skip**/**Unskip**, **Lore** (quest story on parchment, top left), **Keys** (key map), **Hide**;
 second row **< Prev**, **Next >** (look without changing anything), **Go** (arrow to the step you're looking at),
 **Now**, **Vendor** (arrow to the nearest vendor of a chosen kind in this zone), and **Buff** (uses the next elixir,
 flask or scroll whose buff you lack).
@@ -91,7 +122,7 @@ flask or scroll whose buff you lack).
   another step never ticks the route; the route arrow comes back when you arrive there, or with **Now**.
 - Hearth steps tick when you arrive at the named town. If your hearthstone is set elsewhere, the step warns you.
 - Fly steps tick when you take a flight to the named town (or arrive there). Picking another town says which town the
-  step wants. If the flight path isn't known, the step warns you to walk.
+  step wants. Reaching the flight master (the arrow's spot) or opening its flight map never ticks a fly step. If the flight path isn't known, the step warns you to walk.
 - Learn flight path steps tick only when that flight path is known (seen on a flight map, needs ClaudeProgress) or
   when you open the flight map at that town's flight master. Another town's flight master does not tick it.
 - Train steps tick when you close the trainer the step names, or, if it names none, a druid trainer from the trainer
@@ -123,6 +154,15 @@ flask or scroll whose buff you lack).
   chat at most every 5 minutes. `/dk steps vendorprompt` turns it off.
 - `/dk steps reset` restarts the route; finished steps skip themselves again without being logged twice.
 - The arrow warns when you stop getting closer (more than 40 yards away and not 10 yards closer in 30 seconds).
+- Dungeon steps marked `inside` show no arrow: the game gives no position inside a dungeon. The arrow is not pointed at
+  the step's own spot or at the next step outside, and a route arrow left from before is cleared (an arrow you set
+  yourself stays). Their details stay short: the step's how-to, progress for a Do step, then "Next:" with the next
+  boss still alive on the route and the first line of its tactic.
+- Boss steps read "Boss: NAME (level N)" and list every tactic line the route gives for that fight (the window does
+  not cut them, so routes keep it to 3 short lines), then "Ticks when the boss dies, or press Done."
+- Other steps end their details with "Level after this step (pessimistic): N" when the route has it: the planner's
+  projection (tools/xpsim.py) with Classic quest XP, no rested XP, only the kills quests need and group steps split
+  3 ways, so you are usually at or above it. Inside and boss steps don't show it.
 - Never: ticks a step from an arrow you set yourself; registers the combat log; changes your quest log selection for
   good (it reads quest text and puts your selection back).
 - Combat: the window can move and hide in combat. The **Buff** button is secure: it keeps its item until combat ends,
@@ -224,6 +264,8 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
 - **Gear you're keeping**: saved set pieces, gear better for your other role, and gear it can't compare (no stats to
   score for either role, such as idols and on-use trinkets, or an off-hand while you wield a two-hander). Gear that
   scores for only one role (a plain weapon in healing mode) is compared like any other.
+- **Cooking ingredients you're keeping**: raw meat, fish and other cooking ingredients that still give Cooking skill
+  (see below), with the reason.
 - **Bank these**: recipes and other items for a higher profession rank, gear for a higher level, library books, quest
   items needed much later.
 - **Quest items to check**: quest items that look like they belong to no quest you have, or that the plan says to
@@ -254,6 +296,13 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
   Auction House, your saved set gear, gear it can't compare, or your best fishing pole.
 - Food and drink: your best 2 food and best 2 drink items you can use now are kept (every stack of each), plus one for
   a later level. Cooked food that gives Well Fed is always kept. Other food is offered in the drop list only.
+- Cooking ingredients (reagents of the Classic trainer and common vendor cooking recipes in `DruidKit_Bags.lua`, or of
+  any Cooking recipe you know) are kept, never sold, offered in Sell all or the drop list, or stored by Bank check,
+  while either: Cooking is below its current cap, or not learned yet (any Cooking trainer teaches it): "Cooking 40/75:
+  cook it for skill"; or a recipe you don't know, can learn at your rank and isn't grey yet uses it: "trainable recipe
+  Crab Cake uses it" ("vendor recipe ..." for one sold by a cooking supplier). "Trainable" means at any Cooking
+  trainer, not one near you. At the cap with no such recipe they are sold like any unused material. If the skill
+  list can't be read they are kept. The loot helper says take them, with the same reason.
 - Recipes: "learn now", "bank till skill X", "already known" or "not your profession" (sell). A recipe whose
   profession rank can't be read is kept and not listed.
 - **Sell junk** (button on the vendor window) sells grey items only, skipping protected ones.
@@ -267,7 +316,7 @@ loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is drop
 
 ## Bank check
 
-**Open:** opens by itself beside the bank when you talk to a banker; closes with the bank.
+**Open:** opens by itself on the right, beside your bags, when you talk to a banker; closes with the bank.
 
 **What it does:** two lists, **Take out** and **Put in the bank**, each with per-item buttons and **Take all** /
 **Store all**.
@@ -277,7 +326,7 @@ loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is drop
 - Store suggestions: library books, quest items needed much later, recipes and other items for a higher profession
   rank, gear for a higher
   level, gear for the role you're not playing, and materials none of your recipes use (herbs only once your Alchemy
-  window has been read).
+  window has been read; never cooking ingredients Bag check keeps for Cooking skill).
 - Take-out suggestions: items your quests need, your current mode's gear set, reagents for recipes that still give
   skill-ups, active quest items, potions, food and bandages, and upgrades.
 - It never suggests taking back library books, items needing a higher profession rank, or items it says to bank for
@@ -303,9 +352,10 @@ loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is drop
 - Recipes and crafting materials: GREED. Gear druids can never wear: GREED.
 - Gear it can't compare (idols, on-use trinkets, an off-hand while you wield a two-hander), at any level: YOUR CALL,
   with no button marked and no automatic roll.
-- Automatic Greed (unless `/dk autoroll off`): crafting materials, gear druids can't use, and non-upgrades nobody in
-  the party wears are greeded for you, with a chat line. It confirms the bind-on-pickup prompt only for rolls it made
-  itself.
+- Automatic Greed is off until you type `/dk autoroll on` (saves from older versions start off too). When on:
+  crafting materials, gear druids can't use, and non-upgrades nobody in the party wears are greeded for you, with a
+  chat line saying `/dk autoroll off` stops it. It confirms the bind-on-pickup prompt only for rolls it made itself.
+  When off, those rolls show in the window with their advice like any other.
 - Never: rolls Need for you, or rolls on anything it didn't advise Greed on (including gear it can't compare).
 
 ## Navigation arrow and /way
@@ -352,7 +402,9 @@ Touch, Alt Cure Poison.
   instead of reaching the card. `!` and `T` keep their state for the fight: one that appears in combat becomes
   clickable when combat ends, and one that disappears stops taking clicks then.
 - Which spells get buttons is read from your bars out of combat only.
-- `/dk party test`, `on`, `off`, `size` and `reset` are refused in combat.
+- `/dk party test`, `on`, `off` and `size` are refused in combat; `reset` moves it back when combat ends.
+- Size: `normal` is as big as fits the left third of the screen (never past full size), `small` 0.8 and `big` 1.2
+  times that; never more than 62% of the screen width or 85% of its height.
 - Errors are logged to the saved variables instead of breaking the view.
 
 ## Helpers: HUD, rest prompt, catch-up, professions
@@ -367,7 +419,9 @@ Touch, Alt Cure Poison.
 - **Rest prompt**: "Eat & drink" when HP is under 70% or MP under 50%, "Resting" while eating, "Ready" when back to 95%
   / 90%. Hidden in combat.
 - **Catch-up tracker**: your XP per hour (last hour), time to the next level, and how far you are behind the target.
-  The default target is your highest friend (friends list and Battle.net friends in WoW), never a guild member.
+  The default target is your highest saved friend (friends list and Battle.net friends in WoW). Guild members are
+  never saved as friends (only findable by name this session), and the addon never removes anyone from your saved
+  friends, even when they go offline, leave your list or are in your guild.
   `/dk catchup 22` targets a level; `/dk catchup NAME` targets a friend or guild member by name (start of the name is
   enough), and says if they can't be found. Blank goes back to the default. Gap advice appears for a named or friend
   target.
