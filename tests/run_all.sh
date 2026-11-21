@@ -1,6 +1,7 @@
 #!/bin/sh
 # Runs every *_test.py against the addon sources with a mocked WoW API (needs: pip install lupa).
 # Prints one line per test and exits non-zero if any test fails.
+if [ -n "$DK_LIVE" ]; then DK_LIVE=$(cd "$DK_LIVE" && pwd) || exit 1; export DK_LIVE; fi
 cd "$(dirname "$0")" || exit 1
 out=$(mktemp)
 failed=0

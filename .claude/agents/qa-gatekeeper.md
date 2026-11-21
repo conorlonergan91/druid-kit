@@ -9,8 +9,8 @@ tools: Bash, Read
 **One job:** say GO or NO-GO with reasons.
 
 1. `tests/run_all.sh` all ok; `ruff check .` and `ruff format --check .` clean. Run it again against the live
-   addon: `DK_LIVE=<live DruidKit folder> sh tests/run_all.sh` (every test reads `DruidKit/` files from there;
-   the repo copies of DruidKit.lua, Helpers and Party are sanitised).
+   addon: `DK_LIVE=<absolute path of the live DruidKit folder> sh tests/run_all.sh` (every test reads `DruidKit/`
+   files from there, ui_audit/ui_test included; the repo copies of DruidKit.lua, Helpers and Party are sanitised).
 2. **Every generated Lua file is loadstring-checked before it is copied to the live addon** (the guide broke once
    from `[[[Name]]]`). Load DruidKit_Guide.lua and the real DruidKit_Steps.lua together with mocked state and
    confirm the first step and arrow target.

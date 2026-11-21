@@ -10,8 +10,8 @@ tools: Bash, Read, Write
 addon-engineer changes the Lua.
 
 ## Every UI change
-1. `python3 tools/ui_audit.py` on the **live** addon files (repo copies of DruidKit.lua, Helpers, Party are
-   sanitised and differ): no new finding versus `docs/ui_baseline.json`.
+1. `python3 tools/ui_audit.py <live DruidKit folder>` (or with `DK_LIVE` set) on the **live** addon files (repo
+   copies of DruidKit.lua, Helpers, Party are sanitised and differ): no new finding versus `docs/ui_baseline.json`.
 2. The checklist at the end of `docs/UI_STYLE.md` (words for every state, 13+ text, DruidKit_Style panels, standard
    buttons, tooltip says what happens, key map and Commands tab updated).
 3. Wording: verb first, short, the same word for the same thing everywhere (Done, Skip, Sell, Destroy, Bank).

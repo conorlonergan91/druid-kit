@@ -572,13 +572,19 @@ local function pointAtNextSpot()
   end
 end
 
+-- Only the route's own arrow: one you set (/way, Go to) stays.
+local function clearRouteArrow()
+  local t = DruidKit_NavTarget and DruidKit_NavTarget()
+  if t and t.owner == "route" and DruidKit_NavClear then DruidKit_NavClear(true) end
+end
+
 local function pointArrow()
   local st = steps[pos]
   if not st or lastArrowFor == pos or customNav then return end
   lastArrowFor = pos
   if DB.arrowOff then return end
   if st.inside then   -- the game gives no position inside a dungeon: no arrow, not even to the next step outside
-    if DruidKit_NavTarget and DruidKit_NavTarget() and DruidKit_NavClear then DruidKit_NavClear(true) end
+    clearRouteArrow()
     return
   end
   local v, n = nextVia(st)
@@ -589,8 +595,8 @@ local function pointArrow()
     DruidKit_GoTo(st.at[1], st.at[2], st.at[3], final, true, "route")
   elseif DruidKit_GoTo and pointAtNextSpot() then
     return
-  elseif DruidKit_NavTarget and DruidKit_NavTarget() and DruidKit_NavClear then
-    DruidKit_NavClear(true)   -- an old arrow would point the wrong way
+  else
+    clearRouteArrow()   -- an old route arrow would point the wrong way
   end
 end
 

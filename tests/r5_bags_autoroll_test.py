@@ -1,4 +1,4 @@
-"""Automatic Greed is opt-in: off for new and old saves (autoRoll nil), `/dk autoroll on|off` toggles it, a bare
+"""Automatic Greed is opt-in: off for new and old saves (older saves are reset once at login), `/dk autoroll on|off` toggles it, a bare
 `/dk autoroll` says the state and how to change it. The roll window still advises when off; Need is never rolled."""
 
 from expect import check, done
@@ -57,4 +57,12 @@ L.execute("DruidKit_HelperCommand('autoroll', 'off'); ROLLED = {}; fire('START_L
 check(rolled(L) == [], "/dk autoroll off: no automatic roll", rolled(L))
 L.execute("DruidKit_HelperCommand('autoroll', 'maybe')")
 check(L.globals().DruidKitDB.autoRoll is False, "anything else does not turn it on", L.globals().DruidKitDB.autoRoll)
+
+L = fresh("{ autoRoll = true }")
+L.execute("fire('START_LOOT_ROLL', 1)")
+check(rolled(L) == [], "an old save with autoRoll = true starts off", rolled(L))
+L.execute(
+    "DruidKit_HelperCommand('autoroll', 'on'); frames[1].on_OnEvent(frames[1], 'PLAYER_LOGIN'); fire('START_LOOT_ROLL', 1)"
+)
+check(rolled(L) == ["1:2"], "after that, /dk autoroll on sticks across logins", rolled(L))
 done("r5_bags_autoroll_test")

@@ -13,7 +13,7 @@ L = LuaRuntime(unpack_returned_tuples=True)
 L.execute(MOCKS)
 L.execute(r"""
 NAVCLEARED = 0
-function DruidKit_NavTarget() return true end
+function DruidKit_NavTarget() return { owner = "route" } end
 function DruidKit_NavClear() NAVCLEARED = NAVCLEARED + 1 end
 DruidKitRoute = { id = "t2", sections = { { title = "Redridge", steps = {
   { ["do"] = "accept", q = 20, name = "Blackrock Menace", npc = "Marris", at = { "Redridge Mountains", 28.4, 49 } },

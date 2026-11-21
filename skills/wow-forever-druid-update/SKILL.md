@@ -13,7 +13,7 @@ details) lives in `HANDOFF.md` on the player's Mac, never in this skill or the p
    (layout templates for every guide tab and the doc: change content, never layout). Read `TALENTS.md` and
    `PROFESSIONS.md` only when the request touches talents or professions. HANDOFF holds the player profile, current
    state, file paths, the fast update order and hard-won lessons; follow its privacy rules.
-2. Restore the workspace: stage `_claude_druidkit/build/*` and `_claude_druidkit/test/*` to `/home/claude/build` and
+2. Restore the workspace: stage `~/projects/druid-kit/build/*` and `_claude_druidkit/test/*` to `/home/claude/build` and
    `/home/claude/test`; the live addon in `_forever_/Interface/AddOns/DruidKit/` is the source of truth for the Lua.
    `pip install lupa --break-system-packages` if needed, then run `test/run_all.sh` once.
 3. Planner: restore `_claude_druidkit/routekit/` (or `planner/` from the repo). If `db.json` is missing, clone
@@ -86,7 +86,7 @@ APPROVED for route changes.
 5. Update the Quest Guide doc (ids in HANDOFF). Read it first; one heading plus ordered lists in a single replace
    (whole-block replace needs ifHash + ifRev).
 6. Deploy via a fresh `/mnt/user-data/outputs/deploy-<HHMM>/` folder with one `device_commit_files` call (force) to
-   the live addon and `_claude_druidkit/build/`, plus HANDOFF state notes; verify with `wc -c`.
+   the live addon and `~/projects/druid-kit/build/`, plus HANDOFF state notes; verify with `wc -c`.
 7. Reply short and phone-friendly: what changed, the next 3-5 actions in order, then reload advice. /reload for Lua
    changes; full quit (Cmd+Q) for new files, .toc or Bindings.xml. A /reload saves with the OLD code, so new save
    fields need a second /reload.

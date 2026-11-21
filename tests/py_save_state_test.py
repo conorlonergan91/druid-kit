@@ -51,6 +51,13 @@ check(s["level"] == 22, "--char still picks that key", s.get("char"))
 (tmp / "cp2.lua").write_text('ClaudeProgressDB = { ["A-R"] = { ["basics"] = {} }, ["B-R"] = { ["basics"] = {} } }')
 s = save_state.state(str(tmp / "cp2.lua"), str(tmp / "dk.lua"))
 check(s["char"] == "A-R", "no savedAt anywhere: the first key", s.get("char"))
+(tmp / "cp3.lua").write_text(
+    'ClaudeProgressDB = { ["Old-R"] = { ["savedAt"] = "2026-11-21 09:05", ["basics"] = {} },'
+    ' ["A-R"] = { ["savedAt"] = "2026-11-21 09:05", ["savedTime"] = 1700000059, ["basics"] = {} },'
+    ' ["B-R"] = { ["savedAt"] = "2026-11-21 09:05", ["savedTime"] = 1700000001, ["basics"] = {} } }'
+)
+s = save_state.state(str(tmp / "cp3.lua"), str(tmp / "dk.lua"))
+check(s["char"] == "A-R", "same savedAt minute: the newest numeric savedTime wins", s.get("char"))
 r = subprocess.run(
     [sys.executable, str(ROOT / "tools/save_state.py"), str(tmp / "cp.lua"), str(tmp / "dk.lua")],
     capture_output=True,

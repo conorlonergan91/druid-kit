@@ -1,6 +1,8 @@
 """UI audit: inventory of the addon's look and keys, with the places that break docs/UI_STYLE.md.
 
-Usage: python3 tools/ui_audit.py [--json]
+Usage: python3 tools/ui_audit.py [DRUIDKIT_FOLDER] [--json]
+
+The folder defaults to $DK_LIVE (the live addon, as in tests/wowenv.py), else the repository's DruidKit/.
 
 Reports per file: font sizes, button sizes and labels, backdrops and strata; the key bindings (Bindings.xml and the
 default keys the addon sets); and findings:
@@ -11,12 +13,13 @@ default keys the addon sets); and findings:
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ADDON = ROOT / "DruidKit"
+ADDON = Path(os.environ.get("DK_LIVE") or ROOT / "DruidKit").resolve()
 STYLE_DOC = ROOT / "docs" / "UI_STYLE.md"
 MIN_FONT = 13
 BUTTON_SIZES = {(64, 22), (96, 22), (64, 20)}  # UI_STYLE "Buttons": standard, wide, compact row
@@ -31,9 +34,9 @@ BIND_XML = re.compile(r'<Binding name="(\w+)"')
 BIND_SET = re.compile(r'SetBinding,\s*"([\w-]+)",\s*"(\w+)"')
 
 
-def audit():
+def audit(addon=ADDON):
     files, findings = {}, []
-    for p in sorted(ADDON.glob("*.lua")):
+    for p in sorted(addon.glob("*.lua")):
         if p.name == "DruidKit_Guide.lua":
             continue
         src = p.read_text(encoding="utf-8")
@@ -60,10 +63,10 @@ def audit():
             findings.append(
                 f"{p.name}: {files[p.name]['own_backdrops']} panel(s) with their own backdrop, not DruidKit_Style"
             )
-    xml = (ADDON / "Bindings.xml").read_text(encoding="utf-8")
+    xml = (addon / "Bindings.xml").read_text(encoding="utf-8")
     bindings = BIND_XML.findall(xml)
     defaults = {}
-    for p in ADDON.glob("*.lua"):
+    for p in addon.glob("*.lua"):
         for key, action in BIND_SET.findall(p.read_text(encoding="utf-8")):
             defaults[action] = key
     doc = STYLE_DOC.read_text(encoding="utf-8") if STYLE_DOC.exists() else ""
@@ -74,7 +77,8 @@ def audit():
 
 
 if __name__ == "__main__":
-    r = audit()
+    folders = [a for a in sys.argv[1:] if not a.startswith("--")]
+    r = audit(Path(folders[0]).resolve() if folders else ADDON)
     if "--json" in sys.argv:
         print(json.dumps(r, indent=1, default=list))
     else:

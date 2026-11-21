@@ -10,8 +10,8 @@ tools: Bash, Read, Write, Edit
 
 ## Every step
 - Player preferences (RULES v19 lists them with their versions): no collect-from-drops quests over 3 items; no
-  packs or fleeing humanoids; solo only near monsters at or below his level (higher only `party=True`); every
-  dungeon quest; flights over the tram.
+  packs or fleeing humanoids; no monster 3+ levels above him in solo steps (dangercheck, the gate; prefer at or
+  below his level; higher only `party=True`); every dungeon quest; flights over the tram.
 - One action; NPC named; `goto` only from verified data (QuestieDB spawns or research "high").
 - `how` when the player needs to *do* something non-obvious: right-click an item that starts a quest, use an item,
   find a cave entrance, board a boat (which pier, which ship, wait, where you land).
@@ -23,7 +23,8 @@ tools: Bash, Read, Write, Edit
   sequencer flagged and size their `est` with `--party 3` (`rk.GROUP_SIZE`, the split xpsim uses).
 - When quest text and data disagree on the NPC, name both.
 - Forever coordinates differ from Classic (Stormwind especially): `tools/coordcheck.py`, never Classic maps.
-- Dungeons: `freeBags=20` on the "Find a group" step; inside the run `inside=True` steps (no arrow) in run order and
+- Dungeons: `freeBags=20` on the "Before the dungeon: sell, repair and bank" note (RULES v14, AGENT.md flow step
+  3; never on "Find a group": a note with `freeBags` ticks itself once the slots are free); inside the run `inside=True` steps (no arrow) in run order and
   `boss` steps with a `tactic` of up to 3 short lines (from dungeon-advisor / combat-coach).
 
 - Levels (RULES v18): run `tools/xpsim.py ROUTE LEVEL XP --done DONE.json`. Fix every ERROR (accept before the

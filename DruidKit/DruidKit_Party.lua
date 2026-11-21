@@ -14,7 +14,7 @@ local PORTRAIT, BTN, BTN_GAP, MAX_BTNS = 84, 34, 3, 7
 local CARD_W = 12 + PORTRAIT + 8 + 12 + MAX_BTNS * BTN + (MAX_BTNS - 1) * BTN_GAP + 12
 local CARD_H, PET_H, GAP = 116, 20, 8
 local SIZES = { small = 0.8, normal = 1.0, big = 1.2 }
-local COLS, ROWS, HEADER_H = 2, 3, 26        -- you top-left, then your party; fits on screen
+local COLS, ROWS, HEADER_H = 1, 5, 26        -- one column (you on top) so it fits the left third at a readable size
 local BARK, GOLD = { 0.45, 0.32, 0.16 }, { 0.85, 0.68, 0.3 }
 local RESTO_BG = "Interface\\TalentFrame\\DruidRestoration-TopLeft"
 local UNITS = { "player", "party1", "party2", "party3", "party4" }
@@ -634,13 +634,17 @@ local function setTest(on)
   updatePortraits(); updateAll()
 end
 
+local scalePending
 local function applyScale()
-  if InCombatLockdown() then return end
+  if InCombatLockdown() then scalePending = true return end
+  scalePending = nil
   local sc = SIZES[DB.partySize or "normal"] or 1
-  -- normal fits the left third of the screen (the middle stays clear); never bigger than the screen allows
+  -- normal fits the left third and 85% of the height, never under 0.8 (readable text); never bigger than the screen
   local uw, uh = UIParent:GetWidth() or 0, UIParent:GetHeight() or 0
   local w, h = container:GetWidth() or 1, container:GetHeight() or 1
-  if uw > 0 and uh > 0 then sc = math.min(sc * math.min(1, (uw / 3 - 20) / w), (uw * 0.62) / w, (uh * 0.85) / h) end
+  if uw > 0 and uh > 0 then
+    sc = math.min(sc * math.max(0.8, math.min(1, (uw / 3 - 20) / w, uh * 0.85 / h)), uw * 0.62 / w, uh / h)
+  end
   container:SetScale(sc)
   if DruidKitPos then DruidKitPos.place(container, "party") end
 end
@@ -729,7 +733,7 @@ ev:SetScript("OnEvent", function(_, e, unit)
   if not container then return end
   if e == "ACTIONBAR_SLOT_CHANGED" then slotsDirty = true end
   if e == "PLAYER_REGEN_DISABLED" then combatReady() return end
-  if e == "PLAYER_REGEN_ENABLED" then afterCombat() end
+  if e == "PLAYER_REGEN_ENABLED" then afterCombat(); if scalePending then applyScale() end end
   if e == "PLAYER_REGEN_ENABLED" or e == "ACTIONBAR_SLOT_CHANGED" or e == "PLAYER_ENTERING_WORLD" then
     if slotsDirty then applySlots() end
   end

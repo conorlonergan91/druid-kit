@@ -11,12 +11,13 @@ local USEFUL = { optimal = true, medium = true, easy = true }
 local function rememberReagents()
   DruidKitDB.reagents = DruidKitDB.reagents or {}
   DruidKitDB.reagentsAll = DruidKitDB.reagentsAll or {}
-  local prof, need, all = nil, {}, {}
+  local prof, need, all, known = nil, {}, {}, {}
   if GetNumTradeSkills and GetTradeSkillInfo and GetTradeSkillLine then
     prof = GetTradeSkillLine()
     for i = 1, (GetNumTradeSkills() or 0) do
       local recipe, kind = GetTradeSkillInfo(i)
       if recipe and kind ~= "header" then
+        known[recipe] = true
         for j = 1, (GetTradeSkillNumReagents(i) or 0) do
           local name = GetTradeSkillReagentInfo(i, j)
           if name then
@@ -32,6 +33,7 @@ local function rememberReagents()
     for _, id in ipairs(C_TradeSkillUI.GetAllRecipeIDs() or {}) do
       local r = C_TradeSkillUI.GetRecipeInfo(id)
       if r and r.learned then
+        known[r.name] = true
         local sch = C_TradeSkillUI.GetRecipeSchematic(id, false)
         for _, slot in ipairs(sch and sch.reagentSlotSchematics or {}) do
           local item = slot.reagents and slot.reagents[1] and slot.reagents[1].itemID
@@ -44,7 +46,7 @@ local function rememberReagents()
       end
     end
   end
-  return prof, need, all
+  return prof, need, all, known
 end
 local GATHER = { Herbalism = true, Fishing = true, Mining = true, Skinning = true }
 local function learnReagents()
@@ -52,8 +54,14 @@ local function learnReagents()
   local p1 = rememberReagents()
   if not p1 or p1 == "UNKNOWN" or GATHER[p1] then return end
   C_Timer.After(0.6, function()
-    local ok, prof, need, all = pcall(rememberReagents)
+    local ok, prof, need, all, known = pcall(rememberReagents)
     if ok and prof == p1 and next(all) then DruidKitDB.reagents[prof] = need; DruidKitDB.reagentsAll[prof] = all end
+    if ok and prof == p1 then
+      -- recipes are never unlearned: add to the list, never replace it
+      DruidKitDB.recipesKnown = DruidKitDB.recipesKnown or {}
+      DruidKitDB.recipesKnown[prof] = DruidKitDB.recipesKnown[prof] or {}
+      for r in pairs(known) do DruidKitDB.recipesKnown[prof][r] = true end
+    end
   end)
 end
 
