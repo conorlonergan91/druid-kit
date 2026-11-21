@@ -238,15 +238,18 @@ local function professionLines()
 end
 DruidKit_ProfessionLines = professionLines
 
--- Gold: the first mount is 100g of riding training at level 40 in Forever (mount included).
+-- Gold towards the first mount: the same per-level target as Bag check's mount money line (DruidKit_MountTarget).
 local function goldLine()
   local lvl = UnitLevel("player") or 1
-  if lvl >= 40 or not GetMoney then return nil end
+  if lvl >= 40 or not (GetMoney and DruidKit_MountTarget) then return nil end
   local copper = plain(GetMoney()); if not copper then return nil end
-  local need = 100 * 10000 - copper
-  if need <= 0 then return LEAF .. "Mount fund ready|r: 100g for riding at 40." end
-  local per = need / math.max(1, 40 - lvl) / 10000
-  return ("%sGold|r %dg %ds · mount at 40 = 100g: save about %dg a level"):format(DRUID, math.floor(copper / 10000), math.floor(copper / 100) % 100, math.ceil(per))
+  local full, target = DruidKit_MountTarget(40), DruidKit_MountTarget(lvl)
+  local function g(c) return math.floor(c / 10000) end
+  if copper >= full then return LEAF .. ("Mount fund ready|r: %dg for riding at 40."):format(g(full)) end
+  local head = ("%sGold|r %dg %ds · mount at 40 = %dg"):format(DRUID, g(copper), math.floor(copper / 100) % 100, g(full))
+  if target == 0 then return head .. ": start saving" end
+  if copper >= target then return head .. (": on track (aim %dg at %d)"):format(g(target), lvl) end
+  return head .. (": BEHIND by %dg (aim %dg at %d)"):format(math.ceil((target - copper) / 10000), g(target), lvl)
 end
 DruidKit_GoldLine = goldLine
 

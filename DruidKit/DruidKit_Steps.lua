@@ -128,14 +128,18 @@ local function questHowText(q, name)
   return objectives
 end
 
+-- "Goldshire, Elwynn Forest" is Goldshire: only the town before the comma counts, matched whole ("Stormwind" is
+-- "Stormwind City"). The zone counts only when the destination is the zone itself.
+local function placeName(t)
+  if type(t) ~= "string" then return nil end
+  t = (t:match("^([^,]+)") or t):lower():gsub("^%s+", ""):gsub("%s+$", ""):gsub(" city$", "")
+  return t ~= "" and t or nil
+end
 local function placeMatches(to)
-  if not to then return false end
-  local want = to:lower()
-  for _, f in ipairs({ GetZoneText, GetSubZoneText, GetMinimapZoneText, GetRealZoneText }) do
-    local t = safe(f)
-    if type(t) == "string" and t ~= "" and (t:lower():find(want, 1, true) or want:find(t:lower(), 1, true)) then
-      return true
-    end
+  local want = placeName(to)
+  if not want then return false end
+  for _, f in ipairs({ GetSubZoneText, GetMinimapZoneText, GetZoneText, GetRealZoneText }) do
+    if placeName(safe(f)) == want then return true end
   end
   return false
 end
@@ -153,8 +157,10 @@ local function homeName() return safe(GetBindLocation) end
 local function knownFlights()
   local db = ClaudeProgressDB and ClaudeProgressDB.flights
   if type(db) ~= "table" then return nil end
-  local key = (safe(UnitName, "player") or "") .. "-" .. (safe(GetRealmName) or "")
-  return db[key]
+  local realm = safe(GetRealmName)
+  if not realm or realm == "" then realm = safe(GetNormalizedRealmName) end
+  if not realm or realm == "" then realm = ClaudeProgressDB._realm or "realm" end
+  return db[(safe(UnitName, "player") or "unknown") .. "-" .. realm]
 end
 
 local function knowsFlight(to)
@@ -1092,12 +1098,12 @@ function DruidKit_RouteSteps() return steps, pos end
 
 -- Automatic quest accept / hand-in ------------------------------------------------------------
 -- Accepts: quests in the route from the current step onward. Hand-ins: any quest in the route, also early ones.
--- Shift held = you do it yourself.
+-- Skipped and passed quests are left alone. Shift held = you do it yourself.
 local function wanted(kind, q, name)
   for i = (kind == "turnin" and 1 or math.max(1, pos - 3)), #steps do
     local st = steps[i]
     if st["do"] == kind and ((q and st.q == q) or (name and st.name == name and (not st.q or not q)))
-      and not (kind == "accept" and (DB.skipQ[st.q or st.name] or (st.q and DB.passedQ[st.q]))) then
+      and not (DB.skipQ[st.q or st.name] or (st.q and DB.passedQ[st.q])) then
       return st
     end
   end

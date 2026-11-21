@@ -19,9 +19,9 @@ Full behaviour, every command and what a tester can check: [docs/FEATURES.md](do
 | Step tracker (`Alt+N`, `/dk steps`) | Route window: one action at a time (accept, do, hand in, go, fly, train, learn a flight path, set the hearth), ticked off from quest, zone, trainer, flight and level events. An arrow you set yourself (`/way`, a pin, a map click, a guide **Go**) never ticks a step. The route's quests are accepted and handed in with the reward picked (hold Shift to do it yourself); skipped quests are left alone. Time and deaths per step are logged for the next re-plan. |
 | Route planner (`planner/`) | An LLM agent plans the route; a Python toolkit does the maths (hub ranking, stop order, clustering, group value, a simulator) and an eval loop scores plans. See [planner/README.md](planner/README.md). |
 | Guide (`Shift+J`, `Alt+1-8`, `/guide`) | Tabbed guide window with a jump bar and **Go** buttons that start the navigation arrow. Content is generated from JSON. |
-| Action bars (`/dk bars`) | Lays out caster, Bear, Cat and Prowl bars by how easy each key is to reach, with melee abilities as small `/startattack` macros. Binds G to Cat Form unless you chose a key with `/dk catkey`. `/dk load backup` restores the old bars and keys. New spells go onto their key when learned. |
+| Action bars (`/dk bars`) | Lays out caster, Bear, Cat and Prowl bars by how easy each key is to reach, with melee abilities as small `/startattack` macros. Binds G to Cat Form unless you chose a key with `/dk catkey`. `/dk load backup` restores the bars and keys from before your first `/dk bars`. New spells go onto their key when learned. |
 | Healing mode (`Alt+H`) | Swaps the caster bar and gear between questing and healing sets. |
-| Bag check (`Alt+B`) | Upgrades to equip, what to use, bank or sell, and a drop list with a confirmed **Destroy** that re-checks the slot. Quest items that look orphaned are only listed to check. At a vendor it sells junk, unusable gear, unused materials and worse bandages by itself (12 per visit at most, never potions, food or quest items) and repairs. |
+| Bag check (`Alt+B`) | Upgrades to equip, what to use, bank or sell, and a drop list with a confirmed **Destroy** that re-checks the slot. Quest items that look orphaned are only listed to check. At a vendor it sells junk, unusable gear, unused materials and worse bandages by itself (12 per visit at most, counting your own Sell clicks, never potions, food or quest items) and repairs. |
 | Bank check | Opens with the bank: what to take out and what to store, including gear for later levels and dungeon packing. |
 | Loot rolls | NEED / GREED / PASS advice that weighs your gear, the item's value and who in the party wears it; Greeds by itself on materials and items you can't use (`/dk autoroll off`). Full bags while looting: TAKE or SKIP per item. |
 | Navigation (`Alt+G`, `/way`) | On-screen arrow with yards and turn directions from a map click, a pin, a guide **Go** or `/way`. Route steps can chain waypoints; the arrow warns when you stop getting closer, and the path you walk is logged so the planner can turn it into waypoints. |
@@ -33,8 +33,8 @@ Full behaviour, every command and what a tester can check: [docs/FEATURES.md](do
 - **Taint-safe.** WoW protects action bars, key bindings and secure buttons in combat. Bar changes asked for in combat
   wait for combat to end and then run in order; key commands are refused until then. Nothing changes bars or keys at
   login, and every bar or key change ends with a prompt to reload the UI, so Blizzard frames keep working in combat.
-- **Safe with your items.** Destroy and Sell check the bag slot again at the moment they run; quest items, library books
-  and Waylaid Crates are never sold or destroyed; the vendor autopilot stops at what the Buyback tab can return.
+- **Safe with your items.** Destroy, Sell, Store and Take check the bag slot again at the moment they run; quest items, library books
+  and Waylaid Crates are never sold or destroyed; selling stops at what the Buyback tab can return (12 per vendor visit).
 - **Defensive against the client.** WoW Forever mixes classic and modern APIs (`C_Container`, `C_TradeSkillUI`,
   `C_Map`, interaction-manager events) and returns hidden ("secret") values in combat. Calls go through small wrappers
   that try both API generations and treat unreadable values as unknown.

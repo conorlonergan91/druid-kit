@@ -64,6 +64,23 @@ local function healthFrac(unit)
   end
 end
 
+local function knownSpell(name)
+  local id
+  if C_Spell and C_Spell.GetSpellInfo then
+    local info = try(C_Spell.GetSpellInfo, name)
+    id = type(info) == "table" and plain(info.spellID) or nil
+  end
+  if not id and GetSpellInfo then
+    local ok, _, _, _, _, _, _, gid = pcall(GetSpellInfo, name)
+    if ok then id = plain(gid) end
+  end
+  if not id then return false end
+  if C_SpellBook and C_SpellBook.IsSpellKnown then return try(C_SpellBook.IsSpellKnown, id) and true or false end
+  if IsPlayerSpell then return try(IsPlayerSpell, id) and true or false end
+  if IsSpellKnown then return try(IsSpellKnown, id) and true or false end
+  return true
+end
+
 local function auraByName(unit, name, filter)
   if C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName then
     return try(C_UnitAuras.GetAuraDataBySpellName, unit, name, filter)
@@ -152,7 +169,9 @@ local function makeFix(parent, spell, icon, letter, tip)
   return f
 end
 -- A hidden fix button must not take clicks. Secure frames can't change that in combat: done after combat.
+-- P, C and R are needed mid-fight, so all of them take clicks from the start of combat until it ends.
 local mouseLater = {}
+local combatFixes = {}
 local function setMouse(f, on)
   if f.mouseOn == on and mouseLater[f] == nil then return end
   if InCombatLockdown() then mouseLater[f] = on; return end
@@ -162,8 +181,17 @@ end
 local function applyMouseLater()
   for f, on in pairs(mouseLater) do mouseLater[f] = nil; f:EnableMouse(on); f.mouseOn = on end
 end
+local function combatReady()
+  if InCombatLockdown() then return end
+  for f in pairs(combatFixes) do mouseLater[f] = nil; f:EnableMouse(true); f.mouseOn = true end
+end
+local function afterCombat()
+  applyMouseLater()
+  for f in pairs(combatFixes) do setMouse(f, f.isOn == true) end
+end
 local function showFix(f, on, pulse)
-  setMouse(f, on and true or false)
+  f.isOn = on and true or false
+  setMouse(f, f.isOn or (combatFixes[f] ~= nil and InCombatLockdown()))
   if on then
     if pulse then if not f.pulse:IsPlaying() then f.pulse:Play() end
     elseif f.pulse:IsPlaying() then f.pulse:Stop() end
@@ -309,6 +337,7 @@ local function makeCard(i, unit)
   b.res:SetPoint("CENTER", b, "LEFT", 16 + PORTRAIT / 2, 0)
   b.res:SetAttribute("type", "macro")
   for _, f in ipairs({ b.motw, b.cureP, b.cureC, b.thorns, b.res }) do f:SetAttribute("unit", unit); f:SetFrameLevel(b:GetFrameLevel() + 8) end
+  for _, f in ipairs({ b.cureP, b.cureC, b.res }) do combatFixes[f] = true end
   b.res:SetAttribute("macrotext", ("/cast [@%s,combat] Rebirth; [@%s] Revive"):format(unit, unit))
 
   b:SetScript("OnEnter", function(s)
@@ -503,9 +532,9 @@ local function updateCard(b)
 
   local poison, curse = false, false
   part(function()
-    local knowsMotW = (C_Spell and C_Spell.GetSpellInfo and try(C_Spell.GetSpellInfo, "Mark of the Wild")) ~= nil
+    local knowsMotW = knownSpell("Mark of the Wild")
     showFix(b.motw, knowsMotW and not dead and not auraByName(unit, "Mark of the Wild", "HELPFUL") and not auraByName(unit, "Gift of the Wild", "HELPFUL"), false)
-    local knowsThorns = (C_Spell and C_Spell.GetSpellInfo and try(C_Spell.GetSpellInfo, "Thorns")) ~= nil
+    local knowsThorns = knownSpell("Thorns")
     local tanking = plain(try(UnitGroupRolesAssigned, unit)) == "TANK" or (plain(try(UnitThreatSituation, unit)) or 0) >= 2
     showFix(b.thorns, knowsThorns and tanking and not dead and not auraByName(unit, "Thorns", "HELPFUL"), false)
     showFix(b.res, dead and unit ~= "player", true)
@@ -681,6 +710,7 @@ local dirty = false
 local ev = CreateFrame("Frame")
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_POWER_UPDATE",
                      "UNIT_AURA", "UNIT_THREAT_SITUATION_UPDATE", "UNIT_PET", "PLAYER_TARGET_CHANGED", "PLAYER_REGEN_ENABLED",
+                     "PLAYER_REGEN_DISABLED",
                      "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED", "ACTIONBAR_SLOT_CHANGED", "SPELL_UPDATE_COOLDOWN",
                      "ACTIONBAR_UPDATE_COOLDOWN", "ACTIONBAR_UPDATE_USABLE" }) do
   pcall(ev.RegisterEvent, ev, e)
@@ -699,7 +729,8 @@ ev:SetScript("OnEvent", function(_, e, unit)
   end
   if not container then return end
   if e == "ACTIONBAR_SLOT_CHANGED" then slotsDirty = true end
-  if e == "PLAYER_REGEN_ENABLED" then applyMouseLater() end
+  if e == "PLAYER_REGEN_DISABLED" then combatReady() return end
+  if e == "PLAYER_REGEN_ENABLED" then afterCombat() end
   if e == "PLAYER_REGEN_ENABLED" or e == "ACTIONBAR_SLOT_CHANGED" or e == "PLAYER_ENTERING_WORLD" then
     if slotsDirty then applySlots() end
   end
