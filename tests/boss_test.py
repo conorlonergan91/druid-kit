@@ -28,6 +28,12 @@ ev.on_OnEvent(ev, "ENCOUNTER_END", 1234, "Saltspine", 1, 5, 0)   -- a wipe: no t
 DruidKit_StepsEvaluate(); R[5] = DruidKitDB.routeStep
 ev.on_OnEvent(ev, "ENCOUNTER_END", 1234, "Saltspine", 1, 5, 1)
 DruidKit_StepsEvaluate(); R[6] = DruidKitDB.routeStep
+-- no encounter event (not every boss has one): looting the dead boss as your target ticks it
+DruidKitDB.bossKilled = nil; DruidKitDB.routeStep = 2; DruidKit_StepsEvaluate()
+function UnitName(u) return u == "target" and "Saltspine" or "Me" end
+function UnitIsDead(u) return u == "target" end
+ev.on_OnEvent(ev, "LOOT_OPENED")
+DruidKit_StepsEvaluate(); R[7] = DruidKitDB.routeStep
 """)
 r = list(L.globals().R.values())
 print(r)
@@ -37,4 +43,9 @@ check(r[1] == 2 and "Boss:" in r[2] and "Saltspine" in r[2], "boss step has its 
 check(r[3].count("|cffff7040-|r") == 3, "boss step: the 3 tactic lines", r[3])
 check(r[4] == 2, "a wipe does not tick the boss", r[4])
 check(r[5] == 3, "the boss kill ticks the step", r[5])
+check(r[6] == 3, "looting the dead boss (your target) ticks the step", r[6])
+import re
+from wowenv import ROOT
+cleu = [f.name for f in (ROOT / "DruidKit").glob("*.lua") if re.search(r'RegisterEvent[^\n]*COMBAT_LOG_EVENT_UNFILTERED|"COMBAT_LOG_EVENT_UNFILTERED"', f.read_text())]
+check(not cleu, "no file registers the combat log (Forever blocks it: 'only available to the Blizzard UI')", cleu)
 done("boss_test")

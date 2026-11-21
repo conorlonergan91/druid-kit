@@ -1045,7 +1045,7 @@ for _, e in ipairs({ "PLAYER_LOGIN", "QUEST_LOG_UPDATE", "QUEST_ACCEPTED", "QUES
   "ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "ZONE_CHANGED_INDOORS", "PLAYER_LEVEL_UP", "TRAINER_CLOSED",
   "QUEST_DETAIL", "QUEST_PROGRESS", "QUEST_COMPLETE", "MERCHANT_SHOW", "GOSSIP_SHOW", "QUEST_GREETING", "PLAYER_DEAD",
   "TAXIMAP_OPENED", "CHAT_MSG_SYSTEM", "HEARTHSTONE_BOUND", "BAG_UPDATE_DELAYED", "ENCOUNTER_END", "BOSS_KILL",
-  "COMBAT_LOG_EVENT_UNFILTERED" }) do
+  "PLAYER_REGEN_ENABLED", "LOOT_OPENED", "PLAYER_TARGET_CHANGED" }) do
   pcall(ev.RegisterEvent, ev, e)
 end
 
@@ -1078,8 +1078,10 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     return
   end
   if not DB then return end
-  if e == "ENCOUNTER_END" or e == "BOSS_KILL" or e == "COMBAT_LOG_EVENT_UNFILTERED" then
-    -- a boss step ticks when that boss dies (encounter end, boss kill, or its death in the combat log)
+  if e == "ENCOUNTER_END" or e == "BOSS_KILL" or e == "PLAYER_REGEN_ENABLED" or e == "LOOT_OPENED"
+    or e == "PLAYER_TARGET_CHANGED" then
+    -- a boss step ticks when that boss dies: encounter end, boss kill, or the boss is your dead target after the
+    -- fight / when you loot it. (Forever blocks the combat log for addons: never register it.)
     local st = steps[pos]
     if not (st and st["do"] == "boss" and st.name) then return end
     local name
@@ -1089,8 +1091,8 @@ ev:SetScript("OnEvent", function(_, e, a1, ...)
     elseif e == "BOSS_KILL" then
       local n = ...; name = n
     else
-      local info = CombatLogGetCurrentEventInfo and { pcall(CombatLogGetCurrentEventInfo) }
-      if info and info[1] and info[3] == "UNIT_DIED" then name = info[10] end
+      local n = safe(UnitName, "target")
+      if n and not (issecretvalue and issecretvalue(n)) and safe(UnitIsDead, "target") == true then name = n end
     end
     if type(name) == "string" and not (issecretvalue and issecretvalue(name)) and name:lower() == st.name:lower() then
       DB.bossKilled = DB.bossKilled or {}
