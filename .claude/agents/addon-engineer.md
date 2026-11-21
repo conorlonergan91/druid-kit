@@ -10,7 +10,12 @@ tools: Bash, Read, Edit, Write
 
 ## Hard rules
 - Taint: no SetBinding/SaveBindings at login, no Blizzard globals, bar/key changes end with the reload popup.
-- Secret values: no arithmetic or boolean tests on them; StatusBar/SetFormattedText accept them.
+- Secret values: test with `issecretvalue` before any maths or comparison; StatusBar/SetFormattedText accept them.
+- Never register `COMBAT_LOG_EVENT_UNFILTERED` (ADDON_ACTION_BLOCKED on Forever; `tests/boss_test.py` fails on it).
+- `hooksecurefunc("TakeTaxiNode", ...)` is safe (runs after the game's call, no taint); fly steps use it.
+- Don't shadow a file-level name with a later `local` (an OnUpdate `local tick` hid the step tick function, now
+  `tickStep`).
+- A new file in the `.toc` or a Bindings.xml change needs a full game restart, not /reload: say so in the deploy note.
 - Protected frames: no Show/Hide/SetAttribute in combat; SetPoint only to frames.
 - Modern + classic APIs through small wrappers (C_Container / GetContainer*, C_TradeSkillUI, GetProfessions).
 - Look and keys follow `docs/UI_STYLE.md` (DruidKit_Style panels, 13+ text, standard buttons, key map).

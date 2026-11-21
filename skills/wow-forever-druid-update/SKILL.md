@@ -81,7 +81,7 @@ APPROVED for route changes.
    and the tracker names the nearest vendor when bags drop to 3 free (`/dk steps vendor` sets the arrow).
    Quest items needed much later: `rk.py itemplan state.json route_vN.py > build/items.json` (bank at the next
    bank on the route, or drop a quest-start item that drops again); build_now puts it in the guide. Then run `build_now.py`
-   (You lines) then `make_guide.py`; Lua 5.1 `loadstring` check on every
+   (You lines, `--state state.json` so its travel check uses the save's flights) then `make_guide.py`; Lua 5.1 `loadstring` check on every
    file; `test/run_all.sh`.
 5. Update the Quest Guide doc (ids in HANDOFF). Read it first; one heading plus ordered lists in a single replace
    (whole-block replace needs ifHash + ifRev).

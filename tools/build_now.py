@@ -1,6 +1,9 @@
 """Put the route into guide.json and rebuild the Now tab from it.
 
 Usage: python3 tools/build_now.py tools/example_route.py tools/example_guide.json "updated text" "You line" ...
+       [--state STATE.json] [--xp LEVEL XP DONE.json]
+
+--state (from tools/save_state.py) gives the travel check the save's hearth home and known flight paths.
 """
 
 import json
@@ -56,7 +59,7 @@ def line(n, st):
     return f"- {n}. {main}" + (f" {G}· {' '.join(extra)}{R}" if extra else "") + lv
 
 
-def main(route_path, guide_path, updated, you_lines, xp_from=None):
+def main(route_path, guide_path, updated, you_lines, xp_from=None, travel=None):
     route = load_route(route_path)
     if xp_from:
         # RULES v18: project level after every step (pessimistic quest + kill XP) and stop on level errors
@@ -116,7 +119,11 @@ def main(route_path, guide_path, updated, you_lines, xp_from=None):
     with open(guide_path, "w", encoding="utf-8") as f:
         json.dump(g, f, ensure_ascii=False, indent=1)
     print(f"{n} steps in {len(route['sections'])} sections")
-    errors, warnings = route_check.check(route)
+    if travel is None:
+        print("travel: checked WITHOUT the save's flights and home (no --state): 'no flight' errors may be false")
+        errors, warnings = route_check.check(route)
+    else:
+        errors, warnings = route_check.check(route, travel.get("home"), travel.get("flights") or [])
     for e in errors:
         print("travel: " + e)
     if warnings:
@@ -131,4 +138,9 @@ if __name__ == "__main__":
         level, xp, done_path = int(args[i + 1]), int(args[i + 2]), args[i + 3]
         xp_from = (level, xp, json.loads(Path(done_path).read_text(encoding="utf-8")))
         del args[i : i + 4]
-    main(args[0], args[1], args[2], args[3:], xp_from)
+    travel = None
+    if "--state" in args:
+        i = args.index("--state")
+        travel = json.loads(Path(args[i + 1]).read_text(encoding="utf-8")).get("travel") or {}
+        del args[i : i + 2]
+    main(args[0], args[1], args[2], args[3:], xp_from, travel)

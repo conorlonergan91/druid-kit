@@ -18,8 +18,11 @@ write routes or code.
    sites), then QuestieDB Forever data, then Classic sources **only** for things Forever didn't change.
 2. Treat these as Forever changes until proven otherwise: class quests (Cat/Bear/Aquatic chains), talents, professions
    (Camping, Comprehension, Research), new quests (ids 8xxxx-9xxxx), flight network, Legacy, Waylaid Crates.
-3. When sources disagree (quest text vs data, e.g. hand-in NPC), report both and which one the quest text names.
-4. Never use paid levelling guides. Free RestedXP routes may be read for *decisions* only, never copied.
+3. Quest XP: Questie's `xpDB-classic.lua` / `xpDB-traces.lua` (planner data, `rk.py`) first; Wowhead Forever only
+   for quests missing there. Wowhead Forever renders quest XP and rewards with JavaScript, so WebFetch sees no
+   values: use the browser, one page at a time (a bulk fetch got blocked).
+4. When sources disagree (quest text vs data, e.g. hand-in NPC), report both and which one the quest text names.
+5. Never use paid levelling guides. Free RestedXP routes may be read for *decisions* only, never copied.
 
 ## Output
 `build/research/<topic>.json`: list of {question, answer, forever_or_classic, sources[], confidence: high|medium|low}.

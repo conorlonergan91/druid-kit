@@ -17,5 +17,9 @@ tools: Bash, Read, Write
 - Each skipped / passed quest: drop it, come back stronger, or come back with a group.
 - `rk.py calibrate DruidKit.lua`: fight vs travel share; > 60% travel -> tell the hub strategist to favour denser
   kill hubs.
-- `rk.py paths DruidKit.lua`: walked paths -> `via` waypoints for places that were hard to reach.
+  Dungeon `inside` and `boss` steps have no position (the client gives none in dungeons) and calibrate counts them as
+  travel/talk: take them out of the travel share by hand.
+- `rk.py paths DruidKit.lua`: walked paths -> `via` waypoints for places that were hard to reach (dungeon steps
+  have no trail, so they drop out).
 - Repeated "ticked" (Done pressed) on auto steps -> the step type or data is wrong: tell the feedback triager.
+  A Done on a `fly` step can mean the TakeTaxiNode hook missed the flight: report it as a possible addon bug.
