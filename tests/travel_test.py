@@ -35,6 +35,9 @@ fire("PLAYER_LOGIN")
 R = {}
 DruidKit_StepsEvaluate()
 R[#R+1] = cur()                                  -- 1: fp step waits
+function NumTaxiNodes() return 1 end
+function TaxiNodeGetType() return "CURRENT" end
+function TaxiNodeName() return "Thelsamar, Loch Modan" end
 fire("TAXIMAP_OPENED")
 for _, t in ipairs(timers or {}) do pcall(t) end
 DruidKit_StepsEvaluate()

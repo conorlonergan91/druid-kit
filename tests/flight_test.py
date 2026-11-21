@@ -1,5 +1,7 @@
 """Fly steps tick when you take a flight to their town, not when you reach the flight master; a wrong town says so."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 
@@ -26,7 +28,7 @@ L.execute(r"""
 for _, f in ipairs(frames) do if f.events and f.events.QUEST_DETAIL then ev = f end end
 ev.on_OnEvent(ev, "PLAYER_LOGIN")
 DruidKit_ToggleSteps(true)
-DruidKit_OnArrive(); DruidKit_StepsEvaluate()
+DruidKit_OnArrive("x", "route"); DruidKit_StepsEvaluate()
 R = { DruidKitDB.routeStep }
 TakeTaxiNode(1); DruidKit_StepsEvaluate()
 R[2] = DruidKitDB.routeStep; R[3] = printed[#printed] or ""

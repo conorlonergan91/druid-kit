@@ -91,7 +91,7 @@ R[#R+1] = cur()                                        -- 5
 CURQ = 500; CURTITLE = "Named Only"; CHOICES = {}; fire("QUEST_COMPLETE"); fire("QUEST_TURNED_IN", 500)
 R[#R+1] = cur()                                        -- 6
 R[#R+1] = GOTO[#GOTO]                                  -- Redridge arrow
-DruidKit_OnArrive("x")
+DruidKit_OnArrive("x", "route")
 R[#R+1] = cur()                                        -- 7
 SHIFT = true; CURQ = 142; CURTITLE = "Messenger"; fire("QUEST_DETAIL"); SHIFT = false
 R[#R+1] = ACCEPTED                                     -- still 214: Shift held

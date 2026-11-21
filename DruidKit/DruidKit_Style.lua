@@ -12,6 +12,7 @@ local function newFrame(kind, name, parent, template)
   if ok and f then return f end
   return CreateFrame(kind, name, parent, "BasicFrameTemplateWithInset")
 end
+S.newFrame = newFrame
 
 -- A movable window with a scrolling list area. Returns the frame; f.list is where rows go.
 function S.window(name, title, icon, w, h)
