@@ -15,23 +15,29 @@ The pruned route gets a new id (default: old id + ".t<HHMM>") so the tracker sta
 still catches up by itself if the save moved on.
 """
 
-import importlib.util
 import json
 import pprint
 import sys
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "planner"))
+import rk  # noqa: E402
+from routeio import load_module  # noqa: E402
+
+TRAVEL_STEPS = ("note", "goto", "fly", "hearth", "train", "fp", "home", "level")
 
 
 def load(path):
-    spec = importlib.util.spec_from_file_location("route", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    mod = load_module(path)
     return mod.ROUTE, (mod.__doc__ or "").strip()
 
 
 def _same(a, b):
-    a, b = (a or "").lower(), (b or "").lower()
-    return bool(a and b) and (a in b or b in a)
+    ta, tb = rk.town_in(a), rk.town_in(b)
+    if ta or tb:
+        return ta == tb
+    return bool(a and b) and a.strip().lower() == b.strip().lower()
 
 
 def done_by_state(st, s):
@@ -67,9 +73,16 @@ def prune(route, s):
     for i, (_, st) in enumerate(flat):
         if keep[i] and done_by_state(st, s):
             keep[i] = False
-    last = max((i for i, (_, st) in enumerate(flat) if st.get("do") == "turnin" and not keep[i]), default=-1)
+    # Travel is behind the player only up to the last hand-in of the done run at the start of the route; a quest
+    # skipped or handed in out of order further on doesn't mean the walks before it were made.
+    last = -1
+    for i, (_, st) in enumerate(flat):
+        if keep[i] and st.get("do") not in TRAVEL_STEPS:
+            break
+        if not keep[i] and st.get("do") == "turnin":
+            last = i
     for i in range(last):
-        if flat[i][1].get("do") in ("note", "goto", "fly", "hearth", "train", "fp", "home", "level"):
+        if flat[i][1].get("do") in TRAVEL_STEPS:
             keep[i] = False
     out = {k: v for k, v in route.items() if k != "sections"}
     out["sections"] = []

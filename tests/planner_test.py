@@ -21,8 +21,10 @@ check(abs(rk.rank_factor(14, 9) - 1.15) < 1e-9, "3 missed ranks = 15% slower fig
 check(rk.rank_factor(30, 1) == 1 + rk.PENALTY_CAP, "slowdown is capped", rk.rank_factor(30, 1))
 check(rk.power_factor(14, 14, {6001}) < 1, "Bear Form makes fights faster", rk.power_factor(14, 14, {6001}))
 
-m, town = rk.train_trip(("Darkshore", 37.0, 44.0), 12)
+m, town = rk.train_trip(("Ashenvale", 36.6, 49.6), 12)
 check(town == "Nighthaven" and m <= 0.5, "from 10, Teleport: Moonglade is the cheapest trainer trip", (m, town))
+m, town = rk.train_trip(("Darkshore", 37.0, 44.0), 12)
+check(town == "Darnassus", "the way back from Moonglade counts: Darnassus is closer to Auberdine", (m, town))
 
 FAKE = {
     1: {"name": "A", "target_center": ("Darkshore", 40.0, 50.0)},
@@ -122,12 +124,25 @@ TR = {
     ]
 }
 err, warn = route_check.check(TR, home="Lakeshire", flights=["Nighthaven", "Rut'theran", "Auberdine"])
-check(any("no flight Nighthaven -> Auberdine" in e for e in err), "a flight that goes on past the druid-only Nighthaven flight is an error", err)
-TR2 = {"sections": [{"title": "T", "steps": [
-    {"do": "fly", "to": "Menethil Harbor", "where": "Stormwind flight master, Trade District gate"}]}]}
+check(
+    any("no flight Nighthaven -> Auberdine" in e for e in err),
+    "a flight that goes on past the druid-only Nighthaven flight is an error",
+    err,
+)
+TR2 = {
+    "sections": [
+        {
+            "title": "T",
+            "steps": [{"do": "fly", "to": "Menethil Harbor", "where": "Stormwind flight master, Trade District gate"}],
+        }
+    ]
+}
 err2, warn2 = route_check.check(TR2, home="Lakeshire", flights=["Stormwind", "Ironforge", "Menethil Harbor"])
-check(not err2 and any("through Stormwind -> Ironforge -> Menethil" in w for w in warn2),
-      "one flight Stormwind -> Menethil through Ironforge is fine (the game flies on)", (err2, warn2))
+check(
+    not err2 and any("through Stormwind -> Ironforge -> Menethil" in w for w in warn2),
+    "one flight Stormwind -> Menethil through Ironforge is fine (the game flies on)",
+    (err2, warn2),
+)
 check(any("transport step without how" in w for w in warn), "a boat step without directions is flagged", warn)
 # Item plan: quest items for quests the route won't do soon -> bank (bank on the way) or drop (starter that drops).
 saved_db = rk._DB
@@ -181,11 +196,24 @@ check(
     plan,
 )
 
-# RULES v13c: packed camps out, open beasts in
-import importlib, sys as _s
-_s.path.insert(0, str(HERE.parent / "planner")) if "HERE" in dir() else None
-import rk as _rk
-c20, c226 = _rk.crowd(20), _rk.crowd(226)
-check(c20 and c20["packs"] >= 2.0 and c20["runners"], "Blackrock camp counts as packs of fleeing humanoids", c20)
-check(c226 and c226["packs"] < 1.0 and not c226["runners"], "Duskwood wolves stand alone and don't flee", c226)
+# RULES v13c: packed camps out, open beasts in (fake zone: a camp of 4 and a lone wolf)
+rk._DB = {
+    "quests": {"1": {"objectives": {"1": [[10]]}}, "2": {"objectives": [[[20]]]}},
+    "npcs": {
+        "10": {
+            "name": "Blackrock Grunt",
+            "minLevel": 20,
+            "spawns": {"10": [[50, 50], [50.2, 50], [50, 50.2], [50.2, 50.2]]},
+        },
+        "20": {"name": "Starving Wolf", "minLevel": 20, "spawns": {"10": [[20, 20]]}},
+    },
+    "items": {},
+    "objects": {},
+}
+rk._ZIDX.clear()
+rk._CROWD.clear()
+camp, wolf = rk.crowd(1), rk.crowd(2)
+rk._DB = saved_db
+check(camp and camp["packs"] >= 2.0 and camp["runners"], "a Blackrock camp counts as packs of fleeing humanoids", camp)
+check(wolf and wolf["packs"] < 1.0 and not wolf["runners"], "a lone wolf stands alone and doesn't flee", wolf)
 done("planner_test")

@@ -15,38 +15,17 @@ Warnings:
   - a boat, tram, portal or zeppelin step without `how` (where to board, which ship, the wait, where it lands)
 """
 
-import importlib.util
-import json
 import math
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-TRAVEL_FILE = (
-    next(p for p in (HERE.parent / "planner", HERE.parent / "routekit", HERE) if (p / "travel.json").exists())
-    / "travel.json"
-)
-TRAVEL = json.loads(TRAVEL_FILE.read_text(encoding="utf-8"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "planner"))
+import rk  # noqa: E402
+from routeio import load_route  # noqa: E402
+
+TRAVEL = rk.TRAVEL
 NEAR_YD = 300
-
-
-def load(path):
-    spec = importlib.util.spec_from_file_location("route", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.ROUTE
-
-
-def town_of(text):
-    """The travel.json town a free-text place names ("Menethil Harbor", "Thelsamar, Loch Modan")."""
-    t = (text or "").lower().split(",")[0].strip()
-    if not t:
-        return None
-    for name in sorted(TRAVEL["towns"], key=len, reverse=True):
-        n = name.lower()
-        if n in t or t in n:
-            return name
-    return None
+town_of = rk.town_in
 
 
 def town_near(goto):
@@ -147,13 +126,20 @@ def check(route, home=None, flights=None):
                 hops = flight_hops(origin, dest) if origin and dest and origin != dest else None
                 if origin and dest and origin != dest and (not hops or len(hops) > 2):
                     chain = " -> ".join(hops) if hops else "none in planner/travel.json"
+
                     # The game flies on through known flight points by itself: pick the far town on the map.
                     # ...but not on a special one-way flight (Nighthaven's druid flight only goes to Rut'theran)
                     def regular(x, y):
-                        return any({e["a"], e["b"]} == {x, y} and e.get("how") == "flight" and not e.get("oneway")
-                                   for e in TRAVEL["edges"])
-                    via_known = hops and all(h in known for h in hops[1:-1]) and all(
-                        regular(hops[i], hops[i + 1]) for i in range(len(hops) - 1))
+                        return any(
+                            {e["a"], e["b"]} == {x, y} and e.get("how") == "flight" and not e.get("oneway")
+                            for e in TRAVEL["edges"]
+                        )
+
+                    via_known = (
+                        hops
+                        and all(h in known for h in hops[1:-1])
+                        and all(regular(hops[i], hops[i + 1]) for i in range(len(hops) - 1))
+                    )
                     if via_known:
                         warnings.append(f"{label}: one flight through {chain} (the game flies on by itself)")
                     else:
@@ -196,7 +182,7 @@ def check(route, home=None, flights=None):
 
 
 def main(argv):
-    route = load(argv[1])
+    route = load_route(argv[1])
     home = argv[argv.index("--home") + 1] if "--home" in argv else None
     flights = argv[argv.index("--flights") + 1].split(";") if "--flights" in argv else None
     errors, warnings = check(route, home, flights)

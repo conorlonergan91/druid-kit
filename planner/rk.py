@@ -6,8 +6,8 @@ Everything here is maths and data; the decisions stay with the planner.
 CLI (python3 rk.py <cmd> ...):
   quest ID...                         facts for quests: level, XP, giver/hand-in spots, objective spots, kills, prereqs
   available --level L [--done F]      quests a Night Elf Druid can take now (min level met, prereqs done), by zone
-  hubs --level L [--done F] [--party N]   XP per hour for every hub at that arrival level (band -4..+1, plus +2/+3 in
-                                       the current zone), with travel from --from TOWN
+  hubs --level L [--done F] [--party N]   XP per hour for every hub at that arrival level (band -4..+3: you grow
+                                       into a hub's higher quests), with travel from --from TOWN
   loop --zone Z --quests ID... [--from TOWN] [--level L] [--party N] [--accepted ID,ID]
                                        best order of stops (accept, objectives, hand-in) by travel-salesman with
                                        precedence; prints stops, yards walked, minutes, XP
@@ -15,6 +15,7 @@ CLI (python3 rk.py <cmd> ...):
   paths DruidKit.lua                   walked paths from the step log -> suggested via waypoints for routes
   calibrate DruidKit.lua               actual vs projected from the addon's step log: fight vs travel share
   cluster --quests ID... [--radius YD]  group quests whose objective areas are close; do each group in one visit
+  crowd ID...                          mobs packed round each quest's targets and whether they flee (RULES v13c)
   party --level L --quests ID...      which kill quests save the most time in a group (kills shared, drops per player)
   itemplan STATE.json ROUTE.py         quest items needed much later: bank (bank on the way) or drop (starter that
                                        drops again) -> build/items.json
@@ -26,7 +27,7 @@ Done file: JSON list of quest IDs already handed in.
 """
 
 import heapq
-import importlib.util
+import importlib
 import json
 import math
 import os
@@ -36,14 +37,26 @@ from functools import cache, lru_cache
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+TOOLS = os.path.join(os.path.dirname(HERE), "tools")
+DB_FILE = os.path.join(HERE, "db.json")
 _DB = None
 
 
 def db():
+    """planner/db.json, loaded once (build it with planner/load_db.py)."""
     global _DB
     if _DB is None:
-        _DB = json.loads(Path(HERE, "db.json").read_text(encoding="utf-8"))
+        if not os.path.exists(DB_FILE):
+            sys.exit(f"{DB_FILE} is missing: build it with planner/load_db.py (see planner/README.md)")
+        _DB = json.loads(Path(DB_FILE).read_text(encoding="utf-8"))
     return _DB
+
+
+def tool(name):
+    """A module from tools/ (route loader, save reader)."""
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    return importlib.import_module(name)
 
 
 TRAVEL = json.loads(Path(HERE, "travel.json").read_text(encoding="utf-8"))
@@ -52,6 +65,7 @@ TRAVEL = json.loads(Path(HERE, "travel.json").read_text(encoding="utf-8"))
 ZONE_YARDS = {k: tuple(v) for k, v in TRAVEL["zone_yards"].items()}
 ZONE_IDS = {int(k): v for k, v in TRAVEL["zone_ids"].items()}
 RUN_YPS = 7.0  # running speed, yards per second (no mount before 40)
+UNKNOWN_TRIP_MIN = 15.0  # a trip travel.json can't route (unknown start spot, no road without a flight)
 PATH_FACTOR = 1.35  # real paths bend round hills, water and walls (step logs: ~1.3-1.5x a straight line)
 NIGHTELF, DRUID = 8, 1024
 XP_TO_LEVEL = [
@@ -87,18 +101,48 @@ XP_TO_LEVEL = [
     46800,
     49800,
 ]  # 25+ approx
-QUEST_XP = {}
+# Forever quests not in Questie's XP tables yet: values from Wowhead Forever quest pages (checked 21 Nov).
+PUBLISHED_XP = {
+    95646: (31, 6150),
+    95772: (31, 6150),
+    95795: (31, 6150),
+    98824: (31, 6150),
+    95647: (31, 4900),
+    95809: (31, 6150),
+}
+QUESTIE_XP = {}
 
 
-def _load_quest_xp():
-    if QUEST_XP:
-        return
-    base = os.path.join(HERE, "data")
+def load_questie_xp():
+    """quest id -> (quest level, xp); the Forever traces file overrides the Classic file, like Questie does."""
+    if QUESTIE_XP:
+        return QUESTIE_XP
     for f in ("xpDB-classic.lua", "xpDB-traces.lua"):
-        p = os.path.join(base, f)
+        p = os.path.join(HERE, "data", f)
         if os.path.exists(p):
-            for m in re.finditer(r"\[(\d+)\]\s*=\s*\{(\d+),\s*(\d+)\}", Path(p).read_text(encoding="utf-8")):
-                QUEST_XP[int(m.group(1))] = int(m.group(3))
+            for m in re.finditer(r"\[(\d+)\]\s*=\s*\{(-?\d+),\s*(\d+)\}", Path(p).read_text(encoding="utf-8")):
+                QUESTIE_XP[int(m.group(1))] = (int(m.group(2)), int(m.group(3)))
+    return QUESTIE_XP
+
+
+def quest_xp_entry(qid):
+    """(quest level, xp) from Questie's tables, else the published Forever value, else None."""
+    return load_questie_xp().get(qid) or PUBLISHED_XP.get(qid)
+
+
+def questie_xp(xp, q_level, char_level):
+    """Questie's getAdjustedXP (QuestieXP.lua): full XP up to 5 levels above the quest, then -20% a level, 10% floor."""
+    mult = min(10, max(1, 2 * (q_level - char_level) + 20))
+    xp = xp * mult / 10
+    if xp <= 100:
+        xp = 5 * int((xp + 2) / 5)
+    elif xp <= 500:
+        xp = 10 * int((xp + 5) / 10)
+    elif xp <= 1000:
+        xp = 25 * int((xp + 12) / 25)
+    else:
+        xp = 50 * int((xp + 25) / 50)
+    return int(xp)
 
 
 # ---------------------------------------------------------------- places
@@ -201,6 +245,11 @@ def travel_route(a, b, flights=None):
 
 def travel_min(a, b, flights=None):
     """Minutes between two towns (Dijkstra over walks, boats, flights, portals)."""
+    return _travel_min(a, b, frozenset(flights) if flights is not None else None)
+
+
+@lru_cache(maxsize=4096)
+def _travel_min(a, b, flights):
     return travel_route(a, b, flights)[0]
 
 
@@ -213,8 +262,9 @@ def nearest_town(p):
     return best, bd
 
 
-def move_min(a, b):
-    """Minutes from point a to point b: run inside a zone, else run to a town, travel, run on."""
+def move_min(a, b, flights=None):
+    """Minutes from point a to point b: run inside a zone, else run to a town, travel, run on.
+    flights = known flight-path towns (None = all)."""
     d = yards(a, b)
     if d is not None:
         return d * PATH_FACTOR / RUN_YPS / 60
@@ -222,7 +272,14 @@ def move_min(a, b):
     tb, db_ = nearest_town(b)
     if ta is None or tb is None:
         return 15.0
-    return (da + db_) * PATH_FACTOR / RUN_YPS / 60 + travel_min(ta, tb)
+    return (da + db_) * PATH_FACTOR / RUN_YPS / 60 + trip_min(ta, tb, flights)
+
+
+def trip_min(a, b, flights=None):
+    """travel_min, but a trip travel.json can't make without unknown flight paths still has a cost: fly anyway,
+    plus UNKNOWN_TRIP_MIN."""
+    m = travel_min(a, b, flights)
+    return travel_min(a, b) + UNKNOWN_TRIP_MIN if math.isinf(m) else m
 
 
 # ---------------------------------------------------------------- quests
@@ -255,9 +312,12 @@ def _objectives(q):
     return res
 
 
-def _count_from_text(q):
+def _count_from_text(q, objectives=1):
+    """How many things the objectives text asks for: one number per objective, summed (largest if only one)."""
     nums = [int(n) for n in re.findall(r"\b(\d{1,2})\b", " ".join(q.get("objectivesText") or []))]
-    return max(nums) if nums else 0
+    if not nums:
+        return 0
+    return sum(nums[:objectives]) if objectives > 1 else max(nums)
 
 
 @lru_cache(maxsize=1)
@@ -268,7 +328,6 @@ def _classic_ids():
 
 @cache
 def quest(qid):
-    _load_quest_xp()
     q = db()["quests"].get(str(qid))
     if not q:
         return None
@@ -301,12 +360,15 @@ def quest(qid):
     if isinstance(te, list) and len(te) > 1 and isinstance(te[1], dict):
         for zid, pts in te[1].items():  # explore objectives: reach a spot
             targets.extend((zone_name(zid), float(p[0]), float(p[1])) for p in pts or [] if p and p[0] is not None)
-    count = _count_from_text(q)
+    n_kill, n_item = len(objs["creatures"]), len(objs["items"])
+    count = _count_from_text(q, n_kill + n_item)
+    kill_count = round(count * n_kill / (n_kill + n_item)) if count else 0
+    item_count = count - kill_count if count else 0
     kills = 0
     if objs["creatures"]:
-        kills += count or 8
+        kills += kill_count or 8
     if drops:
-        kills += int((count or 6) / 0.45)  # quest drops ~45% of the time
+        kills += int((item_count or 6) / 0.45)  # quest drops ~45% of the time
     elite = any((db()["npcs"].get(str(c)) or {}).get("rank", 0) in (1, 2, 3) for c in objs["creatures"])
     pre_all = q.get("preQuestGroup") or []
     pre_any = q.get("preQuestSingle") or []
@@ -331,8 +393,8 @@ def quest(qid):
         "mob_level": (sum(mob_levels) / len(mob_levels)) if mob_levels else None,
         "elite": elite,
         "drops": bool(drops),  # collect-from-kills quest (the player dislikes these: RULES v13)
-        "drop_count": (count or 6) if drops else 0,
-        "xp": QUEST_XP.get(int(qid), 0),
+        "drop_count": (item_count or 6) if drops else 0,
+        "xp": (quest_xp_entry(int(qid)) or (0, 0))[1],
         "pre_all": pre_all,
         "pre_any": pre_any,
         "exclusive": q.get("exclusiveTo") or [],
@@ -373,13 +435,7 @@ def prereqs_ok(q, done):
 
 # ---------------------------------------------------------------- XP and time
 def quest_xp(q, level):
-    xp = q["xp"] or 0
-    diff = level - q["level"]
-    if diff >= 10:
-        return int(xp * 0.1)
-    if diff >= 6:
-        return int(xp * (1 - 0.2 * (diff - 5)))
-    return xp
+    return questie_xp(q["xp"], q["level"] if q["level"] > 0 else level, level) if q["xp"] else 0
 
 
 def mob_xp(mob_level, level):
@@ -424,11 +480,38 @@ MAX_DROPS = 3
 # RULES v13c (player, 19 Nov: "fine when they're easy to pick out on their own and don't run away; the ones that
 # hang out together and murder you are annoying"): how crowded the target mobs stand, and whether they flee.
 SKIP_PACKS = True
-CROWD_MAX = 2.0     # average other mobs within CROWD_YARDS of a target spawn; camps are 2-9, open beasts under 1
+CROWD_MAX = 2.0  # average other mobs within CROWD_YARDS of a target spawn; camps are 2-9, open beasts under 1
 CROWD_YARDS = 15
-RUNNER_WORDS = ("gnoll", "kobold", "murloc", "blackrock", "defias", "ogre", "troll", "harpy", "centaur", "quilboar",
-                "trogg", "bandit", "smuggler", "thug", "cultist", "goblin", "dwarf", "tauren", "orc", "bluegill",
-                "mosshide", "shadowhide", "redridge", "riverpaw", "dragonmaw", "syndicate", "rogue", "pirate")
+RUNNER_WORDS = (
+    "gnoll",
+    "kobold",
+    "murloc",
+    "blackrock",
+    "defias",
+    "ogre",
+    "troll",
+    "harpy",
+    "centaur",
+    "quilboar",
+    "trogg",
+    "bandit",
+    "smuggler",
+    "thug",
+    "cultist",
+    "goblin",
+    "dwarf",
+    "tauren",
+    "orc",
+    "bluegill",
+    "mosshide",
+    "shadowhide",
+    "redridge",
+    "riverpaw",
+    "dragonmaw",
+    "syndicate",
+    "rogue",
+    "pirate",
+)
 _ZIDX, _CROWD = {}, {}
 
 
@@ -723,23 +806,25 @@ def party_savings(qids, level):
     return sorted(out, key=lambda r: -(r["xp_per_hour_group"] - r["xp_per_hour_solo"]))
 
 
+def step_log(saved_vars):
+    """The addon's step log from DruidKit SavedVariables, read as data (tools/save_state.py, no Lua runs)."""
+    ss = tool("save_state")
+    dk = ss.read_lua(saved_vars).get("DruidKitDB") or {}
+    return [e for e in ss.as_list(dk.get("stepLog")) if isinstance(e, dict)]
+
+
 def calibrate(saved_vars):
     """Actual vs projected from the addon's step log (DruidKit SavedVariables): fight vs travel time, est ratio."""
-    from lupa.lua51 import LuaRuntime
-
-    lua = LuaRuntime()
-    lua.execute(Path(saved_vars).read_text(encoding="utf-8"))
-    db_ = lua.globals().DruidKitDB
-    log = [db_.stepLog[i] for i in range(1, len(db_.stepLog) + 1)] if db_ and db_.stepLog else []
+    log = step_log(saved_vars)
     kinds, ratios = {}, []
     for e in log:
-        kind = "fight" if e["do"] == "complete" else "travel/talk"
+        kind = "fight" if e.get("do") == "complete" else "travel/talk"
         k = kinds.setdefault(kind, {"secs": 0, "xp": 0, "steps": 0})
-        k["secs"] += e.secs or 0
-        k["xp"] += e.xp or 0
+        k["secs"] += e.get("secs") or 0
+        k["xp"] += e.get("xp") or 0
         k["steps"] += 1
-        if e.est and e.secs:
-            ratios.append(e.secs / (e.est * 60))
+        if e.get("est") and e.get("secs"):
+            ratios.append(e["secs"] / (e["est"] * 60))
     total = sum(k["secs"] for k in kinds.values()) or 1
     for k in kinds.values():
         k["share"] = round(k["secs"] / total, 2)
@@ -772,17 +857,11 @@ def _simplify(pts, eps):
 def learned_paths(saved_vars, eps=0.012):
     """Walked paths from the addon's step log -> suggested `via` waypoints and how much longer than a straight
     line the real path was. Only steps where the walk bent noticeably are suggested."""
-    from lupa.lua51 import LuaRuntime
-
-    lua = LuaRuntime()
-    lua.execute(Path(saved_vars).read_text(encoding="utf-8"))
-    db_ = lua.globals().DruidKitDB
     out = []
-    for i in range(1, len(db_.stepLog) + 1 if db_ and db_.stepLog else 1):
-        e = db_.stepLog[i]
-        if not e.trail:
+    for e in step_log(saved_vars):
+        if not e.get("trail"):
             continue
-        pts = [p.split(":") for p in e.trail.split(";")]
+        pts = [p.split(":") for p in e["trail"].split(";")]
         mid = int(pts[-1][0])
         xy = [tuple(float(v) for v in p[1].split(",")) for p in pts if int(p[0]) == mid]
         if len(xy) < 3:
@@ -796,10 +875,10 @@ def learned_paths(saved_vars, eps=0.012):
         if ratio and ratio > 1.25 and corners:
             out.append(
                 {
-                    "step": e.i,
-                    "q": e.q,
-                    "name": e.name,
-                    "target": e.target,
+                    "step": e.get("i"),
+                    "q": e.get("q"),
+                    "name": e.get("name"),
+                    "target": e.get("target"),
                     "path_factor": round(ratio, 2),
                     "via": [[mid, round(x * 100, 1), round(y * 100, 1)] for x, y in corners[:6]],
                 }
@@ -861,21 +940,27 @@ def power_factor(level, trained, forms):
     return f
 
 
-def train_trip(cur, level):
-    """Cheapest trainer from where you stand: (minutes there, town). Teleport: Moonglade from 10."""
+def train_trip(cur, level, flights=None):
+    """Cheapest trainer from where you stand, there and back: (minutes there, town). Teleport: Moonglade from 10
+    is quick there but the way back is a flight and more. Unknown spot: (UNKNOWN_TRIP_MIN, None)."""
     here, _ = nearest_town(cur) if cur else (None, 0)
-    best = (1e9, None)
+    if here is None:
+        return UNKNOWN_TRIP_MIN, None
+    best = (1e9, 1e9, None)
     for t in TRAINER_TOWNS:
         if t == "Nighthaven" and level < 10:
             continue
-        m = 0.0 if here == t else (travel_min(here, t) if here else 0.0)
-        if t == "Nighthaven" and level >= 10:
-            m = min(m, 0.5)  # Teleport: Moonglade (10s cast + load)
-        best = min(best, (m, t))
-    return best
+        if here == t:
+            there, back = 0.0, 0.0
+        else:
+            there, back = trip_min(here, t, flights), trip_min(t, here, flights)
+        if t == "Nighthaven":
+            there = min(there, 0.5)  # Teleport: Moonglade (10s cast + load)
+        best = min(best, (there + back, there, t))
+    return best[1], best[2]
 
 
-def _town_in(text):
+def town_in(text):
     """The town named in a piece of text (longest name first, so 'Stormwind' doesn't eat 'Stormwind City')."""
     t = (text or "").lower()
     for n in sorted(towns(), key=len, reverse=True):
@@ -896,9 +981,10 @@ def simulate(plan, trace=False):
     mins = []
     start = plan.get("start") or {}
     levels, trained, forms, visits, penalty_min, rank_lag = [], 1, set(), 0, 0.0, []
-    home = _town_in(start.get("home")) if start.get("home") else None
-    known = {n for n in (_town_in(f) for f in start.get("flights", [])) if n}
+    home = town_in(start.get("home")) if start.get("home") else None
+    known = {n for n in (town_in(f) for f in start.get("flights", [])) if n}
     known |= {n for n, v in towns().items() if v.get("always_known")}
+    flights = known if "flights" in start else None  # no flights in the plan: assume every flight path
     visited_fm, learned, last_hearth = {}, [], None
     cd = TRAVEL.get("hearth_cooldown_min", 60)
     done, accepted = set(start.get("done", [])), set(start.get("accepted", []))
@@ -906,7 +992,7 @@ def simulate(plan, trace=False):
     if start.get("level"):
         total = xp_at(float(start["level"]))
     if start.get("at"):
-        t = towns().get(_town_in(start["at"]) or "")
+        t = towns().get(town_in(start["at"]) or "")
         cur = (t["zone"], t["x"], t["y"]) if t else None
     for i, e in enumerate(plan["events"]):
         here = _town_at(cur)
@@ -917,6 +1003,8 @@ def simulate(plan, trace=False):
         levels.append(round(lvl, 2))
         mins.append(minutes)
         q = quest(qid) if qid else None
+        if qid and q is None and k in ("accept", "turnin"):
+            problems.append(f"#{i} {k} {qid}: no such quest in the data")
         if k == "accept" and q:
             if q["min"] > lvl + 0.01:
                 problems.append(f"#{i} accept {qid} {q['name']} needs {q['min']}, you are {lvl:.1f}")
@@ -924,7 +1012,7 @@ def simulate(plan, trace=False):
                 problems.append(f"#{i} accept {qid} {q['name']} before its prerequisites")
             accepted.add(qid)
             if q["start"]:
-                minutes += move_min(cur, q["start"][0]) if cur else 0
+                minutes += move_min(cur, q["start"][0], flights) if cur else 0
                 cur = q["start"][0]
         elif k == "turnin" and q:
             if qid not in accepted and q["start"]:
@@ -932,12 +1020,12 @@ def simulate(plan, trace=False):
             if q["target_center"]:
                 pf = power_factor(lvl, trained, forms)
                 qm = quest_minutes(q, lvl)
-                minutes += (move_min(cur, q["target_center"]) if cur else 0) + qm * pf
+                minutes += (move_min(cur, q["target_center"], flights) if cur else 0) + qm * pf
                 penalty_min += qm * pf * (1 - 1 / rank_factor(lvl, trained))
                 cur = q["target_center"]
                 total += kill_xp(q, lvl)
             if q["end"]:
-                minutes += move_min(cur, q["end"][0]) if cur else 0
+                minutes += move_min(cur, q["end"][0], flights) if cur else 0
                 cur = q["end"][0]
             total += quest_xp(q, lvl)
             done.add(qid)
@@ -951,45 +1039,47 @@ def simulate(plan, trace=False):
             penalty_min += need / grind_xp_per_min(lvl) * pf * (1 - 1 / rank_factor(lvl, trained))
             total += need
         elif k == "train":
-            m, town = train_trip(cur, lvl)
-            if cur and m > 0.6:
+            m, town = train_trip(cur, lvl, flights)
+            minutes += m + 1.0
+            if town:
                 t = towns()[town]
-                minutes += m
                 cur = (t["zone"], t["x"], t["y"])
-            minutes += 1.0
             visits += 1
             rank_lag.append(missed_ranks(lvl, trained))
             trained = int(lvl)
         elif k == "home":
-            town = _town_in(e.get("at") or e.get("text"))
+            town = town_in(e.get("at") or e.get("text"))
             if town and cur and _town_at(cur) not in (None, town):
                 problems.append(f"#{i} set hearth to {town} while you are in {_town_at(cur)}: go there first")
             home = town or home
         elif k == "fp":
-            town = _town_in(e.get("at") or e.get("text"))
+            town = town_in(e.get("at") or e.get("text"))
             if town and not towns()[town].get("fm"):
                 problems.append(f"#{i} {town} has no flight master in the travel data")
             if town and town not in known:
                 known.add(town)
                 learned.append(town)
                 t = towns()[town]
-                minutes += (move_min(cur, (t["zone"], t["x"], t["y"])) if cur else 0) + 0.5
+                minutes += (move_min(cur, (t["zone"], t["x"], t["y"]), flights) if cur else 0) + 0.5
                 cur = (t["zone"], t["x"], t["y"])
         elif k == "travel":
             txt = (e.get("text") or "").lower()
-            if "fly" in txt or "flight" in txt:
-                dest = _town_in(txt.split(" to ", 1)[1] if " to " in txt else txt)
-                if dest and towns()[dest].get("fm") and dest not in known:
-                    problems.append(
-                        f"#{i} flight to {dest} before its flight path is learned (add an fp event "
-                        "when you first walk there, or walk/boat instead)"
-                    )
+            dest = town_in(e.get("at") or (txt.split(" to ", 1)[1] if " to " in txt else txt))
+            if dest and ("fly" in txt or "flight" in txt) and towns()[dest].get("fm") and dest not in known:
+                problems.append(
+                    f"#{i} flight to {dest} before its flight path is learned (add an fp event "
+                    "when you first walk there, or walk/boat instead)"
+                )
+            if dest:
+                t = towns()[dest]
+                minutes += move_min(cur, (t["zone"], t["x"], t["y"]), flights) if cur else 0
+                cur = (t["zone"], t["x"], t["y"])
         elif k == "hearth":
             minutes += 0.3
             if not home:
                 problems.append(f"#{i} hearth with no hearthstone set: add a home event in the town you'll return to")
-            elif _town_in(e.get("text")) not in (None, home):
-                problems.append(f"#{i} hearth to {_town_in(e.get('text'))}, but the hearthstone is set to {home}")
+            elif town_in(e.get("text")) not in (None, home):
+                problems.append(f"#{i} hearth to {town_in(e.get('text'))}, but the hearthstone is set to {home}")
             if last_hearth is not None and minutes - last_hearth < cd:
                 problems.append(f"#{i} hearth on cooldown ({minutes - last_hearth:.0f} of {cd} min since the last one)")
             last_hearth = minutes
@@ -1015,7 +1105,7 @@ def simulate(plan, trace=False):
             ]
         )[:30],
     }
-    reach = next((m for lv_, m in zip(levels, mins, strict=True) if lv_ >= 20), None)
+    reach = next((m for lv_, m in zip(levels + [level_of(total)], mins + [minutes], strict=True) if lv_ >= 20), None)
     out["hours_to_20"] = round(reach / 60, 1) if reach is not None else None
     if trace:
         out["levels"] = levels
@@ -1025,7 +1115,7 @@ def simulate(plan, trace=False):
 BANK_ZONES = {"Stormwind City", "Ironforge", "Darnassus"}
 
 
-def item_plan(state, route, soon=20, bank_within=30):
+def item_plan(state, route, bank_within=30):
     """Quest items in the bags that the route won't need for a while: bank them if a bank is on the way, or drop a
     quest-start item that drops again (when its quest isn't in the route). -> {item name: {action, why}}."""
     d = db()
@@ -1034,13 +1124,8 @@ def item_plan(state, route, soon=20, bank_within=30):
     flat = [st for sec in route["sections"] for st in sec["steps"]]
     by_item = {}
     for qid, q in d["quests"].items():
-        src = q.get("sourceItemId")
-        if src:
-            by_item.setdefault(int(src), set()).add(int(qid))
-        for group in (q.get("objectives") or {}).values() if isinstance(q.get("objectives"), dict) else []:
-            for o in group or []:
-                if isinstance(o, list) and o and isinstance(o[0], int):
-                    by_item.setdefault(o[0], set()).add(int(qid))
+        for iid in ([q["sourceItemId"]] if q.get("sourceItemId") else []) + _objectives(q)["items"]:
+            by_item.setdefault(int(iid), set()).add(int(qid))
     bank = next(
         (
             (i, st["goto"][0])
@@ -1062,19 +1147,16 @@ def item_plan(state, route, soon=20, bank_within=30):
             continue
         q = live[0]
         title = (d["quests"].get(str(q)) or {}).get("name", f"quest {q}")
-        ahead = next((i for i, st in enumerate(flat) if st.get("q") == q), None)
-        if ahead is not None:
+        if any(st.get("q") == q for st in flat):
             continue  # the route does this quest: keep it in the bags
-        when = f"about {ahead} steps away" if ahead is not None else "not in your current route"
-        # Only bank what the current route won't ask for: a bank is passed before the quest comes up again.
-        can_bank = bank and ahead is None
+        when = "not in your current route"
         sources = [((d["objects"].get(str(o)) or {}).get("name") or "") for o in item.get("objectDrops") or []]
         sources += [((d["npcs"].get(str(n)) or {}).get("name") or "") for n in item.get("npcDrops") or []]
         sources = [x for x in dict.fromkeys(sources) if x][:2]
-        if start == q and q not in log and sources and ahead is None:
+        if start == q and q not in log and sources:
             from_ = " and ".join(sources)
             out[name] = {"action": "drop", "why": f"starts {title} ({when}); it drops again from {from_}"}
-        elif can_bank:
+        elif bank:
             out[name] = {
                 "action": "bank",
                 "why": f"needed later for {title} ({when}); bank it in {bank[1]} (in about {bank[0]} steps)",
@@ -1198,10 +1280,10 @@ def main(argv):
             print(json.dumps(r, ensure_ascii=False))
     elif cmd == "itemplan":
         state = json.loads(Path(args[0]).read_text(encoding="utf-8"))
-        spec = importlib.util.spec_from_file_location("route", args[1])
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        print(json.dumps(item_plan(state, mod.ROUTE), ensure_ascii=False, indent=1))
+        print(json.dumps(item_plan(state, tool("routeio").load_route(args[1])), ensure_ascii=False, indent=1))
+    elif cmd == "crowd":
+        for a in args:
+            print(json.dumps({"q": int(a), "crowd": crowd(int(a))}))
     elif cmd == "vendors":
         print(
             json.dumps(

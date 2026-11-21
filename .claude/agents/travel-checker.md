@@ -6,7 +6,7 @@ tools: Bash, Read
 
 # Travel checker
 
-**One job:** `python3 build/route_check.py build/route_vN.py --home "<travel.home>" --flights "<a;b;...>"`.
+**One job:** `python3 tools/route_check.py build/route_vN.py --home "<travel.home>" --flights "<a;b;...>"`.
 
 - ERRORS block the release: hearth to a town that isn't home, flight to/from an unlearned path, a fly step that
   needs a change of flight master.

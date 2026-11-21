@@ -10,7 +10,7 @@ planner/
   rk.py           CLI: quest facts, hub ranking, stop ordering (TSP), clustering, party value, plan simulation
   load_db.py      builds db.json + data/ from a QuestieDB clone (not committed: GPLv3 data)
   travel.json     towns, boats, flights, portals with minutes; zone sizes in yards (hand-made estimates)
-  RULES.md        the planning rules the agent follows (v8)
+  RULES.md        the planning rules the agent follows (v1-v19, one section per version)
   TASK.md         the planner agent's task and output format
   AGENT.md        the agents (one job each, defined in ../.claude/agents/), flows, hand-off files and gates
   ROUTING.md      routing decisions distilled from studying good routes (no route text copied)
@@ -38,6 +38,7 @@ report (custom Forever quests, real NPC and object spots). About 5,900 quests.
 | `hubs --level L --from TOWN --current ZONE --done F` | XP/hour per hub over your stay (-4..+3 levels), trip time included, plus a grind baseline and `opens_at_level` |
 | `loop --zone Z --from TOWN --level L --quests ...` | stop order: nearest neighbour + 2-opt with accept-before-do-before-hand-in precedence |
 | `cluster --quests ... [--radius YD]` | objective areas close enough for one outing |
+| `crowd ID...` | mobs packed round a quest's targets and whether they flee (RULES v13c) |
 | `party --level L --quests ...` | where grouping pays (kills shared, mob XP split) |
 | `travel A B` | minutes between towns (Dijkstra over runs, boats, flights, Teleport: Moonglade) |
 | `sim plan.json` | replays a plan: level reached, hours, hours to 20, trainer visits, missed spell ranks, forms, problems |

@@ -72,7 +72,7 @@ def binds(events):
     out = set()
     for e in events:
         if e.get("kind") == "home":
-            t = (e.get("text") or e.get("place") or "").lower()
+            t = " ".join(str(e.get(k) or "") for k in ("at", "text", "place")).lower()
             for place in (
                 "dolanaar",
                 "auberdine",
