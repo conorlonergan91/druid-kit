@@ -110,7 +110,6 @@ local BINDINGS = {
   { key = "SHIFT-8", action = "MULTIACTIONBAR1BUTTON10" },
   { key = "SHIFT-F", action = "MULTIACTIONBAR2BUTTON1" },
   { key = "F",       action = "SHAPESHIFTBUTTON1" },   -- Bear Form
-  { key = "G",       action = "SHAPESHIFTBUTTON3" },   -- Cat Form, once learned at 20
 }
 
 -- ---------------------------------------------------------------------------
@@ -210,7 +209,9 @@ local function captureBars()
   local layout = {}
   for _, slot in ipairs(SLOTS) do
     local kind, id = getActionInfo(slot)
-    if kind then layout[slot] = { kind = kind, id = id } end
+    if kind then
+      layout[slot] = { kind = kind, id = id, name = kind == "macro" and GetMacroInfo and safe(GetMacroInfo, id) or nil }
+    end
   end
   return layout
 end
@@ -227,7 +228,9 @@ local function restoreBars(layout)
       elseif a.kind == "item" then
         ok = pickupItem(a.id)
       elseif a.kind == "macro" then
-        safe(PickupMacro, a.id); ok = GetCursorInfo() ~= nil
+        local idx = a.id
+        if a.name then idx = GetMacroIndexByName and safe(GetMacroIndexByName, a.name) or 0 end
+        if idx and idx ~= 0 then safe(PickupMacro, idx); ok = GetCursorInfo() ~= nil end
       end
       if ok then place(slot); placed = placed + 1 else ClearCursor() end
     else
@@ -240,14 +243,41 @@ end
 -- ---------------------------------------------------------------------------
 -- Run things out of combat only
 -- ---------------------------------------------------------------------------
-local pending
+local pending = {}
+local function defer(fn, key)
+  key = key or fn
+  for _, p in ipairs(pending) do if p.key == key then return false end end
+  table.insert(pending, { key = key, fn = fn })
+  return true
+end
+local function runPending()
+  local list = pending
+  pending = {}
+  for _, p in ipairs(list) do
+    local ok, err = pcall(p.fn)
+    if not ok and geterrorhandler then geterrorhandler()(err) end
+  end
+end
 local function outOfCombat(fn, label)
   if InCombatLockdown() then
-    pending = fn
-    say(label .. " will run when combat ends.")
+    if defer(fn, label) then say(label .. " will run when combat ends.") end
   else
     fn()
   end
+end
+
+-- Key bindings the layout takes, with what they were before, so /dk load backup can put them back.
+local function captureKeys(keys)
+  local old = {}
+  for _, k in ipairs(keys) do old[k] = (GetBindingAction and safe(GetBindingAction, k)) or "" end
+  return old
+end
+local function restoreKeys(old)
+  if not old then return end
+  for k, a in pairs(old) do
+    if a == "" then safe(SetBinding, k) else safe(SetBinding, k, a) end
+  end
+  safe(SaveBindings, GetCurrentBindingSet and GetCurrentBindingSet() or 1)
 end
 
 -- Changing action bars (or key bindings) from addon code "taints" Blizzard's action bars for the
@@ -295,7 +325,13 @@ local function applyGuideLayout()
       if not seen then table.insert(skipped, e.spell) end
     end
   end
+  local keys = {}
+  for _, b in ipairs(BINDINGS) do table.insert(keys, b.key) end
+  local catKey = not DruidKitDB.catKeySet and SetBindingSpell and isKnown("Cat Form")
+  if catKey then table.insert(keys, "G") end
+  DruidKitDB.layouts.backup.keys = captureKeys(keys)
   for _, b in ipairs(BINDINGS) do safe(SetBinding, b.key, b.action) end
+  if catKey and safe(SetBindingSpell, "G", "Cat Form") ~= false then DruidKitDB.catKeySet = "G" end
   local set = GetCurrentBindingSet and GetCurrentBindingSet() or 1
   safe(SaveBindings, set)
   say(("bars set: %d placed, keys bound. Empty until you learn them: %s."):format(placed, #skipped > 0 and table.concat(skipped, ", ") or "none"))
@@ -342,7 +378,7 @@ end
 local fillEmptySlots
 
 local function addNewSpells()
-  if InCombatLockdown() then pending = addNewSpells; return end
+  if InCombatLockdown() then defer(addNewSpells); return end
   if GetShapeshiftForm and GetShapeshiftForm() ~= 0 then return end  -- spell lists change in forms; only check in caster form
   local now = knownLayoutSpells()
   local before = DruidKitDB.knownSpells
@@ -429,14 +465,17 @@ local function fillLearned(layout)
   local n = 0
   for _, e in ipairs(layout) do
     if e.spell and not hasAction(e.slot) and isKnown(e.spell) then
-      if pickupSpell(e.spell) then place(e.slot); n = n + 1 else ClearCursor() end
+      if pickupEntry(e) then place(e.slot); n = n + 1 else ClearCursor() end
     end
   end
   return n
 end
 
 local function switchMode(mode)
-  if InCombatLockdown() then pending = function() switchMode(mode) end; say("switching after combat."); return end
+  if InCombatLockdown() then
+    if defer(function() switchMode(mode) end, "mode " .. mode) then say("switching after combat.") end
+    return
+  end
   DruidKitDB.layouts = DruidKitDB.layouts or {}
   local cur = DruidKitDB.barMode or "quest"
   if cur == mode then
@@ -493,15 +532,19 @@ herbButton:HookScript("OnClick", function(self)
   C_Timer.After(0.5, function() if not InCombatLockdown() then self:Hide() end end)
 end)
 
+local function hideHerbButton()
+  if InCombatLockdown() then defer(hideHerbButton) else herbButton:Hide() end
+end
+
 local function herbsOn()
   if not isKnown("Find Herbs") then return end
   local idx, active = findHerbsTrackingIndex()
-  if active then herbButton:Hide(); return end
+  if active then hideHerbButton(); return end
   if idx and C_Minimap.SetTracking then safe(C_Minimap.SetTracking, idx, true) end
   C_Timer.After(1, function()
     local _, nowActive = findHerbsTrackingIndex()
     if nowActive then
-      herbButton:Hide()
+      hideHerbButton()
       say("Find Herbs is back on.")
     elseif not InCombatLockdown() then
       herbButton:Show()
@@ -531,7 +574,7 @@ ev:SetScript("OnEvent", function(_, event, arg1)
     DruidKitDB = DruidKitDB or {}
     DruidKitDB.layouts = DruidKitDB.layouts or {}
   elseif event == "PLAYER_REGEN_ENABLED" then
-    if pending then local fn = pending; pending = nil; fn() end
+    runPending()
     if reloadPending then askReload() end
   elseif event == "LEARNED_SPELL_IN_TAB" or event == "LEARNED_SPELL_IN_SKILL_LINE" then
     if DruidKitDB then queueSpellCheck() end
@@ -576,7 +619,11 @@ SlashCmdList["DRUIDKIT"] = function(msg)
   elseif cmd == "load" and rest ~= "" then
     local l = DruidKitDB.layouts[rest]
     if not l then say("no layout called '" .. rest .. "'. Type /dk list."); return end
-    outOfCombat(function() say(("loaded '%s' (%d buttons)."):format(rest, restoreBars(l))); askReload() end, "Loading '" .. rest .. "'")
+    outOfCombat(function()
+      say(("loaded '%s' (%d buttons)."):format(rest, restoreBars(l)))
+      restoreKeys(l.keys)
+      askReload()
+    end, "Loading '" .. rest .. "'")
   elseif cmd == "list" then
     local names = {}
     for k in pairs(DruidKitDB.layouts) do table.insert(names, k) end
@@ -649,10 +696,8 @@ local function layoutParts(f)
   f.content:SetHeight(total + 24)
 end
 
-local function newFrame(kind, name, parent, template)
-  local ok, f = pcall(CreateFrame, kind, name, parent, template)
-  if ok and f then return f end
-  return CreateFrame(kind, name, parent, "BasicFrameTemplateWithInset")
+local function newFrame(...)
+  return (DruidKitStyle and DruidKitStyle.newFrame or CreateFrame)(...)
 end
 
 local function styleTab(b, selected)
@@ -777,38 +822,47 @@ local function layoutTabs(f)
   end
 end
 
+local function tabButton(f, i)
+  local b = CreateFrame("Button", nil, f.tabBar)
+  b.bg = b:CreateTexture(nil, "BACKGROUND"); b.bg:SetAllPoints()
+  b.edge = b:CreateTexture(nil, "BORDER")
+  b.edge:SetPoint("TOPLEFT", -1, 1); b.edge:SetPoint("BOTTOMRIGHT", 1, -1)
+  b.edge:SetColorTexture(1, 0.49, 0.04, 0.25)
+  b.bg:SetDrawLayer("BACKGROUND", 1); b.edge:SetDrawLayer("BACKGROUND", 0)
+  b.line = b:CreateTexture(nil, "ARTWORK")
+  b.line:SetHeight(2); b.line:SetPoint("BOTTOMLEFT", 0, 0); b.line:SetPoint("BOTTOMRIGHT", 0, 0)
+  b.line:SetColorTexture(1, 0.49, 0.04, 1)
+  local hl = b:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(0.5, 0.83, 0.36, 0.15)
+  b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  b.label:SetPoint("LEFT", 1, 0); b.label:SetPoint("RIGHT", -1, 0)
+  b.label:SetWordWrap(false)
+  b:SetScript("OnClick", function()
+    selectTab(f, i)
+    if PlaySound and SOUNDKIT then pcall(PlaySound, SOUNDKIT.IG_CHARACTER_INFO_TAB) end
+  end)
+  b:SetScript("OnEnter", function(s)
+    GameTooltip:SetOwner(s, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine(s.tabName or "", 1, 0.82, 0)
+    GameTooltip:AddLine("Alt+" .. i, 0.7, 0.7, 0.7)
+    GameTooltip:Show()
+  end)
+  b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  return b
+end
+
 local function buildTabs(f)
-  for _, b in ipairs(f.tabButtons or {}) do b:Hide() end
+  f.tabPool = f.tabPool or {}
   f.tabButtons = {}
   local tabs = guideTabs()
   for i, t in ipairs(tabs) do
-    local b = CreateFrame("Button", nil, f.tabBar)
-    b.bg = b:CreateTexture(nil, "BACKGROUND"); b.bg:SetAllPoints()
-    b.edge = b:CreateTexture(nil, "BORDER")
-    b.edge:SetPoint("TOPLEFT", -1, 1); b.edge:SetPoint("BOTTOMRIGHT", 1, -1)
-    b.edge:SetColorTexture(1, 0.49, 0.04, 0.25)
-    b.bg:SetDrawLayer("BACKGROUND", 1); b.edge:SetDrawLayer("BACKGROUND", 0)
-    b.line = b:CreateTexture(nil, "ARTWORK")
-    b.line:SetHeight(2); b.line:SetPoint("BOTTOMLEFT", 0, 0); b.line:SetPoint("BOTTOMRIGHT", 0, 0)
-    b.line:SetColorTexture(1, 0.49, 0.04, 1)
-    local hl = b:CreateTexture(nil, "HIGHLIGHT"); hl:SetAllPoints(); hl:SetColorTexture(0.5, 0.83, 0.36, 0.15)
-    b.label = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    b.label:SetPoint("LEFT", 1, 0); b.label:SetPoint("RIGHT", -1, 0)
-    b.label:SetText(t.name); b.label:SetWordWrap(false)
-    b:SetScript("OnClick", function()
-      selectTab(f, i)
-      if PlaySound and SOUNDKIT then pcall(PlaySound, SOUNDKIT.IG_CHARACTER_INFO_TAB) end
-    end)
-    b:SetScript("OnEnter", function(s)
-      GameTooltip:SetOwner(s, "ANCHOR_BOTTOM")
-      GameTooltip:AddLine(t.name, 1, 0.82, 0)
-      GameTooltip:AddLine("Alt+" .. i, 0.7, 0.7, 0.7)
-      GameTooltip:Show()
-    end)
-    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    local b = f.tabPool[i] or tabButton(f, i)
+    f.tabPool[i] = b
+    b.tabName = t.name
+    b.label:SetText(t.name)
     b:Show()
     f.tabButtons[i] = b
   end
+  for i = #tabs + 1, #f.tabPool do f.tabPool[i]:Hide() end
   layoutTabs(f)
 end
 

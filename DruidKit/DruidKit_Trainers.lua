@@ -339,7 +339,7 @@ local function updateMinimap()
         if p.cont == inst and p.wa then
           local north, west = p.wa - pa, p.wb - pb
           local dx, dy = -west * scale, north * scale
-          if rotate then dx, dy = dx * cs - dy * sn, dx * sn + dy * cs end
+          if rotate then dx, dy = dx * cs + dy * sn, -dx * sn + dy * cs end
           if dx * dx + dy * dy <= radius * radius then
             used = used + 1
             local f = mmPin(used)
@@ -586,15 +586,28 @@ local function vecXY(v)
   a, b = a or v.x, b or v.y
   if type(a) == "number" and type(b) == "number" then return a, b end
 end
-function DruidKit_NavProject(t, mapID)
-  if not (t and t.cont and t.pos) then return end
+local corners = {}
+local function mapCorners(mapID)
+  local c = corners[mapID]
+  if c then return c end
   local c0, o = toWorld(mapID, 0, 0)
   local c1, ex = toWorld(mapID, 1, 0)
   local c2, ey = toWorld(mapID, 0, 1)
-  if not (o and ex and ey) or c0 ~= t.cont or c1 ~= t.cont or c2 ~= t.cont then return end
-  local ox, oy = vecXY(o); local ux, uy = vecXY(ex); local vx, vy = vecXY(ey); local px, py = vecXY(t.pos)
-  if not (ox and ux and vx and px) then return end
-  ux, uy, vx, vy, px, py = ux - ox, uy - oy, vx - ox, vy - oy, px - ox, py - oy
+  if not (o and ex and ey) or c0 ~= c1 or c0 ~= c2 then return end
+  local ox, oy = vecXY(o); local ux, uy = vecXY(ex); local vx, vy = vecXY(ey)
+  if not (ox and ux and vx) then return end
+  c = { cont = c0, ox = ox, oy = oy, ux = ux - ox, uy = uy - oy, vx = vx - ox, vy = vy - oy }
+  corners[mapID] = c
+  return c
+end
+function DruidKit_NavProject(t, mapID)
+  if not (t and t.cont and t.pos) then return end
+  local c = mapCorners(mapID)
+  if not c or c.cont ~= t.cont then return end
+  local px, py = vecXY(t.pos)
+  if not px then return end
+  local ux, uy, vx, vy = c.ux, c.uy, c.vx, c.vy
+  px, py = px - c.ox, py - c.oy
   local det = ux * vy - uy * vx
   if det == 0 then return end
   return (px * vy - py * vx) / det, (ux * py - uy * px) / det
@@ -605,14 +618,10 @@ function DruidKit_NavTarget() return nav end
 local sizes = {}
 function DruidKit_MapYards(mapID)
   if sizes[mapID] then return sizes[mapID][1], sizes[mapID][2] end
-  local _, a = toWorld(mapID, 0, 0)
-  local _, b = toWorld(mapID, 1, 0)
-  local _, c = toWorld(mapID, 0, 1)
-  if not (a and b and c) then return end
-  local ax, ay = vecXY(a); local bx, by = vecXY(b); local cx, cy = vecXY(c)
-  if not (ax and bx and cx) then return end
-  local w = math.sqrt((bx - ax) ^ 2 + (by - ay) ^ 2)
-  local h = math.sqrt((cx - ax) ^ 2 + (cy - ay) ^ 2)
+  local c = mapCorners(mapID)
+  if not c then return end
+  local w = math.sqrt(c.ux ^ 2 + c.uy ^ 2)
+  local h = math.sqrt(c.vx ^ 2 + c.vy ^ 2)
   if w <= 0 or h <= 0 then return end
   sizes[mapID] = { w, h }
   return w, h
@@ -706,10 +715,10 @@ function DruidKit_NavUpdate()
   end
   if dist < 12 then
     -- Clear first: the step tracker may set the next waypoint (a via chain) from OnArrive.
-    local label = nav.label
+    local label, owner = nav.label, nav.owner
     navSay("you've arrived: " .. label .. ".")
     DruidKit_NavClear(true)
-    if DruidKit_OnArrive then pcall(DruidKit_OnArrive, label) end
+    if DruidKit_OnArrive then pcall(DruidKit_OnArrive, label, owner) end
     return
   end
   local bearing = (math.atan2 or math.atan)(-east, -south)          -- 0 = north, positive = towards west (same as facing)
@@ -727,13 +736,13 @@ function DruidKit_NavUpdate()
   end
 end
 
--- Start navigating. Returns true if the arrow could start.
-function DruidKit_NavTo(mapID, x, y, label)
+-- Start navigating. Returns true if the arrow could start. owner ("route") is handed back to DruidKit_OnArrive.
+function DruidKit_NavTo(mapID, x, y, label, owner)
   if not (mapID and x and y) then return false end
   local cont, pos = toWorld(mapID, x, y)
   if not cont then return false end
-  nav = { mapID = mapID, x = x, y = y, label = label or "waypoint", cont = cont, pos = pos }
-  if DB then DB.navTarget = { mapID = mapID, x = x, y = y, label = nav.label } end
+  nav = { mapID = mapID, x = x, y = y, label = label or "waypoint", cont = cont, pos = pos, owner = owner }
+  if DB then DB.navTarget = { mapID = mapID, x = x, y = y, label = nav.label, owner = owner } end
   if not arrowF then
     local ok = pcall(buildArrow)
     if not ok or not (arrowF and arrowF.name) then arrowF = nil; return false end
@@ -747,10 +756,12 @@ end
 
 -- Waypoint from a zone name and map numbers (as written in the guide): DruidKit_GoTo("Westfall", 56.2, 47.6, "Gryan")
 -- quiet = true: no chat line (the step tracker sets the arrow on every step).
-function DruidKit_GoTo(zone, x, y, label, quiet)
+function DruidKit_GoTo(zone, x, y, label, quiet, owner)
   -- zone may be a name ("Loch Modan") or a map id (1432, as recorded in walked paths)
-  local mapID = type(zone) == "number" and zone or (zone and findMap(zone))
-    or (C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player"))
+  local mapID
+  if type(zone) == "number" then mapID = zone
+  elseif zone then mapID = findMap(zone)
+  else mapID = C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player") end
   if not mapID then
     if not quiet then navSay("can't find the map for " .. tostring(zone) .. ".") end
     return false
@@ -759,7 +770,7 @@ function DruidKit_GoTo(zone, x, y, label, quiet)
   if C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates then
     pcall(C_Map.SetUserWaypoint, UiMapPoint.CreateFromCoordinates(mapID, x / 100, y / 100))
   end
-  local ok = DruidKit_NavTo(mapID, x / 100, y / 100, text)
+  local ok = DruidKit_NavTo(mapID, x / 100, y / 100, text, owner)
   if quiet then return ok end
   if ok then navSay("heading to " .. text .. ". Right-click the arrow to stop.")
   else navSay(("go to %s, %.1f, %.1f."):format(zone or "", x, y)) end
@@ -838,6 +849,6 @@ navEv:SetScript("OnEvent", function()
   C_Timer.After(1, function()
     pcall(hookMapClicks)
     local t = DruidKitDB and DruidKitDB.navTarget
-    if t then pcall(DruidKit_NavTo, t.mapID, t.x, t.y, t.label) end
+    if t then pcall(DruidKit_NavTo, t.mapID, t.x, t.y, t.label, t.owner) end
   end)
 end)

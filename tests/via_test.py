@@ -33,9 +33,9 @@ LOG[86585] = { title = "Banner of the Fallen", done = false }
 fire("PLAYER_LOGIN")
 R = {}
 R[#R+1] = GOTO[#GOTO]                  -- first waypoint
-DruidKit_OnArrive("x")
+DruidKit_OnArrive("x", "route")
 R[#R+1] = GOTO[#GOTO]                  -- second waypoint
-DruidKit_OnArrive("x")
+DruidKit_OnArrive("x", "route")
 R[#R+1] = GOTO[#GOTO]                  -- the step's own spot
 R[#R+1] = cur()                        -- still on the step (a kill step isn't done by arriving)
 for i = 1, 5 do POS[1] = POS[1] + 0.01; ev.on_OnUpdate(ev, 2.1) end
