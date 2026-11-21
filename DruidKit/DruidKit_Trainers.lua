@@ -382,6 +382,13 @@ local function learnPlace(cat)
                             place = (GetSubZoneText and GetSubZoneText()) or "" })
   resolve(); if provider then provider:RefreshAllData() end
 end
+-- Train steps that name no trainer tick only at one of these (weapon masters and riding trainers aren't class trainers).
+function DruidKit_IsDruidTrainer(name)
+  for _, t in ipairs(TRAINERS) do
+    if t[1] == "druid" and t[2] == name then return true end
+  end
+  return false
+end
 local function onTrainerShow()
   local name = UnitName("npc")
   if not name then return end
@@ -615,15 +622,12 @@ end
 function DruidKit_NavTarget() return nav end
 
 -- Width and height of a map in yards (worked out from its corners, so it needs no special API).
-local sizes = {}
 function DruidKit_MapYards(mapID)
-  if sizes[mapID] then return sizes[mapID][1], sizes[mapID][2] end
   local c = mapCorners(mapID)
   if not c then return end
   local w = math.sqrt(c.ux ^ 2 + c.uy ^ 2)
   local h = math.sqrt(c.vx ^ 2 + c.vy ^ 2)
   if w <= 0 or h <= 0 then return end
-  sizes[mapID] = { w, h }
   return w, h
 end
 

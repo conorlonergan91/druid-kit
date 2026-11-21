@@ -336,7 +336,7 @@ local function applyGuideLayout()
     if backup.keys[k] == nil then backup.keys[k] = a end
   end
   for _, b in ipairs(BINDINGS) do safe(SetBinding, b.key, b.action) end
-  if catKey and safe(SetBindingSpell, "G", "Cat Form") ~= false then DruidKitDB.catKeySet = "G" end
+  if catKey and safe(SetBindingSpell, "G", "Cat Form") ~= false then DruidKitDB.catKeySet, DruidKitDB.catKeyBy = "G", "bars" end
   local set = GetCurrentBindingSet and GetCurrentBindingSet() or 1
   safe(SaveBindings, set)
   say(("bars set: %d placed, keys bound. Empty until you learn them: %s."):format(placed, #skipped > 0 and table.concat(skipped, ", ") or "none"))
@@ -461,11 +461,15 @@ local function fillLearned(layout)
   return n
 end
 
+local queuedMode
 local function switchMode(mode)
   if InCombatLockdown() then
-    if defer(function() switchMode(mode) end, "mode " .. mode) then say("switching after combat.") end
+    queuedMode = mode
+    defer(function() local m = queuedMode; queuedMode = nil; if m then switchMode(m) end end, "mode")
+    say((mode == "heal" and "Healing" or "Questing") .. " mode after combat.")
     return
   end
+  queuedMode = nil
   DruidKitDB.layouts = DruidKitDB.layouts or {}
   local cur = DruidKitDB.barMode or "quest"
   if cur == mode then
@@ -492,7 +496,7 @@ local function switchMode(mode)
 end
 
 function DruidKit_ToggleMode()
-  switchMode((DruidKitDB.barMode == "heal") and "quest" or "heal")
+  switchMode(((queuedMode or DruidKitDB.barMode) == "heal") and "quest" or "heal")
 end
 BINDING_NAME_DRUIDKIT_TOGGLEMODE = "Switch healing / questing mode"
 
@@ -608,6 +612,9 @@ SlashCmdList["DRUIDKIT"] = function(msg)
     outOfCombat(function()
       say(("loaded '%s' (%d buttons)."):format(rest, restoreBars(l)))
       restoreKeys(l.keys)
+      if DruidKitDB.catKeyBy == "bars" and l.keys and l.keys[DruidKitDB.catKeySet] then
+        DruidKitDB.catKeySet, DruidKitDB.catKeyBy = nil, nil
+      end
       askReload()
     end, "Loading '" .. rest .. "'")
   elseif cmd == "list" then
@@ -1136,7 +1143,7 @@ local function setCatKey(key, force)
   local keys = (key and key ~= "") and { key:upper() } or { "G", "META-F" }
   for _, k in ipairs(keys) do
     if bindOne(k, "SPELL Cat Form", "turns you into Cat Form", force, "Cat Form") then
-      DruidKitDB.catKeySet = k; askReload(); return
+      DruidKitDB.catKeySet, DruidKitDB.catKeyBy = k, nil; askReload(); return
     end
   end
   say("type /dk catkey G force to take G, or /dk catkey <key>.")

@@ -92,8 +92,8 @@ flask or scroll whose buff you lack).
   step wants. If the flight path isn't known, the step warns you to walk.
 - Learn flight path steps tick only when that flight path is known (seen on a flight map, needs ClaudeProgress) or
   when you open the flight map at that town's flight master. Another town's flight master does not tick it.
-- Train steps tick when you close the trainer the step names, or, if it names none, a class trainer. A profession
-  trainer never ticks a class training step.
+- Train steps tick when you close the trainer the step names, or, if it names none, a druid trainer from the trainer
+  pins. A profession trainer, weapon master or riding trainer never ticks it.
 - Set hearth steps tick when your hearthstone is set to the named town. Level steps tick at that level. Abandon steps
   tick when the quests are gone from your log. Boss steps tick when that boss dies (encounter end, or the boss is your
   dead target or the corpse you loot), or with **Done**.
@@ -167,7 +167,7 @@ and G (Cat Form by spell). The chat lists each bar's keys.
   `/dk bars` runs keep that backup (adding any key not taken before), so `/dk load backup` always puts back the bars
   and key bindings from before your first `/dk bars`. Only `/dk save backup` replaces it (bars only).
 - G is bound to Cat Form only if you know Cat Form and haven't chosen a Cat Form key with `/dk catkey`. A
-  `/dk catkey` choice is kept.
+  `/dk catkey` choice is kept. Once `/dk load backup` puts back the old G, `/dk bars` and `/dk keys` bind Cat Form again.
 - `/dk bars` overwrites the keys it uses even if they were bound to something else (they are in the backup).
   `/dk keys`, `/dk catkey` and `/dk runkey` never take a used key unless you add `force`.
 - A spell you learn goes onto its layout key by itself about 1.5 seconds later, in caster form only, and the old bars
@@ -176,7 +176,8 @@ and G (Cat Form by spell). The chat lists each bar's keys.
 - Saved macros are found by name, so a layout still loads after macros were added or removed.
 - After any change a "Reload now" popup appears (after combat if you are fighting).
 - Combat: `/dk bars`, `/dk load`, `/dk newspells`, `/dk heal` and `/dk quest` asked for in combat say they will run
-  when combat ends, then run in the order asked, each once. `/dk keys`, `/dk catkey` and `/dk runkey` are refused
+  when combat ends, then run in the order asked, each once. For the mode switch the last mode asked wins: Alt+H twice
+  in combat changes nothing. `/dk keys`, `/dk catkey` and `/dk runkey` are refused
   ("after combat, please").
 - Never: changes bars or keys at login.
 
@@ -214,10 +215,12 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
 
 - **Upgrades to put on**, with **Equip**. Upgrades also get a tooltip line and a banner when they reach your bags.
 - **Use these**: quest starters (right-click), bigger bags, containers with loot, recipes you can learn now.
-- **Gear you're keeping**: saved set pieces and gear better for your other role.
-- **Bank these**: recipes for a higher skill, gear for a higher level, library books, quest items needed much later.
+- **Gear you're keeping**: saved set pieces, gear better for your other role, and gear it can't compare (no stats to
+  score, such as idols and on-use trinkets, or an off-hand while you wield a two-hander).
+- **Bank these**: recipes and other items for a higher profession rank, gear for a higher level, library books, quest
+  items needed much later.
 - **Quest items to check**: quest items that look like they belong to no quest you have, or that the plan says to
-  drop. Shown only, with no button.
+  drop, and quest starters for quests you've already done. Shown only, with no button.
 - **Auction House**: items Auctionator's last scan prices well above the vendor price (needs Auctionator).
 - **Sell at a vendor**: exactly what the autopilot would sell, with **Sell** and **Sell all** while a vendor is open.
 - **Bags full? Drop these first**: up to 5 items, cheapest first, with **Destroy** (or **Sell** at a vendor).
@@ -227,19 +230,19 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
 - Never sold, destroyed or offered: items a quest in your log needs, quest items, library books and Waylaid Crates.
   Quest items that look orphaned appear only under "Quest items to check".
 - **Destroy** asks first. When you confirm, it checks the bag slot again and refuses if a different item is there now,
-  or if the item has become protected (for example your quest needs it).
-- The drop list's **Sell** (and the Sell list's **Sell**) only sells if the same item is still in that slot, it isn't
-  protected, and a vendor is open.
+  a different stack size, or if the item has become protected (for example your quest needs it).
+- The drop list's **Sell** (and the Sell list's **Sell**) only sells if the same item and stack size are still in that
+  slot, it isn't protected, and a vendor is open.
 - Autopilot at a vendor (unless `/dk autosell off`): sells grey junk, gear druids can't use or that's worse than yours,
-  items for another class or a profession you don't have, materials none of your recipes use, and worse bandages
-  (once you hold 10 of your best bandage). Then it repairs if you can afford it, says what it sold and the mount money
-  line, and reminds you the vendor's Buyback tab can undo it.
+  items for another class or a profession you don't have (never one you only need a higher rank for), materials none
+  of your recipes use, and worse bandages (once you hold 10 of your best bandage). Then it repairs if you can afford
+  it, says what it sold and the mount money line, and reminds you the vendor's Buyback tab can undo it.
 - At most 12 items are sold per vendor visit (the Buyback tab's size), counting the autopilot, **Sell**, **Sell all**
   and **Sell junk** together. Past that they sell nothing more and say how many are left; close the vendor and talk to
   it again for the rest.
 - The autopilot never sells potions, elixirs, flasks or scrolls, any food or drink, herbs, quest items, library books,
   Waylaid Crates, materials a recipe in your bags uses, Bind on Equip greens or better, anything worth more on the
-  Auction House, your saved set gear, or your best fishing pole.
+  Auction House, your saved set gear, gear it can't compare, or your best fishing pole.
 - Food and drink: your best 2 food and best 2 drink items you can use now are kept (every stack of each), plus one for
   a later level. Cooked food that gives Well Fed is always kept. Other food is offered in the drop list only.
 - Recipes: "learn now", "bank till skill X", "already known" or "not your profession" (sell). A recipe whose

@@ -5,6 +5,7 @@ Everything here is maths and data; the decisions stay with the planner.
 
 CLI (python3 rk.py <cmd> ...):
   quest ID...                         facts for quests: level, XP, giver/hand-in spots, objective spots, kills, prereqs
+  minutes ID... --level L [--party N]  quest_minutes per quest: objective minutes once in its area (a step's est)
   available --level L [--done F]      quests a Night Elf Druid can take now (min level met, prereqs done), by zone
   hubs --level L [--done F] [--party N]   XP per hour for every hub at that arrival level (band -4..+3: you grow
                                        into a hub's higher quests), with travel from --from TOWN
@@ -320,6 +321,51 @@ def _count_from_text(q, objectives=1):
     return sum(nums[:objectives]) if objectives > 1 else max(nums)
 
 
+def _stems(name):
+    return {w[: max(3, len(w) - 2)] for w in re.findall(r"[a-z]+", (name or "").lower()) if len(w) >= 3}
+
+
+def _named_counts(q, objs):
+    """(kills, items) when every kill/item objective has a number just before its name in the text, else None."""
+    goals = [("kill", c, (db()["npcs"].get(str(c)) or {}).get("name")) for c in objs["creatures"]]
+    goals += [("item", i, (db()["items"].get(str(i)) or {}).get("name")) for i in objs["items"]]
+    goals = [(kind, oid, _stems(name)) for kind, oid, name in goals]
+    text = " ".join(q.get("objectivesText") or []).lower()
+    nums = list(re.finditer(r"\b(\d{1,2})\b", text))
+    got = {}
+    for i, m in enumerate(nums):
+        tail = text[m.end() : nums[i + 1].start() if i + 1 < len(nums) else len(text)][:60]
+        words = re.findall(r"[a-z]+", tail)
+        best, score = None, 0
+        for g, (_, _, stems) in enumerate(goals):
+            if g in got or not stems:
+                continue
+            hit = sum(any(w.startswith(s) for w in words) for s in stems) / len(stems)
+            if hit > score:
+                best, score = g, hit
+        if best is not None:
+            got[best] = int(m.group(1))
+    if len(got) != len(goals):
+        return None
+    return (
+        sum(n for g, n in got.items() if goals[g][0] == "kill"),
+        sum(n for g, n in got.items() if goals[g][0] == "item"),
+    )
+
+
+def _split_counts(q, objs):
+    """(kill count, item count) from the objectives text; 0 where the text doesn't say."""
+    n_kill, n_item = len(objs["creatures"]), len(objs["items"])
+    if not n_kill + n_item:
+        return 0, 0
+    named = _named_counts(q, objs)
+    if named:
+        return named
+    count = _count_from_text(q, n_kill + n_item)
+    kill = round(count * n_kill / (n_kill + n_item))
+    return kill, count - kill
+
+
 @lru_cache(maxsize=1)
 def _classic_ids():
     p = os.path.join(HERE, "data", "classic_quest_ids.json")
@@ -360,10 +406,7 @@ def quest(qid):
     if isinstance(te, list) and len(te) > 1 and isinstance(te[1], dict):
         for zid, pts in te[1].items():  # explore objectives: reach a spot
             targets.extend((zone_name(zid), float(p[0]), float(p[1])) for p in pts or [] if p and p[0] is not None)
-    n_kill, n_item = len(objs["creatures"]), len(objs["items"])
-    count = _count_from_text(q, n_kill + n_item)
-    kill_count = round(count * n_kill / (n_kill + n_item)) if count else 0
-    item_count = count - kill_count if count else 0
+    kill_count, item_count = _split_counts(q, objs)
     kills = 0
     if objs["creatures"]:
         kills += kill_count or 8
@@ -512,6 +555,7 @@ RUNNER_WORDS = (
     "rogue",
     "pirate",
 )
+RUNNERS = re.compile(r"\b(?:" + "|".join(RUNNER_WORDS) + r")s?\b")
 _ZIDX, _CROWD = {}, {}
 
 
@@ -551,7 +595,7 @@ def crowd(qid):
                 tot += max(c, 0)
                 n += 1
             names = " ".join(((db()["npcs"].get(str(c)) or {}).get("name") or "").lower() for c in cids)
-            out = {"packs": round(tot / max(n, 1), 2), "runners": any(wd in names for wd in RUNNER_WORDS)}
+            out = {"packs": round(tot / max(n, 1), 2), "runners": bool(RUNNERS.search(names))}
     _CROWD[qid] = out
     return out
 
@@ -1225,6 +1269,13 @@ def main(argv):
                 if q
                 else f"{a}: unknown"
             )
+    elif cmd == "minutes":
+        lvl, party = _opt(args, "--level", 1, float), _opt(args, "--party", 1, int)
+        for i, a in enumerate(args):
+            if not a.isdigit() or (i and args[i - 1].startswith("--")):
+                continue
+            q = quest(int(a))
+            print(json.dumps({"q": int(a), "min": round(quest_minutes(q, lvl, party), 1) if q else None}))
     elif cmd == "available":
         lvl = _opt(args, "--level", 1, float)
         rows = available(lvl, _done(args), window=(_opt(args, "--below", 4, int), _opt(args, "--above", 1, int)))

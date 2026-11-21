@@ -100,15 +100,22 @@ L, g = setup()
 L.execute(r"""
 BIND = { R = "JUMP", F = "MOVEFORWARD" }
 SlashCmdList.DRUIDKIT('bars')
-g1, r1 = BIND.G, BIND.R
+g1, r1, k1 = BIND.G, BIND.R, DruidKitDB.catKeySet
 SlashCmdList.DRUIDKIT('load backup')
+k2 = DruidKitDB.catKeySet
 """)
-check(g.g1 == "SPELL Cat Form" and g.DruidKitDB.catKeySet == "G", "G is bound to the Cat Form spell", g.g1)
+check(g.g1 == "SPELL Cat Form" and g.k1 == "G", "G is bound to the Cat Form spell", (g.g1, g.k1))
 check(g.r1 == "MULTIACTIONBAR1BUTTON1", "R bound by the layout", g.r1)
 check(
     g.BIND["R"] == "JUMP" and g.BIND["F"] == "MOVEFORWARD" and g.BIND["G"] is None,
     "/dk load backup puts the old keys back",
     dict(g.BIND),
+)
+L.execute("SlashCmdList.DRUIDKIT('bars')")
+check(
+    g.k2 is None and g.BIND["G"] == "SPELL Cat Form",
+    "after the backup, /dk bars binds Cat Form again",
+    (g.k2, g.BIND["G"]),
 )
 L, g = setup()
 L.execute(r"""
@@ -116,6 +123,15 @@ DruidKitDB.catKeySet = "META-F"; BIND = { G = "INTERACTTARGET" }
 SlashCmdList.DRUIDKIT('bars')
 """)
 check(g.BIND["G"] == "INTERACTTARGET", "a /dk catkey choice keeps G as it was", g.BIND["G"])
+
+# 16: Alt+H twice in combat toggles the queued mode back, not the same mode twice.
+L, g = setup()
+L.execute(r"""
+COMBAT = true
+DruidKit_ToggleMode(); DruidKit_ToggleMode()
+COMBAT = false; fire("PLAYER_REGEN_ENABLED")
+""")
+check(g.DruidKitDB.barMode in (None, "quest"), "two toggles in combat cancel out", g.DruidKitDB.barMode)
 
 # 15: healing/questing swap fills learned melee spells as /startattack macros.
 L, g = setup()
