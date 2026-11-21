@@ -245,7 +245,27 @@ bagsFree = function()
   return free
 end
 
-local function nearestVendor()
+-- Vendor kinds for the Vendor menu: matched on the vendor's title (and name), e.g. "Food & Drink Vendor".
+local VENDOR_KINDS = {
+  { key = "any", label = "Any vendor (sell)" },
+  { key = "repair", label = "Repair", test = function(v) return v[6] == true end },
+  { key = "food", label = "Food and drink", pat = { "food", "drink", "bread", "fruit", "meat", "innkeeper", "bartender",
+    "barmaid", "baker", "cheese", "mushroom" } },
+  { key = "trade", label = "Trade goods and cooking", pat = { "trade", "cooking", "tradesman", "general goods", "general supplies" } },
+  { key = "reagent", label = "Reagents", pat = { "reagent" } },
+  { key = "alch", label = "Alchemy and herbs", pat = { "alchemy", "herb", "potion" } },
+  { key = "gear", label = "Armour and weapons", pat = { "armor", "armour", "weapon", "bow", "gun", "fletcher", "blacksmith",
+    "robe", "cloth", "leather", "mail", "plate", "shield", "staves", "mace" } },
+  { key = "bags", label = "Bags", pat = { "bag" } },
+}
+local function vendorIs(v, kind)
+  if not kind or kind.key == "any" then return true end
+  if kind.test then return kind.test(v) end
+  local t = ((v[5] or "") .. " " .. (v[4] or "")):lower()
+  for _, w in ipairs(kind.pat) do if t:find(w, 1, true) then return true end end
+  return false
+end
+local function nearestVendor(kind)
   local list = DruidKitVendors
   if type(list) ~= "table" or not C_Map or not C_Map.GetBestMapForUnit then return end
   local map = safe(C_Map.GetBestMapForUnit, "player")
@@ -259,7 +279,7 @@ local function nearestVendor()
   end
   local best, bd
   for _, v in ipairs(list) do
-    if DruidKit_FindMap and DruidKit_FindMap(v[1]) == map then
+    if DruidKit_FindMap and DruidKit_FindMap(v[1]) == map and vendorIs(v, kind) then
       local d = math.sqrt(((v[2] / 100 - px) * w) ^ 2 + ((v[3] / 100 - py) * h) ^ 2)
       if not bd or d < bd then best, bd = v, d end
     end
@@ -577,7 +597,8 @@ local function build()
   frame.goBtn = btn("Go", "Point the arrow at the step you're looking at (do things in your own order). "
     .. "The route arrow comes back when you arrive, or with Now.", function() DruidKit_StepGo() end)
   frame.nowBtn = btn("Now", "Back to your current step and its arrow.", function() DruidKit_StepView(0) end)
-  frame.vendorBtn = btn("Vendor", "Point the arrow at the nearest vendor in this zone.", function() DruidKit_StepsCommand("vendor") end)
+  frame.vendorBtn = btn("Vendor", "Choose a kind of vendor (repair, food and drink, trade goods, reagents...): the arrow points "
+    .. "to the nearest one in this zone.", function(s) DruidKit_VendorMenu(s) end)
   -- Buff: a secure button (items can only be used from one), so it hangs on UIParent at the step window's bottom
   -- row instead of being its child: then the step window can still move, resize and hide in combat.
   local ok, b = pcall(CreateFrame, "Button", "DruidKitBuffButton", UIParent, "SecureActionButtonTemplate,UIPanelButtonTemplate")
@@ -1230,6 +1251,57 @@ ev:SetScript("OnUpdate", function(_, el)
   if frame and frame:IsShown() and steps[pos] then pcall(draw) end
 end)
 
+-- Vendor menu: one row per kind of vendor in this zone, nearest first; a click points the arrow.
+local vendorMenu
+function DruidKit_VendorMenu(anchor)
+  if vendorMenu and vendorMenu:IsShown() then vendorMenu:Hide() return end
+  if not vendorMenu then
+    local ok, f = pcall(CreateFrame, "Frame", "DruidKitVendorMenu", UIParent, "BackdropTemplate")
+    vendorMenu = ok and f or CreateFrame("Frame", "DruidKitVendorMenu", UIParent)
+    vendorMenu:SetFrameStrata("DIALOG"); vendorMenu:SetSize(300, 20)
+    if vendorMenu.SetBackdrop then
+      vendorMenu:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+      vendorMenu:SetBackdropColor(0.03, 0.10, 0.04, 0.95)
+    end
+    vendorMenu.title = vendorMenu:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    vendorMenu.title:SetPoint("TOPLEFT", 10, -8); vendorMenu.title:SetText("Vendor: what do you need?")
+    vendorMenu.rows = {}
+    table.insert(UISpecialFrames, "DruidKitVendorMenu")
+  end
+  for _, r in ipairs(vendorMenu.rows) do r:Hide() end
+  local y, n = -28, 0
+  for _, kind in ipairs(VENDOR_KINDS) do
+    local v, d = nearestVendor(kind)
+    if v then
+      n = n + 1
+      local r = vendorMenu.rows[n]
+      if not r then
+        r = CreateFrame("Button", nil, vendorMenu, "UIPanelButtonTemplate")
+        r:SetSize(280, 22)
+        if r.GetFontString and r:GetFontString() then r:GetFontString():SetJustifyH("LEFT") end
+        vendorMenu.rows[n] = r
+      end
+      r:ClearAllPoints(); r:SetPoint("TOPLEFT", 10, y)
+      r:SetText(("%s: %s, %d yd"):format(kind.label, v[4], math.floor((d or 0) + 0.5)))
+      r:SetScript("OnClick", function()
+        vendorMenu:Hide()
+        DruidKit_StepsCommand("vendor " .. kind.key)
+      end)
+      r:Show()
+      y = y - 24
+    end
+  end
+  if n == 0 then
+    say("no vendor known in this zone. Sell at the next town.")
+    return
+  end
+  vendorMenu:SetHeight(-y + 8)
+  vendorMenu:ClearAllPoints()
+  if anchor then vendorMenu:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", 0, 4) else vendorMenu:SetPoint("CENTER") end
+  vendorMenu:Show()
+end
+
 -- /dk steps | /dk steps reset | /dk auto
 function DruidKit_StepsCommand(arg)
   arg = (arg or ""):lower()
@@ -1252,8 +1324,11 @@ function DruidKit_StepsCommand(arg)
   elseif arg == "auto" then
     DB.autoQuests = DB.autoQuests == false
     say("automatic quest accept and hand-in " .. (DB.autoQuests == false and "OFF." or "ON (hold Shift to do it yourself)."))
-  elseif arg == "vendor" then
-    local v = nearestVendor()
+  elseif arg == "vendor" or arg:find("^vendor ") then
+    local want = arg:match("^vendor (%a+)")
+    local kind
+    for _, k in ipairs(VENDOR_KINDS) do if k.key == want then kind = k end end
+    local v = nearestVendor(kind)
     if v and DruidKit_GoTo then
       DruidKit_GoTo(v[1], v[2], v[3], "Vendor: " .. v[4], true)
       lastArrowFor = pos   -- keep the vendor arrow until you arrive or the step changes
