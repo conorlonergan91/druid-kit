@@ -11,7 +11,7 @@ Inputs (only these):
   Teleport: Moonglade at 10 (Bear Form quest at 10). No dungeons: play solo. Flight paths must be discovered on foot first.
 
 Rules for this test:
-- You may run tools/rk.py (and write small scripts of your own in this folder). Do NOT look up existing levelling guides (RestedXP, Joana, Questie routes, wowhead guides, etc.) or any file outside
+- You may run planner/rk.py (and write small scripts of your own in this folder). Do NOT look up existing levelling guides (RestedXP, Joana, Questie routes, wowhead guides, etc.) or any file outside
   this folder. Plan from the data and the rules only. Do not use web search.
 - Simulate XP as you go so quests are done near their level (min_level is a hard gate).
 

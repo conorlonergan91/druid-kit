@@ -1,4 +1,6 @@
-# Routing rules (v1)
+# Routing rules (v1-v19)
+
+## Base rules (v1)
 - Follow quest density, not zone level ranges: work a hub until it runs thin, then leave in one planned trip.
 - One trip, many jobs: every long trip also picks up flight paths, trains, shops, hands in class quests and accepts the next hub's quests.
 - Hearth is a free teleport: set it in the hub you'll return to; hearth only from the far end of a cluster.
@@ -12,8 +14,8 @@
 
 ## Added in v2 (general lessons from scoring)
 - Choosing the next hub: for each candidate hub (including ones on the other continent, reached through a capital
-  and a boat/flight), count the quests and quest XP available in the band from 4 levels below you to 1 level
-  above you. Pick the hub with the most XP per hour of travel+questing. Quests 1-4 levels below you are the
+  and a boat/flight), count the quests and quest XP available in the band from 4 levels below you to 3 levels
+  above you (you grow into a hub's higher quests during the stay; `hubs` charges more time for them). Pick the hub with the most XP per hour of travel+questing. Quests 1-4 levels below you are the
   fastest XP there is (quick kills, little risk, still full green XP); prefer a hub full of them over a hub of
   quests above your level.
 - When a zone's remaining quests are mostly above your level, or need a long walk each, leave early rather than
@@ -45,13 +47,13 @@
   - Finishing the hub you're in (no travel cost): quests up to 3 levels above you are fine solo, and quests that
     become available as you level stay on the list. Don't leave a hub while it still has reachable quests you
     can do within that window; take them in order of level as you grow into them.
-  - Choosing a NEW hub (travel cost): use the band from 4 below to 1 above your level *on arrival*, and compare
-    hubs at the level you'll actually be when you get there.
+  - Choosing a NEW hub (travel cost): use the band from 4 below to 3 above your level *on arrival* (what `hubs`
+    ranks), and compare hubs at the level you'll actually be when you get there.
 - So the move to a new hub usually happens later than "when the easy quests run out": first squeeze the current
   hub's higher quests, then travel.
 
 ## Added in v5: use the tools, don't do the maths in your head
-You have `tools/rk.py` (run `python3 tools/rk.py` for help). It knows quest givers, hand-ins, objective spots, mob
+You have `planner/rk.py` (run `python3 planner/rk.py` for help). It knows quest givers, hand-ins, objective spots, mob
 levels, quest XP, travel minutes (boats, flights, roads) and a time/XP model. Let it do the arithmetic; you make the
 decisions.
 - Keep `done.json` (list of handed-in quest ids) up to date as you plan.
@@ -200,7 +202,7 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 
 ## Added in v13c (19 Nov, player: "fine when they're easy to pick out on their own and don't run away; the ones that
 ## hang out together and murder you are annoying")
-- `rk.py crowd`: average other mobs within 15 yards of a quest's target spawns. Kill/drop quests with 2.0 or more
+- `rk.py crowd ID...`: average other mobs within 15 yards of a quest's target spawns. Kill/drop quests with 2.0 or more
   (camps: Blackrock 6.4, Shadow Magic 8.6, Mosshide gnolls 2.5, Shadowhide 2.2) are left out (SKIP_PACKS); open
   beasts score under 1 (Duskwood wolves 0.85, spiders 0.7, Wetlands raptors 0.5).
 - Humanoids that flee at low health (gnolls, murlocs, orcs, Defias, kobolds...) cost +25% time; beasts and undead don't
@@ -224,7 +226,7 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
 
 ## Added in v15 (20 Nov, player: "you were wrong but Questie had the right marker")
 - Every step spot comes from planner/db.json (QuestieDB Forever): NPC spawns for accept/hand-in/train, quest
-  target_center for objectives. Run coordcheck (build/coordcheck.py) before deploy: any spot more than 1.0 from the
+  target_center for objectives. Run coordcheck (tools/coordcheck.py ROUTE) before deploy: any spot more than 1.0 from the
   data is wrong. Never take coordinates from Classic-era web guides: Forever's Stormwind map uses different
   coordinates (Maldryn 34.4,65.2; Woo Ping 63.9,69.1; tram 66.4,35.0).
 - Weapon masters: Woo Ping (Stormwind) teaches polearms/staves/daggers for druids; Buliwyf Stonehand (Ironforge
@@ -233,21 +235,21 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   portal 47.9,56.5).
 
 ## Added in v16 (20 Nov, player: "speed routes take quests with lower-level enemies; yours are higher; I keep dying")
-- Solo steps: no hostile monster 3+ levels above the player within 3 map units of the step spot (build/dangercheck.py
-  ROUTE LEVEL; run with planner/ as cwd). Quest XP does not depend on the monster level, so the fast choice is the
+- Solo steps: no hostile monster 3+ levels above the player within 3 map units of the step spot (tools/dangercheck.py
+  ROUTE LEVEL). Quest XP does not depend on the monster level, so the fast choice is the
   quest whose monsters are at or below your level.
 - Steps that fail the check either go to a party step (a group or a higher friend) or out of the route. Duskwood failed it at 22
   (Raven Hill cemetery 25-31, Defias 25-27 at Sven's farm and near Dodds): 4 deaths on 20 Nov.
 - Grind steps name only monsters at or below the player's level.
 - (v16c) Before a step uses a Forever-new quest, check its giver's other questStarts and the preQuestSingle chain in
   db.json: Karl Boran gives Return the Statuette (98189) only after the classic chain 281 > 284 > 285 > 286.
-- (v16e) Run build/prereqcheck.py ROUTE DONE.json LOG_IDS before every deploy: each accept needs its preQuestSingle
+- (v16e) Run tools/prereqcheck.py ROUTE DONE.json LOG_IDS before every deploy: each accept needs its preQuestSingle
   (one of) / preQuestGroup (all) done or handed in earlier in the route. Karl Boran's chain: 279 > 281 > 284 > 285 > 286 > 98189.
 
 ## Added in v18 (21 Nov, player: "with the raptor quests and the extra ones I can't still be short of 24")
 - Every route runs through tools/xpsim.py before release (build_now.py ... --xp LEVEL XP DONE.json does it and
   writes "lv" into every step). Pessimistic by rule: Classic quest XP from the data (Forever values only where
-  published, FOREVER_XP), the grey-quest cut, only the kills a quest needs, no rested XP, group steps split 3 ways,
+  published, rk.PUBLISHED_XP), the grey-quest cut, only the kills a quest needs, no rested XP, group steps split 3 ways,
   about one bubble (1.25% of the bar per boss) for a dungeon run.
 - No 'level' (grind) step unless the projection is short of the level a later step needs; size it to the gap.
 - An accept whose quest needs a higher level than projected is a release blocker (xpsim ERROR).

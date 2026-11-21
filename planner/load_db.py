@@ -1,7 +1,8 @@
 """Load the public QuestieDB WoW Forever data *with* its Forever corrections and crowd-sourced traces
-(Questie users' QuestieTrace data: custom Forever quests, real NPC/object spots), into routekit/db.json.
+(Questie users' QuestieTrace data: custom Forever quests, real NPC/object spots), into planner/db.json.
 
 Sources (GPLv3): github.com/Questie/QuestieDB data/Forever + src/corrections/Forever.
+The Lua files are third-party code: they run with no Python bridge and no os/io/loaders in _G (UNSAFE).
 """
 
 import json
@@ -13,14 +14,13 @@ from pathlib import Path
 
 from lupa.lua51 import LuaRuntime
 
-# Usage: python3 load_db.py [path to a QuestieDB clone]   (git clone https://github.com/Questie/QuestieDB)
 HERE = os.path.dirname(os.path.abspath(__file__))
-Q = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("QUESTIEDB", "/tmp/QuestieDB")
 OUT = os.path.join(HERE, "db.json")
 DATA = os.path.join(HERE, "data")
+UNSAFE = ("os", "io", "package", "debug", "require", "module", "dofile", "loadfile", "load", "loadstring", "python")
 
-L = LuaRuntime(unpack_returned_tuples=True)
-L.execute(r"""
+PRELUDE = r"""
+local compile = loadstring
 modules = {}
 QuestieLoader = {
   CreateModule = function(self, name) modules[name] = modules[name] or {}; return modules[name] end,
@@ -33,82 +33,12 @@ stubmt.__index = function(t, k) local v = setmetatable({}, stubmt); rawset(t, k,
 stubmt.__call = function() return nil end
 setmetatable(_G, { __index = function(t, k) return setmetatable({}, stubmt) end })
 function runchunk(src, name)
-  local f, e = loadstring(src, name)
+  local f, e = compile(src, name)
   if not f then return "LOAD " .. tostring(e) end
   local ok, err = pcall(f, nil, LibQuestieDB)
   if not ok then return "RUN " .. tostring(err) end
   return nil
 end
-""")
-
-
-def run(path):
-    err = L.globals().runchunk(Path(path).read_text(encoding="utf-8"), os.path.basename(path))
-    if err:
-        print("warn", path, str(err)[:160])
-
-
-for f in ("constants", "zones", "quests", "expansions", "professions", "items", "factions", "phases"):
-    p = f"{Q}/src/corrections/enum/{f}.lua"
-    if os.path.exists(p):
-        run(p)
-
-
-def load_data(path, var):
-    src = Path(path).read_text(encoding="utf-8")
-    head, rest = src.split(f"QuestieDB.{var} = [[", 1)
-    L.execute(head.replace('QuestieLoader:ImportModule("QuestieDB")', 'QuestieLoader:ImportModule("QuestieDB")'))
-    return L.execute(rest.rsplit("]]", 1)[0])
-
-
-quests = load_data(f"{Q}/data/Forever/foreverQuestDB.lua", "questData")
-npcs = load_data(f"{Q}/data/Forever/foreverNpcDB.lua", "npcData")
-objects = load_data(f"{Q}/data/Forever/foreverObjectDB.lua", "objectData")
-items = load_data(f"{Q}/data/Forever/foreverItemDB.lua", "itemData")
-
-L.execute(r"""
-local E = LibQuestieDB.Enum
-local fx = E.byExpansion.Forever or {}
-local QDB = QuestieLoader:CreateModule("QuestieDB")
-QDB.raceKeys = fx.raceKeys or (E.byExpansion.TBC or {}).raceKeys
-QDB.classKeys = fx.classKeys or (E.byExpansion.TBC or {}).classKeys
-QDB.sortKeys = E.sortKeys
-QDB.questFlags = E.questFlags
-QDB.specialFlags = E.specialFlags
-QuestieLoader:CreateModule("ZoneDB").zoneIDs = E.zoneIDs
-local function addKeys(keys) if not keys then return end
-  local extra = {}
-  for name, idx in pairs(keys) do extra[name .. "_add"] = idx + 1000 end
-  for k, v in pairs(extra) do keys[k] = v end
-end
-addKeys(QDB.questKeys); addKeys(QDB.npcKeys); addKeys(QDB.objectKeys); addKeys(QDB.itemKeys)
-""")
-
-CORR = f"{Q}/src/corrections/Forever"
-files = {
-    "quest": [
-        f"{CORR}/generated/foreverBaseQuest.lua",
-        f"{CORR}/foreverQuestFixes.lua",
-        f"{CORR}/traces/foreverQuestTraces.lua",
-        f"{CORR}/traces/foreverQuestRelationTraces.lua",
-    ],
-    "npc": [
-        f"{CORR}/generated/foreverBaseNpc.lua",
-        f"{CORR}/foreverNPCFixes.lua",
-        f"{CORR}/traces/foreverNpcTraces.lua",
-    ],
-    "object": [
-        f"{CORR}/generated/foreverBaseObject.lua",
-        f"{CORR}/foreverObjectFixes.lua",
-        f"{CORR}/traces/foreverObjectTraces.lua",
-    ],
-    "item": [
-        f"{CORR}/generated/foreverBaseItem.lua",
-        f"{CORR}/foreverItemFixes.lua",
-        f"{CORR}/traces/foreverItemTraces.lua",
-    ],
-}
-L.execute(r"""
 function merge(dst, src)
   if type(src) ~= "table" or type(dst) ~= "table" then return src end
   for k, v in pairs(src) do
@@ -150,24 +80,74 @@ function loadfix(src, name)
   end
   return nil, "no Load()"
 end
-""")
-db = {"quest": quests, "npc": npcs, "object": objects, "item": items}
-for kind, paths in files.items():
-    for p in paths:
-        if not os.path.exists(p):
-            continue
-        res = L.globals().loadfix(Path(p).read_text(encoding="utf-8"), os.path.basename(p))
-        patch, err = res if isinstance(res, tuple) else (res, None)
-        if patch is None:
-            print("skip", os.path.basename(p), str(err)[:140])
-            continue
-        n = L.globals().apply(db[kind], patch)
-        print("applied", os.path.basename(p), n)
+"""
 
-QK = {k: v for k, v in L.globals().modules["QuestieDB"].questKeys.items() if not k.endswith("_add")}
-NK = {k: v for k, v in L.globals().modules["QuestieDB"].npcKeys.items() if not k.endswith("_add")}
-OK = {k: v for k, v in L.globals().modules["QuestieDB"].objectKeys.items() if not k.endswith("_add")}
-IK = {k: v for k, v in L.globals().modules["QuestieDB"].itemKeys.items() if not k.endswith("_add")}
+KEYS = r"""
+local E = LibQuestieDB.Enum
+local fx = E.byExpansion.Forever or {}
+local QDB = QuestieLoader:CreateModule("QuestieDB")
+QDB.raceKeys = fx.raceKeys or (E.byExpansion.TBC or {}).raceKeys
+QDB.classKeys = fx.classKeys or (E.byExpansion.TBC or {}).classKeys
+QDB.sortKeys = E.sortKeys
+QDB.questFlags = E.questFlags
+QDB.specialFlags = E.specialFlags
+QuestieLoader:CreateModule("ZoneDB").zoneIDs = E.zoneIDs
+local function addKeys(keys) if not keys then return end
+  local extra = {}
+  for name, idx in pairs(keys) do extra[name .. "_add"] = idx + 1000 end
+  for k, v in pairs(extra) do keys[k] = v end
+end
+addKeys(QDB.questKeys); addKeys(QDB.npcKeys); addKeys(QDB.objectKeys); addKeys(QDB.itemKeys)
+"""
+
+
+def runtime():
+    """Lua 5.1 for QuestieDB's files: helpers defined first, then the Python bridge and every loader/OS library go."""
+    lua = LuaRuntime(unpack_returned_tuples=True, register_eval=False, register_builtins=False)
+    lua.execute(PRELUDE)
+    lua.execute("".join(f"{name} = nil\n" for name in UNSAFE))
+    return lua
+
+
+def run(L, path):
+    err = L.globals().runchunk(Path(path).read_text(encoding="utf-8"), os.path.basename(path))
+    if err:
+        print("warn", path, str(err)[:160])
+
+
+def load_data(L, path, var):
+    src = Path(path).read_text(encoding="utf-8")
+    head, rest = src.split(f"QuestieDB.{var} = [[", 1)
+    L.execute(head)
+    return L.execute(rest.rsplit("]]", 1)[0])
+
+
+def fix_files(Q):
+    CORR = f"{Q}/src/corrections/Forever"
+    files = {
+        "quest": [
+            f"{CORR}/generated/foreverBaseQuest.lua",
+            f"{CORR}/foreverQuestFixes.lua",
+            f"{CORR}/traces/foreverQuestTraces.lua",
+            f"{CORR}/traces/foreverQuestRelationTraces.lua",
+        ],
+        "npc": [
+            f"{CORR}/generated/foreverBaseNpc.lua",
+            f"{CORR}/foreverNPCFixes.lua",
+            f"{CORR}/traces/foreverNpcTraces.lua",
+        ],
+        "object": [
+            f"{CORR}/generated/foreverBaseObject.lua",
+            f"{CORR}/foreverObjectFixes.lua",
+            f"{CORR}/traces/foreverObjectTraces.lua",
+        ],
+        "item": [
+            f"{CORR}/generated/foreverBaseItem.lua",
+            f"{CORR}/foreverItemFixes.lua",
+            f"{CORR}/traces/foreverItemTraces.lua",
+        ],
+    }
+    return files
 
 
 def py(v, depth=0):
@@ -194,25 +174,56 @@ def rows(table, keys):
     return out
 
 
-DB = {
-    "questKeys": QK,
-    "quests": rows(quests, QK),
-    "npcs": rows(npcs, NK),
-    "objects": rows(objects, OK),
-    "items": rows(items, IK),
-}
-Path(OUT).write_text(json.dumps(DB, ensure_ascii=False), encoding="utf-8")
-print("wrote", OUT)
+def keys_of(L, name):
+    return {k: v for k, v in L.globals().modules["QuestieDB"][name].items() if not k.endswith("_add")}
 
 
-# Side tables rk.py reads from data/: subzone -> parent zone, Forever quest XP, Classic Era quest ids.
-os.makedirs(DATA, exist_ok=True)
-shutil.copy(os.path.join(Q, "support/Forever/Zones/subZoneToParentZone.lua"), DATA)
-xpdir = os.path.join(Q, "support/Forever/QuestXP")
-for f in os.listdir(xpdir):
-    if f.startswith("xpDB-") and f.endswith(".lua"):
-        shutil.copy(os.path.join(xpdir, f), DATA)
-classic = Path(Q, "data/Classic/classicQuestDB.lua").read_text(encoding="utf-8")
-ids = sorted(int(m) for m in re.findall(r"^\[(\d+)\]\s*=", classic, re.M))
-Path(DATA, "classic_quest_ids.json").write_text(json.dumps(ids))
-print("data/ written:", len(ids), "classic quest ids")
+def main(Q):
+    L = runtime()
+    for f in ("constants", "zones", "quests", "expansions", "professions", "items", "factions", "phases"):
+        p = f"{Q}/src/corrections/enum/{f}.lua"
+        if os.path.exists(p):
+            run(L, p)
+    quests = load_data(L, f"{Q}/data/Forever/foreverQuestDB.lua", "questData")
+    npcs = load_data(L, f"{Q}/data/Forever/foreverNpcDB.lua", "npcData")
+    objects = load_data(L, f"{Q}/data/Forever/foreverObjectDB.lua", "objectData")
+    items = load_data(L, f"{Q}/data/Forever/foreverItemDB.lua", "itemData")
+    L.execute(KEYS)
+    db = {"quest": quests, "npc": npcs, "object": objects, "item": items}
+    for kind, paths in fix_files(Q).items():
+        for p in paths:
+            if not os.path.exists(p):
+                continue
+            res = L.globals().loadfix(Path(p).read_text(encoding="utf-8"), os.path.basename(p))
+            patch, err = res if isinstance(res, tuple) else (res, None)
+            if patch is None:
+                print("skip", os.path.basename(p), str(err)[:140])
+                continue
+            n = L.globals().apply(db[kind], patch)
+            print("applied", os.path.basename(p), n)
+    qk, nk, ok, ik = (keys_of(L, k) for k in ("questKeys", "npcKeys", "objectKeys", "itemKeys"))
+    out = {
+        "questKeys": qk,
+        "quests": rows(quests, qk),
+        "npcs": rows(npcs, nk),
+        "objects": rows(objects, ok),
+        "items": rows(items, ik),
+    }
+    Path(OUT).write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+    print("wrote", OUT)
+
+    # Side tables rk.py reads from data/: subzone -> parent zone, Forever quest XP, Classic Era quest ids.
+    os.makedirs(DATA, exist_ok=True)
+    shutil.copy(os.path.join(Q, "support/Forever/Zones/subZoneToParentZone.lua"), DATA)
+    xpdir = os.path.join(Q, "support/Forever/QuestXP")
+    for f in os.listdir(xpdir):
+        if f.startswith("xpDB-") and f.endswith(".lua"):
+            shutil.copy(os.path.join(xpdir, f), DATA)
+    classic = Path(Q, "data/Classic/classicQuestDB.lua").read_text(encoding="utf-8")
+    ids = sorted(int(m) for m in re.findall(r"^\[(\d+)\]\s*=", classic, re.M))
+    Path(DATA, "classic_quest_ids.json").write_text(json.dumps(ids))
+    print("data/ written:", len(ids), "classic quest ids")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1] if len(sys.argv) > 1 else os.environ.get("QUESTIEDB", "/tmp/QuestieDB"))

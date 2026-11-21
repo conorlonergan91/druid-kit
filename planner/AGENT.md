@@ -127,12 +127,12 @@ fixes go straight through the triage -> engineer -> qa -> deploy path.
 ## Blind planner (eval)
 
 Works in a folder that holds only `TASK.md`, `RULES.md`, a quest pack (`quests.csv` from `eval/build_pack.py`) and
-a copy of the tools (`rk.py`, `db.json`, `travel.json`, `data/`). Prompt:
+a copy of `planner/` (`rk.py`, `db.json`, `travel.json`, `data/`). Prompt:
 
 > You are a levelling-route planner. Work ONLY inside `<folder>`. Read TASK.md and the rules file there and follow
-> them exactly. Do not read any other file or folder, and do not use web search or web fetch. Use `tools/rk.py`
+> them exactly. Do not read any other file or folder, and do not use web search or web fetch. Use `planner/rk.py`
 > heavily (hub choice at arrival level and ~3 levels later, clustering, stop order, training trips and the final
-> sim). Write `plan.json` in the format TASK.md gives, run `python3 tools/rk.py sim plan.json`, fix every problem it
+> sim). Write `plan.json` in the format TASK.md gives, run `python3 planner/rk.py sim plan.json`, fix every problem it
 > reports. Reply with the summary field and the final sim output only.
 
 ## Data sources and licences

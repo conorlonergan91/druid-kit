@@ -3,13 +3,13 @@
 Usage: python3 tools/build_now.py tools/example_route.py tools/example_guide.json "updated text" "You line" ...
 """
 
-import importlib.util
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import route_check  # noqa: E402
+from routeio import load_route  # noqa: E402
 
 Y, G, R, LEAF = "|cffffd100", "|cff9d9d9d", "|r", "|cff7fd35b"
 VERB = {
@@ -27,13 +27,6 @@ VERB = {
     "abandon": "Abandon",
     "boss": "Boss",
 }
-
-
-def load(path):
-    spec = importlib.util.spec_from_file_location("route", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.ROUTE
 
 
 def line(n, st):
@@ -64,10 +57,11 @@ def line(n, st):
 
 
 def main(route_path, guide_path, updated, you_lines, xp_from=None):
-    route = load(route_path)
+    route = load_route(route_path)
     if xp_from:
         # RULES v18: project level after every step (pessimistic quest + kill XP) and stop on level errors
         import xpsim
+
         level, xp, done = xp_from
         route, rows, errors, warns = xpsim.run(route_path, level, xp, done)
         for w in warns:
@@ -135,6 +129,6 @@ if __name__ == "__main__":
     if "--xp" in args:
         i = args.index("--xp")
         level, xp, done_path = int(args[i + 1]), int(args[i + 2]), args[i + 3]
-        xp_from = (level, xp, json.load(open(done_path)))
-        del args[i:i + 4]
+        xp_from = (level, xp, json.loads(Path(done_path).read_text(encoding="utf-8")))
+        del args[i : i + 4]
     main(args[0], args[1], args[2], args[3:], xp_from)

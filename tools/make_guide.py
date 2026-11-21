@@ -22,16 +22,16 @@ Lines starting with "- " become green bullets. WoW colour codes (|cffRRGGBB...|r
 """
 
 import json
+import math
+import re
 import sys
+
+_ESCAPES = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r"}
 
 
 def lua_str(s: str) -> str:
-    """Quote s as a Lua long string, picking a [==[ level that the text itself never contains."""
-    level = 0
-    while ("]" + "=" * level + "]") in s:
-        level += 1
-    eq = "=" * level
-    return f"[{eq}[{s}]{eq}]"
+    """Quote s as a Lua 5.1 double-quoted string; other control bytes become 3-digit decimal escapes."""
+    return '"' + re.sub(r'[\\"\x00-\x1f\x7f]', lambda m: _ESCAPES.get(m[0]) or f"\\{ord(m[0]):03d}", s) + '"'
 
 
 def lua_value(v):
@@ -39,6 +39,8 @@ def lua_value(v):
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, (int, float)):
+        if not math.isfinite(v):
+            raise ValueError(f"can't write {v} to Lua")
         return repr(v)
     if isinstance(v, str):
         return lua_str(v)
@@ -63,13 +65,12 @@ def route_lua(route) -> list:
             out.append(f"      {{ {fields} }},")
         out.append("    } },")
     out.append("  },")
-    # Bag plan for quest items needed later (tools/item_plan.py): name -> { action = bank|drop|keep, why = ... }
+    # Bag plan for quest items needed later (rk.py itemplan): name -> { action = bank|drop|keep, why = ... }
     items = route.get("items") or {}
     if items:
         out.append("  items = {")
         for name, it in items.items():
-            # space after "[": a long string ([[...]]) right after "[" would read as "[[["
-            out.append(f"    [ {lua_str(name)} ] = {{ action = {lua_str(it['action'])}, why = {lua_str(it['why'])} }},")
+            out.append(f"    [{lua_str(name)}] = {{ action = {lua_str(it['action'])}, why = {lua_str(it['why'])} }},")
         out.append("  },")
     out.append("}")
     return out

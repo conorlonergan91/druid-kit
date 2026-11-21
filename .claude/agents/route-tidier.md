@@ -6,7 +6,7 @@ tools: Bash, Read
 
 # Route tidier
 
-**One job:** `python3 build/prune_route.py build/route_vN.py build/state.json build/route_vN.py` after copying the
+**One job:** `python3 tools/prune_route.py build/route_vN.py build/state.json build/route_vN.py` after copying the
 old file to `route_vN.prev.py`.
 
 - Report how many steps were removed and what the first remaining step is.
