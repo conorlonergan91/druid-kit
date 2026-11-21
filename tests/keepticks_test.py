@@ -44,4 +44,15 @@ check(first == 2, "Done ticks the sell step", first)
 check("note|Sell before the trip#1" in keys, "the tick is remembered by kind and text", keys)
 check(m2 is True and not m1, "new route: the same sell step is still done; a new step is not", (m1, m2))
 check(r == 1, "the window shows the new, undone step first", r)
+
+# A trip you already made: the quest step right after it is done, so the trip is done too.
+C = """DruidKitRoute = { id = "c", sections = { { title = "Trip", steps = {
+  { ["do"] = "fly", to = "Lakeshire", npc = "Dungar" },
+  { ["do"] = "accept", q = 95772, name = "Songblade Search" },
+  { ["do"] = "fly", to = "Menethil Harbor", npc = "Dungar" },
+} } } }"""
+L3 = login(C, "DruidKitDB = {}")
+L3.execute('LOG[95772] = { title = "Songblade Search" }; ZONE = "Stormwind City"; DruidKit_StepsEvaluate()')
+r3 = L3.eval("DruidKitDB.routeStep")
+check(r3 == 3, "a flight whose next quest is already in the log counts as done (no going back to it)", r3)
 done("keepticks_test")

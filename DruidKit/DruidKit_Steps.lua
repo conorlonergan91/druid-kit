@@ -175,13 +175,26 @@ local function tick(i)
   local key = stepKey(i)
   if key then DB.doneKeys = DB.doneKeys or {}; DB.doneKeys[key] = true end
 end
-local function isDone(i)
+local isDone
+isDone = function(i)
   local st = steps[i]
   if not st then return true end
   if DB.manual[i] then return true end
   local key = st.q or st.name
   if key and DB.skipQ[key] then return true end
   local d = st["do"]
+  -- A trip you already made: the next quest step after it (same section) is done, so you got there another way
+  -- or before a rebuilt route (21 Nov: "Fly to Lakeshire" showed after Songblade Search was in the log).
+  if d == "fly" or d == "goto" or d == "hearth" then
+    for j = i + 1, #steps do
+      local o = steps[j]
+      if o.sec ~= st.sec then break end
+      if o.q and (o["do"] == "accept" or o["do"] == "turnin" or o["do"] == "complete") then
+        if isDone(j) then return true end
+        break
+      end
+    end
+  end
   -- A trip that only serves some quests (fly to a quest giver, walk to an NPC) is done once those quests are in your
   -- log or handed in: e.g. a friend shared them (20 Nov: dungeon prep with friends).
   if st.onlyFor and (d == "goto" or d == "fly" or d == "hearth" or d == "note") then
