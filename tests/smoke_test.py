@@ -18,7 +18,7 @@ function GetNumQuestChoices() return 0 end function GetQuestReward() end functio
 function GetMoney() return 61362 end function CanMerchantRepair() return false end
 MerchantFrame=MerchantFrame or nil
 """)
-order=["DruidKit_Guide.lua","DruidKit.lua","DruidKit_Helpers.lua","DruidKit_Trainers.lua","DruidKit_Steps.lua","DruidKit_Style.lua","DruidKit_Bags.lua","DruidKit_Bank.lua","DruidKit_Party.lua"]
+order=["DruidKit_Guide.lua","DruidKit.lua","DruidKit_Helpers.lua","DruidKit_Trainers.lua","DruidKit_Steps.lua","DruidKit_Style.lua","DruidKit_Bags.lua","DruidKit_Bank.lua","DruidKit_Party.lua","DruidKit_DungeonData.lua","DruidKit_Dungeons.lua"]
 errs=[]
 for f in order:
     try: L.execute((Q/f).read_text(encoding='utf-8'))

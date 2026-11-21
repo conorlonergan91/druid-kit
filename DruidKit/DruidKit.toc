@@ -15,3 +15,5 @@ DruidKit_Style.lua
 DruidKit_Bags.lua
 DruidKit_Bank.lua
 DruidKit_Party.lua
+DruidKit_DungeonData.lua
+DruidKit_Dungeons.lua
