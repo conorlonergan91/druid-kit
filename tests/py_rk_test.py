@@ -129,6 +129,15 @@ with contextlib.redirect_stdout(out):
     rk.main(["minutes", "8", "--level", "8"])
 row = json.loads(out.getvalue())
 check(row["q"] == 8 and row["min"] > 1, "rk.py minutes prints quest_minutes per quest", row)
+fake_db(
+    quests={"8": {"objectives": {"1": [[60]]}}, "9": {"objectives": {"1": [[60]]}}},
+    npcs={"60": {"name": "Gnoll", "spawns": {"141": [[50, 50]]}}},
+)
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    rk.main(["party", "--quests", "8", "--level", "9", "--party", "3"])
+rows = [json.loads(x)["q"] for x in out.getvalue().splitlines()]
+check(rows == [8], "rk.py party takes only quest ids, not later flags' values", rows)
 
 sv = Path(tempfile.mkdtemp()) / "DruidKit.lua"
 sv.write_text(

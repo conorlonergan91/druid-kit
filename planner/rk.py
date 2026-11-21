@@ -830,10 +830,10 @@ def party_savings(qids, level, size=GROUP_SIZE):
         if not q or not q["kills"]:
             continue
         solo = quest_minutes(q, level, 1)
-        duo = quest_minutes(q, level, size)
+        group = quest_minutes(q, level, size)
         lost = kill_xp(q, level, 1) - kill_xp(q, level, size)  # mob XP is split in a party
         solo_rate = (q["xp"] + kill_xp(q, level, 1)) / solo * 60
-        duo_rate = (q["xp"] + kill_xp(q, level, size)) / duo * 60
+        group_rate = (q["xp"] + kill_xp(q, level, size)) / group * 60
         out.append(
             {
                 "q": qid,
@@ -841,12 +841,12 @@ def party_savings(qids, level, size=GROUP_SIZE):
                 "kills": q["kills"],
                 "elite": q["elite"],
                 "solo_min": round(solo, 1),
-                "group_min": round(duo, 1),
-                "saved_min": round(solo - duo, 1),
+                "group_min": round(group, 1),
+                "saved_min": round(solo - group, 1),
                 "mob_xp_lost": int(lost),
                 "xp_per_hour_solo": int(solo_rate),
-                "xp_per_hour_group": int(duo_rate),
-                "group_worth_it": duo_rate > solo_rate * 1.1 or q["elite"],
+                "xp_per_hour_group": int(group_rate),
+                "group_worth_it": group_rate > solo_rate * 1.1 or q["elite"],
             }
         )
     return sorted(out, key=lambda r: -(r["xp_per_hour_group"] - r["xp_per_hour_solo"]))
@@ -1255,6 +1255,10 @@ def _opt(args, name, default=None, cast=str):
     return cast(args[args.index(name) + 1]) if name in args else default
 
 
+def _cli_ids(args):
+    return [int(a) for i, a in enumerate(args) if a.isdigit() and not (i and args[i - 1].startswith("--"))]
+
+
 def main(argv):
     if not argv:
         print(__doc__)
@@ -1273,11 +1277,9 @@ def main(argv):
             )
     elif cmd == "minutes":
         lvl, party = _opt(args, "--level", 1, float), _opt(args, "--party", 1, int)
-        for i, a in enumerate(args):
-            if not a.isdigit() or (i and args[i - 1].startswith("--")):
-                continue
-            q = quest(int(a))
-            print(json.dumps({"q": int(a), "min": round(quest_minutes(q, lvl, party), 1) if q else None}))
+        for qid in _cli_ids(args):
+            q = quest(qid)
+            print(json.dumps({"q": qid, "min": round(quest_minutes(q, lvl, party), 1) if q else None}))
     elif cmd == "available":
         lvl = _opt(args, "--level", 1, float)
         rows = available(lvl, _done(args), window=(_opt(args, "--below", 4, int), _opt(args, "--above", 1, int)))
@@ -1328,8 +1330,11 @@ def main(argv):
         for r in clusters(qids, _opt(args, "--radius", 400, float)):
             print(json.dumps(r, ensure_ascii=False))
     elif cmd == "party":
-        qids = [int(x) for x in args[args.index("--quests") + 1 :] if x.isdigit()]
-        for r in party_savings(qids, _opt(args, "--level", 10, float), _opt(args, "--party", GROUP_SIZE, int)):
+        for r in party_savings(
+            _cli_ids(args[args.index("--quests") + 1 :]),
+            _opt(args, "--level", 10, float),
+            _opt(args, "--party", GROUP_SIZE, int),
+        ):
             print(json.dumps(r, ensure_ascii=False))
     elif cmd == "itemplan":
         state = json.loads(Path(args[0]).read_text(encoding="utf-8"))

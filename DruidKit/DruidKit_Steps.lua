@@ -1122,7 +1122,7 @@ local function pickReward(st)
       say(("took %s (%s)."):format(safe(GetQuestItemInfo, "choice", i) or "a reward", why))
       return true
     end
-    say("pick your reward yourself (" .. (why or "the guide couldn't read the rewards") .. ").")
+    say("pick your reward yourself: " .. (why or "the guide couldn't read the rewards") .. ".")
     return false
   end
   for i = 1, n do

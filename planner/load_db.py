@@ -154,13 +154,13 @@ def runtime():
 
 
 def run(api, path):
-    err = api.runchunk(Path(path).read_text(encoding="utf-8"), os.path.basename(path))
+    err = api.runchunk(Path(path).read_text(encoding="utf-8-sig"), os.path.basename(path))
     if err:
         print("warn", path, str(err)[:160])
 
 
 def load_data(api, path, var):
-    src = Path(path).read_text(encoding="utf-8")
+    src = Path(path).read_text(encoding="utf-8-sig")
     head, rest = src.split(f"QuestieDB.{var} = [[", 1)
     api.exec(head, os.path.basename(path))
     return api.exec(rest.rsplit("]]", 1)[0], os.path.basename(path))
@@ -238,7 +238,7 @@ def main(Q):
         for p in paths:
             if not os.path.exists(p):
                 continue
-            res = api.loadfix(Path(p).read_text(encoding="utf-8"), os.path.basename(p))
+            res = api.loadfix(Path(p).read_text(encoding="utf-8-sig"), os.path.basename(p))
             patch, err = res if isinstance(res, tuple) else (res, None)
             if patch is None:
                 print("skip", os.path.basename(p), str(err)[:140])

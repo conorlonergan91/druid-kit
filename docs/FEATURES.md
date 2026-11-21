@@ -111,7 +111,8 @@ flask or scroll whose buff you lack).
 - Auto-accept only takes route quests from about the current step onwards; auto hand-in takes any other route quest. Hold
   Shift while talking to the quest giver to do it yourself; `/dk auto` turns it off.
 - The reward is the one the route names; else the biggest upgrade for your current role; else the one that sells for
-  the most. If the rewards can't be read, or one of them can't be compared (an idol, an on-use trinket), you pick.
+  the most. If the rewards can't be read, or one of them can't be compared (an idol, an on-use trinket), you pick: chat
+  names the item it can't compare.
 - At login, and when a new route loads, the window jumps to just after the last route quest you handed in, within the
   section you are working on. It stops at the first route quest still in your log. A whole earlier section you never
   started is not passed. It tells you how many steps it passed, and if you have quests from a later section.
@@ -207,7 +208,10 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
   bank) or that no set is saved yet.
 - Bag check keeps both sets and gear that's better for the other role; Bank check offers to store the other mode's
   gear (except while packing for a dungeon) and to take out the current mode's set.
-- Combat: queued until combat ends, then runs. A reload popup follows.
+- `/dk heal` or `/dk quest` for the mode you're already in re-wears that mode's set ("gear re-worn"), with no bar
+  change and no reload popup.
+- Combat: queued until combat ends, then runs; a mode switch is followed by a reload popup. Asking for the current
+  mode with `/dk heal` or `/dk quest` in combat re-wears its set after combat; Alt+H back to it changes nothing.
 
 ## Bag check and selling
 
@@ -297,8 +301,8 @@ loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is drop
   fair; for a big cloth upgrade it says to ask in party chat first. Bind on pickup gear up to 4 levels above you that
   will be a clear upgrade can be NEED.
 - Recipes and crafting materials: GREED. Gear druids can never wear: GREED.
-- Gear it can't compare (idols, on-use trinkets, an off-hand while you wield a two-hander): YOUR CALL, with no
-  button marked and no automatic roll.
+- Gear it can't compare (idols, on-use trinkets, an off-hand while you wield a two-hander), at any level: YOUR CALL,
+  with no button marked and no automatic roll.
 - Automatic Greed (unless `/dk autoroll off`): crafting materials, gear druids can't use, and non-upgrades nobody in
   the party wears are greeded for you, with a chat line. It confirms the bind-on-pickup prompt only for rolls it made
   itself.

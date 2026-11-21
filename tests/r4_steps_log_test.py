@@ -137,4 +137,13 @@ L, g = setup(
 L.execute('fire("PLAYER_LOGIN")')
 check(g.cur() == 2 and g.logged(1) == 0, "an old loggedTo is carried over", (g.cur(), g.logged(1)))
 
+# A new route starts a fresh log: the old route's logged steps don't block the new route's.
+L, g = setup(
+    r"""
+ { title = 'S', steps = { { ["do"] = "turnin", q = 1, name = "One" }, { ["do"] = "note", text = "end" } } }""",
+    "DONE[1] = true; DruidKitDB = { routeId = 'old', routeStep = 1, logged = { [1] = true }, stepLog = {} }",
+)
+L.execute('fire("PLAYER_LOGIN")')
+check(g.cur() == 2 and g.logged(1) == 1, "step 1 of the new route is logged once", (g.cur(), g.logged(1)))
+
 done("r4_steps_log_test")

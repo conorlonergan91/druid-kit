@@ -474,7 +474,7 @@ local function upgradeFor(link, w, anyLevel)
   if not anyLevel and (minLevel or 0) > UnitLevel("player") then return end
   if restriction(link) then return end
   if score(link, WEIGHTS) <= 0 and score(link, HEAL_WEIGHTS) <= 0 then
-    return false, "no stats to compare (idol, on-use effect?): judge it yourself"
+    return false, "no stats (idol or on-use effect?)"
   end
   local mine = score(link, w)
   local slots = SLOTS[equipLoc]
@@ -484,7 +484,7 @@ local function upgradeFor(link, w, anyLevel)
   elseif equipLoc == "INVTYPE_HOLDABLE" then
     local mh = GetInventoryItemLink("player", 16)
     local mhLoc = mh and select(9, getInfo(mh))
-    if mhLoc == "INVTYPE_2HWEAPON" then return false, "off-hand: you wield a two-hander, so it can't be compared" end
+    if mhLoc == "INVTYPE_2HWEAPON" then return false, "off-hand while you wield a two-hander" end
     current = equippedScore(17, w)
   else
     current = math.huge
@@ -513,8 +513,8 @@ local function rewardPick(n)
   for i = 1, n do
     local link = GetQuestItemLink and GetQuestItemLink("choice", i)
     if link then
-      local gain, why = upgradeFor(link, nil, true)
-      if gain == false then return nil, why end
+      local gain = upgradeFor(link, nil, true)
+      if gain == false then return nil, "can't compare " .. (getInfo(link) or "a reward") end
       if gain and gain > bestGain then best, bestGain = i, gain end
       local price = select(11, getInfo(link)) or 0
       if price > bestPrice then cash, bestPrice = i, price end
@@ -667,7 +667,7 @@ local function scanNow()
             end
           elseif not isQuest and not KEEP_CLASS[classID] and not isTool(classID, subID) then
             local gain, slotName = upgradeFor(link)
-            local keepWhy = SLOTS[equipLoc] and (keepReason(link) or (gain == false and slotName))
+            local keepWhy = SLOTS[equipLoc] and (keepReason(link) or (gain == false and "can't compare: " .. slotName))
             if gain and not setOf(link) then
               entry.gain, entry.slotName = gain, slotName
               table.insert(up, entry)
@@ -1427,8 +1427,9 @@ local function lootVerdict(link, qty, isQuest, cheapest)
   local name, _, q, _, _, _, _, _, _, _, price = getInfo(link)
   if name and name:find("Waylaid") then return "take", "Waylaid Crate: fill it for Merchant's Favor" end
   if stacksWithBags(link) then return "take", "stacks with what you have: no new slot" end
+  local cant, why = upgradeFor(link, nil, true)
+  if cant == false then return "take", "can't compare: " .. why end
   local gain, slotName = upgradeFor(link)
-  if gain == false then return "take", "can't compare: " .. slotName end
   if gain then return "take", ("upgrade for your %s (+%d)"):format(slotName:lower(), math.floor(gain + 0.5)) end
   local keep = keepReason(link)
   if keep then return "take", keep end
@@ -1581,8 +1582,9 @@ local function rollAdvice(link, canNeed, canGreed)
   if (classID == 7 or classID == 5) and canGreed then
     return "GREED", ("crafting material: Greed (sells for %s)"):format(sells), 2, true
   end
+  local cant, why = upgradeFor(link, nil, true)
+  if cant == false then return "YOUR CALL", "can't compare: " .. why end
   local gain, slotName = upgradeFor(link)
-  if gain == false then return "YOUR CALL", "can't compare: " .. slotName end
   if gain and canNeed then
     local g = math.floor(gain + 0.5)
     if subID == 1 and classID == 4 and who then
@@ -1604,7 +1606,6 @@ local function rollAdvice(link, canNeed, canGreed)
   local myLevel = UnitLevel("player") or 0
   if minLevel > myLevel and minLevel - myLevel <= 5 then
     local later, laterSlot = upgradeFor(link, nil, true)
-    if later == false then return "YOUR CALL", "can't compare: " .. laterSlot end
     if later and canNeed and bindType == 1 and minLevel - myLevel <= 4 and later >= SMALL and not keepReason(link) then
       return "NEED", ("upgrade for your %s at level %d (+%d), binds when picked up: Need is fair for your role. "
         .. "Say in /p \"need for level %d\""):format(laterSlot:lower(), minLevel, math.floor(later + 0.5), minLevel), 1

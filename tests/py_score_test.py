@@ -1,6 +1,8 @@
 """planner/eval/score.py: hearth binds read from every place field; planner/load_db.py: QuestieDB's Lua runs
 without the Python bridge or OS libraries."""
 
+import contextlib
+import io
 import json
 import os
 import sys
@@ -63,4 +65,16 @@ for entry in ("runchunk", "loadfix", "exec"):
     check(
         L.eval("rawget(_G, 'escaped')") is None and "binary" in str(res), f"tampered Lua: {entry} refuses bytecode", res
     )
+# QuestieDB files saved with a UTF-8 BOM still load.
+L, api = load_db.runtime()
+bom = Path(tempfile.mkdtemp())
+(bom / "enum.lua").write_text("\ufeffbomRan = true", encoding="utf-8")
+(bom / "db.lua").write_text("\ufeffQuestieDB = {}\nQuestieDB.questData = [[return { [5] = 1 }]]", encoding="utf-8")
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    load_db.run(api, bom / "enum.lua")
+    data = load_db.load_data(api, bom / "db.lua", "questData")
+check(
+    L.eval("rawget(_G, 'bomRan')") is True and data[5] == 1, "a BOM at the start of a file is ignored", out.getvalue()
+)
 done("py_score_test")
