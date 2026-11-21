@@ -1,4 +1,5 @@
 """Healing mode with no saved set wears the best healing pieces from the bags (Bags API bestSet)."""
+
 from expect import check, done
 from wowenv import runtime, source
 
@@ -33,10 +34,10 @@ L.execute(r"""
 ev=frames[1]; ev.on_OnEvent(ev,"PLAYER_LOGIN")
 picks = DruidKitBagsAPI.bestSet("heal")
 names = {}
-for _, e in ipairs(picks) do names[#names+1] = e.link end
+for _, e in ipairs(picks) do names[#names+1] = KEY(e.link) end
 qpicks = DruidKitBagsAPI.bestSet("quest")
 qnames = {}
-for _, e in ipairs(qpicks) do qnames[#qnames+1] = e.link end
+for _, e in ipairs(qpicks) do qnames[#qnames+1] = KEY(e.link) end
 """)
 names = sorted(L.eval("names").values())
 qnames = sorted(L.eval("qnames").values())

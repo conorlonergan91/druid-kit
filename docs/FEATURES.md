@@ -40,6 +40,7 @@ All of them can be changed in Options > Keybindings > AddOns > Druid Kit.
 | `/dk save NAME` / `/dk load NAME` / `/dk list` | Save, load (queued in combat) or list action-bar layouts. `/dk load backup` goes back to before your first `/dk bars`. |
 | `/dk heal` / `/dk quest` (`/dk bear`) | Healing or questing mode. Queued if in combat. |
 | `/dk healset` / `/dk questset` (`/dk bearset`) | Save the gear you are wearing as that mode's set. |
+| `/dk healset best` / `/dk questset best` | Wear the best pieces in your bags for that role and save them as the set. |
 | `/dk herbs` | Turn Find Herbs tracking back on. |
 | `/dk steps` | Show or hide the step window. Also: `/dk steps reset`, `unskip`, `log`, `vendor [kind]`, `vendorprompt`, `keys`. |
 | `/dk auto` | Automatic quest accept and hand-in on or off. |
@@ -235,7 +236,8 @@ Related helpers:
 
 ## Healing mode
 
-**Open:** Alt+H (toggle), `/dk heal`, `/dk quest`. Save sets with `/dk healset` and `/dk questset`.
+**Open:** Alt+H (toggle), `/dk heal`, `/dk quest`. Save sets with `/dk healset` and `/dk questset`; build one from
+your bags with `/dk healset best` and `/dk questset best`.
 
 **What it does:** swaps the caster bar (keys 1 to =) between the questing layout and a healing layout, and puts on the
 gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
@@ -245,7 +247,10 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
 - Leaving a mode saves that mode's bars; entering a mode restores its saved bars, then fills in any newly learned
   layout spells. The first time in a mode, the guide layout is applied.
 - Gear: each saved piece not worn is equipped if it's in your bags. Chat says how many pieces are missing (check the
-  bank) or that no set is saved yet.
+  bank).
+- No set saved for the mode yet: it wears the best pieces in your bags for that role (gear you can wear now, never a
+  can't-compare item such as an idol) and saves what you wear as the set. `/dk healset best` / `/dk questset best` do
+  the same on demand.
 - Bag check keeps both sets and gear that's better for the other role; Bank check offers to store the other mode's
   gear (except while packing for a dungeon) and to take out the current mode's set.
 - `/dk heal` or `/dk quest` for the mode you're already in re-wears that mode's set ("gear re-worn"), with no bar
