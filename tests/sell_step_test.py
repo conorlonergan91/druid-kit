@@ -1,6 +1,8 @@
 """Sell steps: say how many items the vendor autopilot would sell (or that there's nothing), and tick themselves once
 you talk to a vendor."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 

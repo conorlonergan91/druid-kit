@@ -50,6 +50,9 @@ print("deleted:", g.deleted)
 
 from expect import check, done
 
-check(g.POP is not None and "grey x20" in list(g.POP.values()), "destroy asks for confirmation first")
+check(
+    g.POP is not None and list(g.POP.values())[0].endswith("[Broken Tooth]|h|r x20"),
+    "destroy asks for confirmation first",
+)
 check(g.deleted == "0:2", "confirmed destroy deletes the right bag slot", g.deleted)
 done("destroy_test")

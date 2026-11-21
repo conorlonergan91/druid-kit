@@ -1,7 +1,9 @@
 """Quests under a collapsed zone header still reach the save (ClaudeProgress) and the step window (IsOnQuest)."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
-from wowenv import HERE, source
+from wowenv import HERE
 
 L = LuaRuntime(unpack_returned_tuples=True)
 src = (HERE.parent / "ClaudeProgress" / "ClaudeProgress.lua").read_text(encoding="utf-8")
@@ -25,12 +27,13 @@ C_QuestLog = {
 }
 """)
 # Pull snapshotQuests out of the addon file and run it.
-body = src[src.index("local function expandAll()"):src.index("local function snapshotQuests()")]
-fn = src[src.index("local function snapshotQuests()"):]
-fn = fn[:fn.index("\nend\n") + 5]
+body = src[src.index("local function expandAll()") : src.index("local function snapshotQuests()")]
+fn = src[src.index("local function snapshotQuests()") :]
+fn = fn[: fn.index("\nend\n") + 5]
 helpers = "local function safe(f, ...) if not f then return nil end local ok, a, b, c, d, e, g, h, k = pcall(f, ...) if ok then return a, b, c, d, e, g, h, k end end\n"
 helpers += "local function objectivesClassic() return {} end\n"
-L.execute(helpers + body + fn + "\nQ = snapshotQuests()")
+# The full snapshot (logout, /claude) opens the headers around it.
+L.execute(helpers + body + fn + "\nlocal closed = expandAll(); Q = snapshotQuests(); collapseAgain(closed)")
 g = L.globals()
 titles = [q.title for q in g.Q.values()]
 print(titles)

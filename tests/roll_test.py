@@ -51,7 +51,11 @@ check(
     "bind-on-equip non-upgrade: Greed, never Need to sell",
     R[2],
 )
-check(R[3].startswith("NEED") and "level 15" in R[3] and "/p" in R[3], "BoP gear for your role within 4 levels: Need, say so in /p", R[3])
+check(
+    R[3].startswith("NEED") and "level 15" in R[3] and "/p" in R[3],
+    "BoP gear for your role within 4 levels: Need, say so in /p",
+    R[3],
+)
 check(R[5].startswith("GREED") and "level 15" in R[5], "BoE gear for later: Greed and ask", R[5])
 check(R[6].startswith("GREED") and "level 17" in R[6], "BoP gear 5 levels away: Greed and ask", R[6])
 check(R[7] == "true", "mail: automatic Greed", R[7])

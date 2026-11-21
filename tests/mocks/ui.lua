@@ -25,6 +25,19 @@ StaticPopupDialogs = StaticPopupDialogs or {}; StaticPopup_Show = StaticPopup_Sh
 GetShapeshiftForm = GetShapeshiftForm or function() return 0 end
 function UnitLevel() return 12 end
 -- items: name,link,quality,ilvl,minLevel,type,sub,stack,equipLoc,icon,price,classID,subID
+-- ITEMS/BAG/EQ use short keys; the API hands out real-shaped links (LINK) with distinct item IDs, KEY maps back.
+local ids, keys, nextID = {}, {}, 100
+function LINK(k)
+  if type(k) ~= "string" or not ITEMS[k] then return k end
+  if not ids[k] then nextID = nextID + 1; ids[k] = nextID; keys[nextID] = k end
+  return ("|cffffffff|Hitem:%d::::::::|h[%s]|h|r"):format(ids[k], ITEMS[k][1])
+end
+function KEY(l)
+  local id = type(l) == "string" and tonumber(l:match("item:(%d+)"))
+  if id then return keys[id] end
+  return l
+end
+function ITEMID(k) LINK(k); return ids[k] end
 ITEMS={
  ["robe"]={"Sleeping Robes","robe",2,15,10,"","",1,"INVTYPE_ROBE",1,300,4,1},
  ["oldchest"]={"Old Tunic","oldchest",1,5,1,"","",1,"INVTYPE_CHEST",1,10,4,2},
@@ -38,14 +51,21 @@ ITEMS={
 STATS={robe={ITEM_MOD_STAMINA_SHORT=4,ITEM_MOD_INTELLECT_SHORT=3,RESISTANCE0_NAME=30},
  oldchest={RESISTANCE0_NAME=20}, mail={ITEM_MOD_STAMINA_SHORT=2,RESISTANCE0_NAME=80},
  boots={RESISTANCE0_NAME=10}, newboots={RESISTANCE0_NAME=40}}
-C_Item={GetItemInfo=function(l) local i=ITEMS[l]; if i then return (table.unpack or unpack)(i, 1, 14) end end,
-        GetItemStats=function(l) return STATS[l] end, EquipItemByName=function(l) equipped=l end}
+local function itemInfo(l)
+  local k = KEY(l); local i = ITEMS[k]
+  if i then
+    local r = { (table.unpack or unpack)(i, 1, 14) }; r[2] = LINK(k)
+    return (table.unpack or unpack)(r, 1, 14)
+  end
+end
+C_Item={GetItemInfo=itemInfo,
+        GetItemStats=function(l) return STATS[KEY(l)] end, EquipItemByName=function(l) equipped=KEY(l) end}
 EQ={[5]="oldchest",[8]="newboots"}
 ITEMS.newboots={"Good Boots","newboots",1,10,5,"","",1,"INVTYPE_FEET",1,30,4,2}
-function GetInventoryItemLink(_,s) return EQ[s] end
+function GetInventoryItemLink(_,s) return LINK(EQ[s]) end
 BAG={[0]={"robe","mail","grey","herb","note","boots","pole"}}
 C_Container={GetContainerNumSlots=function(b) return b==0 and 7 or 0 end,
- GetContainerItemInfo=function(b,s) local l=BAG[b] and BAG[b][s]; if l then return {hyperlink=l,stackCount=ITEMS[l][8],quality=ITEMS[l][3],itemID=1} end end,
+ GetContainerItemInfo=function(b,s) local l=BAG[b] and BAG[b][s]; if l then return {hyperlink=LINK(l),stackCount=ITEMS[l][8],quality=ITEMS[l][3],itemID=ITEMID(l)} end end,
  GetContainerItemQuestInfo=function(b,s) local l=BAG[b][s]; if l=="note" then return {isQuestItem=true,questID=99,isActive=false} end return {} end,
  UseContainerItem=function(b,s) sold=(sold or 0)+1 end}
 function GetCoinTextureString(c) return c.."c" end

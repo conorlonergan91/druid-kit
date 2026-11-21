@@ -2,6 +2,7 @@
 
 from lupa.lua51 import LuaRuntime
 
+from expect import check, done
 from wowenv import source
 
 L = LuaRuntime(unpack_returned_tuples=True)
@@ -56,42 +57,54 @@ shouts={}
 UIErrorsFrame={AddMessage=function(_,m) shouts[#shouts+1]=m end}
 """)
 L.execute(source("DruidKit/DruidKit_Helpers.lua"))
+# Record every error a pcall swallows, so "no errors" is checked, not just "not 5 errors".
+L.execute(r"""
+ERRS = {}
+local raw = pcall
+function pcall(f, ...)
+  local r = { raw(f, ...) }
+  if not r[1] then ERRS[#ERRS + 1] = tostring(r[2]) end
+  return unpack(r, 1, table.maxn(r))
+end
+""")
 L.execute(r"""
 ev=frames[1]
 ev.on_OnEvent(ev,"PLAYER_LOGIN")
-assert(DruidKitDB.trackerOn and DruidKitDB.friends.Aoife==23)
+LOGIN_OK = DruidKitDB.trackerOn and DruidKitDB.friends.Aoife==23
 NOW=1600; XP=2500; ev.on_OnEvent(ev,"PLAYER_XP_UPDATE")
 NOW=1900; XP=4000; ev.on_OnEvent(ev,"PLAYER_XP_UPDATE")
-""")
-tr = [f for f in L.eval("frames")]
-fr = L.globals().frames
-# find tracker text
-L.execute("""for i,f in pairs(frames) do end""")
-L.execute("""
 HP=50; MP=30; ev.on_OnUpdate(ev,1)
 HP=100; MP=100; BUFFS["Mark of the Wild"]={} ; ev.on_OnUpdate(ev,1)
+for _,f in ipairs(frames) do if type(f.text)=="string" and f.text:find("ready") then HUD=f.text end end
 ev.on_OnEvent(ev,"UPDATE_INVENTORY_DURABILITY")
 ev.on_OnEvent(ev,"BAG_UPDATE_DELAYED")
 LVL=14; ev.on_OnEvent(ev,"PLAYER_LEVEL_UP",14)
 SlashOK = DruidKit_HelperCommand("catchup","25")
 Bad = DruidKit_HelperCommand("zzz","")
 DruidKit_HelperCommand("unlock",""); DruidKit_HelperCommand("hud","off"); DruidKit_HelperCommand("lock","")
+DruidKit_HelperCommand("tracker","on")
+for _,f in ipairs(frames) do if type(f.text)=="string" and f.text:find("Catch") then CT=f.text end end
+for i=1,10 do ev.on_OnUpdate(ev,1) end
+hb=false for _,f in ipairs(frames) do if f.gotSecret then hb=true end end
 """)
 g = L.globals()
-for k in g.printed.values():
-    print("PRINT:", k)
-for k in g.shouts.values():
-    print("SHOUT:", k)
-print("slash", g.SlashOK, g.Bad, g.DruidKitDB.catchupTarget, g.DruidKitDB.hudOn)
-# dump texts of fontstrings
-L.execute("""alltexts={} """)
-L.execute('DruidKit_HelperCommand("hud","off")')
-print("hudOn after off:", L.globals().DruidKitDB.hudOn)
-L.execute(
-    """DruidKit_HelperCommand("tracker","on"); for _,f in ipairs(frames) do if type(f.text)=="string" and f.text:find("Catch") then CT=f.text end end"""
+shouts = list(g.shouts.values())
+printed = list(g.printed.values())
+check(g.LOGIN_OK is True, "login: panels on and a friend's level read", g.LOGIN_OK)
+check(g.hb is True, "secret health and mana go straight to the bars (the game draws them)", g.hb)
+check(g.HUD is not None and "HP " not in g.HUD and "MP " not in g.HUD, "no HP/MP percent from secret values", g.HUD)
+errs = list(g.ERRS.values())
+check(errs == [] and not [p for p in printed if "paused" in p], "no errors in any handler", errs)
+check(
+    shouts == ["Gear below 50%: repair in town", "Bags full!", "Level 14!"],
+    "durability, bags and level-up shouts",
+    shouts,
 )
-print(L.globals().CT)
-L.execute("""for i=1,10 do ev.on_OnUpdate(ev,1) end
-hb=nil for _,f in ipairs(frames) do if f.gotSecret then hb=true end end""")
-print("bars got secret values:", L.globals().hb)
-print("paused msgs:", [p for p in L.globals().printed.values() if "paused" in p])
+check(
+    g.SlashOK is True and g.Bad is False and g.DruidKitDB.catchupTarget == 25,
+    "/dk catchup 25; unknown commands fall through",
+    (g.SlashOK, g.Bad, g.DruidKitDB.catchupTarget),
+)
+check(g.DruidKitDB.hudOn is False, "/dk hud off", g.DruidKitDB.hudOn)
+check("Lv 14, 39%" in g.CT and "Target 25: 11 levels behind" in g.CT, "tracker: level, percent and target", g.CT)
+done("helpers_secret_test")

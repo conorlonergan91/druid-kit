@@ -1,11 +1,15 @@
 """Smoke test: every DruidKit file loaded together (TOC order), every main event, OnUpdate, slash commands, then
 the same in combat. Any Lua error fails. DK_LIVE=/path runs it on the live copies."""
+
 import sys
-sys.path.insert(0,str(__import__("pathlib").Path(__file__).resolve().parent))
-from wowenv import runtime, source
-from pathlib import Path
+
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 import os
-Q=Path(os.environ.get('DK_LIVE') or (Path(__file__).resolve().parent.parent/'DruidKit'))
+from pathlib import Path
+
+from wowenv import runtime
+
+Q = Path(os.environ.get("DK_LIVE") or (Path(__file__).resolve().parent.parent / "DruidKit"))
 L = runtime("ui")
 L.execute(r"""
 UISpecialFrames={}; SlashCmdList={}; DruidKitDB=nil
@@ -18,11 +22,25 @@ function GetNumQuestChoices() return 0 end function GetQuestReward() end functio
 function GetMoney() return 61362 end function CanMerchantRepair() return false end
 MerchantFrame=MerchantFrame or nil
 """)
-order=["DruidKit_Guide.lua","DruidKit.lua","DruidKit_Helpers.lua","DruidKit_Trainers.lua","DruidKit_Steps.lua","DruidKit_Style.lua","DruidKit_Bags.lua","DruidKit_Bank.lua","DruidKit_Party.lua","DruidKit_DungeonData.lua","DruidKit_Dungeons.lua"]
-errs=[]
+order = [
+    "DruidKit_Guide.lua",
+    "DruidKit.lua",
+    "DruidKit_Helpers.lua",
+    "DruidKit_Trainers.lua",
+    "DruidKit_Steps.lua",
+    "DruidKit_Style.lua",
+    "DruidKit_Bags.lua",
+    "DruidKit_Bank.lua",
+    "DruidKit_Party.lua",
+    "DruidKit_DungeonData.lua",
+    "DruidKit_Dungeons.lua",
+]
+errs = []
 for f in order:
-    try: L.execute((Q/f).read_text(encoding='utf-8'))
-    except Exception as e: errs.append(("load "+f, str(e)[:200]))
+    try:
+        L.execute((Q / f).read_text(encoding="utf-8"))
+    except Exception as e:
+        errs.append(("load " + f, str(e)[:200]))
 L.execute(r"""
 ERR={}
 local evs={"ADDON_LOADED","PLAYER_LOGIN","PLAYER_ENTERING_WORLD","BAG_UPDATE_DELAYED","MERCHANT_SHOW","MERCHANT_CLOSED","BANKFRAME_OPENED","QUEST_DETAIL","QUEST_PROGRESS","QUEST_COMPLETE","QUEST_TURNED_IN","PLAYER_LEVEL_UP","LOOT_OPENED","LOOT_CLOSED","PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","GROUP_ROSTER_UPDATE","UNIT_AURA","TAXIMAP_OPENED","PLAYER_DEAD","ZONE_CHANGED_NEW_AREA","TRAINER_CLOSED","GOSSIP_SHOW"}
@@ -41,12 +59,16 @@ for _,c in ipairs({"steps","bags","mount","pack","pack off","autosell","keymap",
   local ok,er=pcall(SlashCmdList.DRUIDKIT,c) if not ok then ERR[#ERR+1]="/dk "..c..": "..tostring(er) end
 end
 """)
-for e in errs: print("LOAD", e)
-seen=set()
+for e in errs:
+    print("LOAD", e)
+seen = set()
 for e in L.globals().ERR.values():
-    k=e[:160]
-    if k not in seen: seen.add(k); print(k)
+    k = e[:160]
+    if k not in seen:
+        seen.add(k)
+        print(k)
 from expect import check, done
-n=len(list(L.globals().ERR.values()))+len(errs)
+
+n = len(list(L.globals().ERR.values())) + len(errs)
 check(n == 0, "no Lua errors across all modules, events, commands and combat", n)
 done("smoke_test")

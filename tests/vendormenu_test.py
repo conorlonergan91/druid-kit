@@ -1,5 +1,7 @@
 """Vendor button: a menu of vendor kinds in this zone (nearest of each); a click points the arrow there."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 

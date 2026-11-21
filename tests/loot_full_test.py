@@ -23,7 +23,7 @@ L.execute(source("DruidKit/DruidKit_Style.lua"))
 L.execute(source("DruidKit/DruidKit_Bags.lua"))
 L.execute(r"""
 frames[1].on_OnEvent(frames[1], "PLAYER_LOGIN")
-function fire(e, a) for _, f in ipairs(frames) do if f.on_OnEvent then pcall(f.on_OnEvent, f, e, a) end end end
+function fire(e, a) for _, f in ipairs(frames) do if f.on_OnEvent then f.on_OnEvent(f, e, a) end end end
 R = {}
 fire("LOOT_OPENED")
 R[1] = WARN or ""; R[2] = SOUNDS or 0
@@ -49,4 +49,6 @@ check(r[1] >= 1, "with a sound as a second signal", r[1])
 check("LEFT ON THE CORPSE: Robe of the Moon" in r[2], "closing the loot without it says it's left behind", r[2])
 check(r[3] == "", "no warning once you've taken it", r[3])
 check("worth taking: Broken Tooth" not in r[0] and "CORPSE: Broken Tooth" not in r[2], "grey junk is never shouted", r)
+errs = [p for p in L.globals().printed.values() if "loot helper:" in p or "roll advice:" in p]
+check(errs == [], "the loot handlers raised no errors", errs)
 done("loot_full_test")

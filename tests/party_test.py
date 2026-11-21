@@ -17,7 +17,9 @@ base = base.replace(
 )
 L.execute(base)
 L.execute("local mt=getmetatable(CreateFrame()) ")
-L.execute("local cf=CreateFrame; CreateFrame=function(...) local f=cf(...); f.SetAttribute=function(s,k,v) s.attrs=s.attrs or {}; s.attrs[k]=v end; f.GetAttribute=function(s,k) return s.attrs and s.attrs[k] end; return f end")
+L.execute(
+    "local cf=CreateFrame; CreateFrame=function(...) local f=cf(...); f.SetAttribute=function(s,k,v) s.attrs=s.attrs or {}; s.attrs[k]=v end; f.GetAttribute=function(s,k) return s.attrs and s.attrs[k] end; return f end"
+)
 L.execute(r"""
 DruidKitDB={}
 C_Timer={After=function(t,f) f() end}
@@ -59,8 +61,9 @@ drv1=DRIVER
 DruidKit_PartyCommand("test")
 c=_G.DruidKitPartyCard2
 c.unit="party1"
-ev.on_OnEvent(ev,"UNIT_HEALTH")
+ev.on_OnEvent(ev,"UNIT_HEALTH","party1")
 ev.on_OnEvent(ev,"GROUP_ROSTER_UPDATE")
+ev.on_OnUpdate(ev,0.2)
 local acts={} for n,b in ipairs(c.btns) do acts[#acts+1]=tostring(b.slot)..":"..tostring(b.spell)..":"..tostring(b.badge.text) end
 info={c.name.text, c.state.text, c.big.text, tostring(c.hots[1].shown), c.hots[1].txt.text, table.concat(acts," "), "portraits="..PORTRAITS}
 DruidKit_PartyCommand("size big")

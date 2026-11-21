@@ -11,7 +11,7 @@ ITEMS.r3={"Recipe: Known Thing","r3",1,10,0,"","",1,"",1,100,9,5}
 ITEMS.r4={"Recipe: Gem Thing","r4",1,10,0,"","",1,"",1,100,9,5}
 TIPS={r1={"Recipe: Westfall Stew","Requires Cooking (75)"}, r2={"Recipe: Goretusk Liver Pie","Requires Cooking (50)"},
       r3={"Recipe: Known Thing","Requires Cooking (1)","Already known"}, r4={"Recipe: Gem Thing","Requires Jewelcrafting (1)"}}
-C_TooltipInfo={GetHyperlink=function(l) local t={} for _,x in ipairs(TIPS[l] or {}) do t[#t+1]={leftText=x} end return {lines=t} end}
+C_TooltipInfo={GetHyperlink=function(l) l=KEY(l); local t={} for _,x in ipairs(TIPS[l] or {}) do t[#t+1]={leftText=x} end return {lines=t} end}
 SKILLS={{"Professions",true,0,0},{"Cooking",false,0,52},{"Herbalism",false,0,86}}
 function GetNumSkillLines() return #SKILLS end
 function GetSkillLineInfo(i) local s=SKILLS[i]; return s[1],s[2],s[3],s[4] end

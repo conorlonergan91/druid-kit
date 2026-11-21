@@ -1,6 +1,8 @@
 """Lore: quest text is kept at the quest giver (even with auto-accept), shown on parchment with the Lore button,
 follows the step you look at, and shows the next quest on travel steps. Step window uses the Druid panel."""
+
 from lupa.lua51 import LuaRuntime
+
 from expect import check, done
 from wowenv import HERE, source
 
@@ -50,7 +52,11 @@ R[11] = DruidKitSteps.crest ~= nil
 r = list(L.globals().R.values())
 print(r)
 check(r[0] == "Lore", "step window has a Lore button", r[0])
-check(r[1] == "Greetings, Cu. The Druid of the grove must help us.\n\nGo.", "quest text is kept, with your name and class", r[1])
+check(
+    r[1] == "Greetings, Cu. The Druid of the grove must help us.\n\nGo.",
+    "quest text is kept, with your name and class",
+    r[1],
+)
 check(r[2] == "Bring 8 Murloc Fins.", "objectives are kept", r[2])
 check(r[3] == 150, "auto-accept still accepts", r[3])
 check(r[4] is True, "Lore shows the parchment", r[4])

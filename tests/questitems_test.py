@@ -1,6 +1,6 @@
-"""Quest items: ones for no quest in your log are offered to destroy; ones your quests mention are kept; quest
-starters are announced, listed once with the count, and offered to destroy when the quest is done. Auctionator
-prices move valuable items to an Auction House list."""
+"""Quest items: ones for no quest in your log are shown to check (never offered to destroy); ones your quests
+mention are kept; quest starters are announced, listed once with the count, and offered to destroy when the quest
+is done. Auctionator prices move valuable items to an Auction House list."""
 
 from expect import check, done
 from wowenv import runtime, source
@@ -30,14 +30,14 @@ C_QuestLog = {
   GetQuestObjectives = function() return { { text = "Take the strange smelling powder to Ashlan Stonesmirk." } } end,
   IsQuestFlaggedCompleted = function(q) return q == 500 end,
 }
-Auctionator = { API = { v1 = { GetAuctionPriceByItemLink = function(_, l) return ({ silk = 300 })[l] end } } }
+Auctionator = { API = { v1 = { GetAuctionPriceByItemLink = function(_, l) return ({ silk = 300 })[KEY(l)] end } } }
 function DruidKit_NeededFor(n) return false, true, false end
 """)
 L.execute(source("DruidKit/DruidKit_Style.lua"))
 L.execute(source("DruidKit/DruidKit_Bags.lua"))
 L.execute(r"""
 frames[1].on_OnEvent(frames[1], "PLAYER_LOGIN")
-for _, f in ipairs(frames) do if f.on_OnEvent then pcall(f.on_OnEvent, f, "BAG_UPDATE_DELAYED") end end
+for _, f in ipairs(frames) do if f.on_OnEvent then f.on_OnEvent(f, "BAG_UPDATE_DELAYED") end end
 DruidKit_ToggleBags()
 rows = {} for _, f in ipairs(allfs) do if f.text ~= "" then rows[#rows+1] = f.text end end
 ST = DruidKit_QuestStarters()
@@ -53,7 +53,11 @@ use = text.split("Use these")[1].split("\n")[0:8] if "Use these" in text else []
 use = "\n".join(use)
 check("Excavation Tools" in use and "you have 3" in use, "a quest starter is listed once with the count", use)
 check("Torn Map" in text and "already done" in text, "a starter for a finished quest is offered to destroy", text)
-check("Gnoll Paw" in text and "no quest in your log" in text, "a quest item for no quest you have is offered", text)
+check(
+    "Gnoll Paw" in text and "may belong to no quest" in text,
+    "a quest item for no quest you have is shown to check",
+    text,
+)
 sell = text.split("Sell at a vendor")[1] if "Sell at a vendor" in text else text
 check("Strange Smelling Powder" not in sell, "a quest item your quest mentions is kept", sell)
 check("Excavation Tools" in r[0] and "right-click" in r[0], "a new quest starter is announced on screen", r[0])

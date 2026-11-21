@@ -17,7 +17,7 @@ TIPS = {
   bag6 = { "Red Linen Bag", "6 Slot Bag" },
   mailboe = { "Chain Gloves of the Bear", "Binds when equipped", "Mail" },
 }
-C_TooltipInfo = { GetHyperlink = function(l) local t = TIPS[l] or { l }; local lines = {}
+C_TooltipInfo = { GetHyperlink = function(l) l = KEY(l); local t = TIPS[l] or { l }; local lines = {}
   for i, x in ipairs(t) do lines[i] = { leftText = x } end; return { lines = lines } end }
 function GetNumSkillLines() return 1 end
 function GetSkillLineInfo() return "Alchemy", false, nil, 89 end

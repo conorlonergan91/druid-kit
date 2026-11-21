@@ -1,10 +1,13 @@
 """Cat Form goes on G (else Cmd+F); autorun goes on Cmd+W; keys in use are kept unless forced."""
-from wowenv import runtime, source
+
 from expect import check, done
+from wowenv import runtime, source
+
 
 def setup(bind, known=True):
     L = runtime("ui")
-    L.execute(r"""
+    L.execute(
+        r"""
 UISpecialFrames={}; SlashCmdList={}; DruidKitDB={}
 GetTime=function() return 1 end
 C_Timer={After=function(d,f) f() end, NewTicker=function() end}
@@ -23,10 +26,13 @@ function UnitIsDeadOrGhost() return false end
 function GetBindingKey() end
 BIND=%s
 function GetBindingAction(k) return BIND[k] end
-""" % ("true" if known else "false", bind))
+"""
+        % ("true" if known else "false", bind)
+    )
     L.execute(source("DruidKit/DruidKit_Guide.lua"))
     L.execute(source("DruidKit/DruidKit.lua"))
     return L
+
 
 L = setup("{}")
 L.execute("SlashCmdList.DRUIDKIT('catkey')")
