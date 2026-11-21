@@ -37,7 +37,7 @@ All of them can be changed in Options > Keybindings > AddOns > Druid Kit.
 | `/dk keys` | Bind the default keys above (refused in combat). |
 | `/dk catkey [KEY] [force]` | Bind Cat Form to KEY (default G, then Cmd+F). Won't take a used key without `force`. |
 | `/dk runkey [KEY] [force]` | Bind autorun to KEY (default Cmd+W). Same rules. |
-| `/dk save NAME` / `/dk load NAME` / `/dk list` | Save, load (queued in combat) or list action-bar layouts. `/dk load backup` undoes the last `/dk bars`. |
+| `/dk save NAME` / `/dk load NAME` / `/dk list` | Save, load (queued in combat) or list action-bar layouts. `/dk load backup` goes back to before your first `/dk bars`. |
 | `/dk heal` / `/dk quest` (`/dk bear`) | Healing or questing mode. Queued if in combat. |
 | `/dk healset` / `/dk questset` (`/dk bearset`) | Save the gear you are wearing as that mode's set. |
 | `/dk herbs` | Turn Find Herbs tracking back on. |
@@ -83,8 +83,9 @@ flask or scroll whose buff you lack).
 
 - Accept steps tick when the quest is in your log (also when someone shares it) or already handed in.
 - Hand-in steps tick when the game says the quest is done. Do steps tick when every objective is finished.
-- Go to steps tick only when you arrive at the route's own arrow target, or when you enter the zone or subzone the
-  step names. Arriving at a `/way` point, a trainer pin, a map click, a guide **Go** target, a vendor or a **Go** on
+- Go to steps tick only when you arrive at the route's own arrow target, or when you enter the town (subzone) the step
+  names, matched whole in any case ("Goldshire, Elwynn Forest" is Goldshire; "Stormwind" is Stormwind City). The
+  zone only counts when the step names the zone itself. Hearth and fly steps match towns the same way. Arriving at a `/way` point, a trainer pin, a map click, a guide **Go** target, a vendor or a **Go** on
   another step never ticks the route; the route arrow comes back when you arrive there, or with **Now**.
 - Hearth steps tick when you arrive at the named town. If your hearthstone is set elsewhere, the step warns you.
 - Fly steps tick when you take a flight to the named town (or arrive there). Picking another town says which town the
@@ -103,9 +104,9 @@ flask or scroll whose buff you lack).
 - **Skip** on a quest step sets every step of that quest aside and records it for the next re-plan; your quest log
   keeps the quest. **Skip** on any other step just ticks it. **Unskip** (after **< Prev** to the step) or
   `/dk steps unskip` brings skipped quests back.
-- Skipped quests, and quests the route passed while catching up, are never auto-accepted. Other route quests still
-  are.
-- Auto-accept only takes route quests from about the current step onwards; auto hand-in takes any route quest. Hold
+- Skipped quests, and quests the route passed while catching up, are never auto-accepted or auto handed in. Other
+  route quests still are.
+- Auto-accept only takes route quests from about the current step onwards; auto hand-in takes any other route quest. Hold
   Shift while talking to the quest giver to do it yourself; `/dk auto` turns it off.
 - The reward is the one the route names; else the biggest upgrade for your current role; else the one that sells for
   the most. If the rewards can't be read, you pick.
@@ -162,14 +163,15 @@ and G (Cat Form by spell). The chat lists each bar's keys.
 **Expected behaviour**
 
 - Only spells you know are placed. A layout key whose spell you don't know yet is emptied, and listed in chat.
-- Before changing anything, `/dk bars` saves your bars and every key it takes as the `backup` layout.
-  `/dk load backup` puts back both the bars and those key bindings.
+- The first `/dk bars` saves your bars and every key it takes as the `backup` layout, before changing anything. Later
+  `/dk bars` runs keep that backup (adding any key not taken before), so `/dk load backup` always puts back the bars
+  and key bindings from before your first `/dk bars`. Only `/dk save backup` replaces it (bars only).
 - G is bound to Cat Form only if you know Cat Form and haven't chosen a Cat Form key with `/dk catkey`. A
   `/dk catkey` choice is kept.
 - `/dk bars` overwrites the keys it uses even if they were bound to something else (they are in the backup).
   `/dk keys`, `/dk catkey` and `/dk runkey` never take a used key unless you add `force`.
 - A spell you learn goes onto its layout key by itself about 1.5 seconds later, in caster form only, and the old bars
-  are saved as `backup` first. That backup holds bars only, so `/dk load backup` then restores bars but not keys.
+  are saved as `autosave` first (`/dk load autosave` undoes it). The `backup` layout is left alone.
 - `/dk save NAME` saves bars only (no keys). `/dk load NAME` empties layout slots that are empty in the saved layout.
 - Saved macros are found by name, so a layout still loads after macros were added or removed.
 - After any change a "Reload now" popup appears (after combat if you are fighting).
@@ -232,8 +234,9 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
   items for another class or a profession you don't have, materials none of your recipes use, and worse bandages
   (once you hold 10 of your best bandage). Then it repairs if you can afford it, says what it sold and the mount money
   line, and reminds you the vendor's Buyback tab can undo it.
-- The autopilot sells at most 12 items per visit (the Buyback tab's size) and says how many are left; talk to the
-  vendor again for the rest.
+- At most 12 items are sold per vendor visit (the Buyback tab's size), counting the autopilot, **Sell**, **Sell all**
+  and **Sell junk** together. Past that they sell nothing more and say how many are left; close the vendor and talk to
+  it again for the rest.
 - The autopilot never sells potions, elixirs, flasks or scrolls, any food or drink, herbs, quest items, library books,
   Waylaid Crates, materials a recipe in your bags uses, Bind on Equip greens or better, anything worth more on the
   Auction House, your saved set gear, or your best fishing pole.
@@ -265,6 +268,7 @@ loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is drop
 - Take-out suggestions: items your quests need, your current mode's gear set, reagents for recipes that still give
   skill-ups, active quest items, potions, food and bandages, and upgrades.
 - It never suggests taking back library books or items it says to bank for later.
+- **Take**, **Store** and the all buttons check the bag slot again and move nothing if a different item is there now.
 - Which materials you use is learned when you open your profession windows (Alchemy, First Aid, Cooking...). Until
   then it asks you to open them.
 - Dungeon packing (`/dk pack`, or a route step marked "pack"): everything a dungeon doesn't need is offered to the
@@ -324,10 +328,13 @@ Touch, Alt Cure Poison.
 
 - States are words: "LOW 42%" under 50%, "!! 25%" under 30% with a pulsing card, "DEAD", an "AGGRO" tag on a non-tank
   being hit, "TARGET" on your target. Out-of-range cards are dimmed.
-- Fix buttons on the portrait: `!` Mark of the Wild missing, `T` Thorns missing on whoever is tanking, `P` poison,
-  `C` curse (both pulse), `R` dead (Revive, or Rebirth in combat).
-- A fix button only takes clicks while it is shown. In combat the game won't let that change: a button that appears
-  in combat becomes clickable when combat ends, and one that disappears stops taking clicks when combat ends.
+- Fix buttons on the portrait: `!` Mark of the Wild missing, `T` Thorns missing on whoever is tanking (each only once
+  you know the spell), `P` poison, `C` curse (both pulse), `R` dead (Revive, or Rebirth in combat).
+- Out of combat a fix button only takes clicks while it is shown. The game won't let that change mid-fight, so from the
+  start of combat until it ends `P`, `C` and `R` take clicks even while faded: one that appears in combat works at
+  once, and a click on a faded one tries the cure or Rebirth on that person (at worst a wasted cast or an error)
+  instead of reaching the card. `!` and `T` keep their state for the fight: one that appears in combat becomes
+  clickable when combat ends, and one that disappears stops taking clicks then.
 - Which spells get buttons is read from your bars out of combat only.
 - `/dk party test`, `on`, `off`, `size` and `reset` are refused in combat.
 - Errors are logged to the saved variables instead of breaking the view.
@@ -350,7 +357,7 @@ Touch, Alt Cure Poison.
   target.
 - **Professions** (in the tracker): "! Train", "! Expert" or "! Capped" lines for Alchemy, Cooking, Fishing, First
   Aid and Herbalism when you are near the rank cap, with where to train. A gold line counts towards the 100g riding
-  at level 40.
+  at level 40 against the same per-level target as the mount money line (`/dk mount`): on track, or BEHIND by how much.
 - Level up: a banner, a talent point reminder, new spells on even levels, and how many quests in your log turned grey.
 - Gear under 50% durability: one on-screen warning until repaired. 2 or fewer free bag slots: a warning at most every
   5 minutes.

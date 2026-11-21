@@ -208,7 +208,15 @@ local panel
 local refresh
 local S
 
-local function move(e) API.useSlot(e.bag, e.slot) end
+local function move(e)
+  if API.slotInfo(e.bag, e.slot) ~= e.link then return false end
+  API.useSlot(e.bag, e.slot)
+  return true
+end
+local function moveOne(e)
+  if not move(e) then print("|cff7fd35bDruid Kit:|r not moved: that bag slot has changed. Bank check has the new list.") end
+  C_Timer.After(0.4, refresh)
+end
 
 local function build()
   S = DruidKitStyle
@@ -234,7 +242,7 @@ refresh = function()
   if #take == 0 then S.note(panel, "Nothing in the bank you need right now.") end
   for _, e in ipairs(take) do
     local t, q = title(e)
-    S.item(panel, e.link, e.icon, q, t, (e.why:gsub("^%l", string.upper)), "Take", function() move(e); C_Timer.After(0.4, refresh) end)
+    S.item(panel, e.link, e.icon, q, t, (e.why:gsub("^%l", string.upper)), "Take", function() moveOne(e) end)
   end
 
   S.header(panel, packing() and "Put in the bank (packing for the dungeon)" or "Put in the bank", "Interface\\Icons\\INV_Box_02",
@@ -246,7 +254,7 @@ refresh = function()
   end
   for _, e in ipairs(deposit) do
     local t, q = title(e)
-    S.item(panel, e.link, e.icon, q, t, (e.why:gsub("^%l", string.upper)), "Store", function() move(e); C_Timer.After(0.4, refresh) end)
+    S.item(panel, e.link, e.icon, q, t, (e.why:gsub("^%l", string.upper)), "Store", function() moveOne(e) end)
   end
 
   S.finish(panel)

@@ -1,7 +1,7 @@
 -- Druid Kit
 --   /dk bars          lay out action bars and keys to match the Combat Guide (known spells only)
 --   /dk save NAME     save your current bars as a named layout
---   /dk load NAME     load a saved layout ("/dk load backup" undoes the last /dk bars)
+--   /dk load NAME     load a saved layout ("/dk load backup" goes back to before your first /dk bars)
 --   /dk list          list saved layouts
 --   /dk herbs         turn Find Herbs back on (or show the one-click button)
 -- Bars and keys can only change out of combat; the addon waits for combat to end if needed.
@@ -307,7 +307,9 @@ local function knownLayoutSpellAt(slot)
 end
 local function applyGuideLayout()
   DruidKitDB.layouts = DruidKitDB.layouts or {}
-  DruidKitDB.layouts.backup = captureBars()
+  local firstBackup = not DruidKitDB.layouts.backup
+  if firstBackup then DruidKitDB.layouts.backup = captureBars() end
+  local backup = DruidKitDB.layouts.backup
   local placed, skipped = 0, {}
   for _, e in ipairs(currentLayout()) do
     if e.item then
@@ -329,7 +331,10 @@ local function applyGuideLayout()
   for _, b in ipairs(BINDINGS) do table.insert(keys, b.key) end
   local catKey = not DruidKitDB.catKeySet and SetBindingSpell and isKnown("Cat Form")
   if catKey then table.insert(keys, "G") end
-  DruidKitDB.layouts.backup.keys = captureKeys(keys)
+  backup.keys = backup.keys or {}
+  for k, a in pairs(captureKeys(keys)) do
+    if backup.keys[k] == nil then backup.keys[k] = a end
+  end
   for _, b in ipairs(BINDINGS) do safe(SetBinding, b.key, b.action) end
   if catKey and safe(SetBindingSpell, "G", "Cat Form") ~= false then DruidKitDB.catKeySet = "G" end
   local set = GetCurrentBindingSet and GetCurrentBindingSet() or 1
@@ -348,7 +353,8 @@ local function applyGuideLayout()
   if #cat > 0 then say("Cat keys: " .. table.concat(cat, " \194\183 ")) end
   say("Caster keys: " .. table.concat(caster, " \194\183 "))
   say("Bear keys: " .. table.concat(bear, " \194\183 "))
-  say("Your old bars are saved: type /dk load backup to undo.")
+  say(firstBackup and "Your old bars and keys are saved: type /dk load backup to undo."
+    or "Your bars and keys from before your first /dk bars are still saved: /dk load backup goes back to them.")
   DruidKitDB.knownSpells = knownLayoutSpells()
   askReload()
 end
@@ -387,12 +393,12 @@ local function addNewSpells()
   local added = {}
   for _, e in ipairs(currentLayout()) do
     if e.spell and now[e.spell] and not before[e.spell] then
-      if #added == 0 then DruidKitDB.layouts = DruidKitDB.layouts or {}; DruidKitDB.layouts.backup = captureBars() end
+      if #added == 0 then DruidKitDB.layouts = DruidKitDB.layouts or {}; DruidKitDB.layouts.autosave = captureBars() end
       if pickupEntry(e) then place(e.slot); table.insert(added, e.spell .. " (" .. slotKey(e.slot) .. ")") else ClearCursor() end
     end
   end
   if #added > 0 then
-    say("new skill on your bars: " .. table.concat(added, ", ") .. ". /dk load backup to undo.")
+    say("new skill on your bars: " .. table.concat(added, ", ") .. ". /dk load autosave to undo.")
     askReload()
   end
 end

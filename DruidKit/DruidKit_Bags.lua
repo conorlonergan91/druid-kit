@@ -812,14 +812,33 @@ local function logSale(name, count, why)
   while #DruidKitDB.soldLog > 60 do table.remove(DruidKitDB.soldLog, 1) end
 end
 
+-- The vendor's Buyback tab holds the last 12 items: autopilot and manual sells share that cap per visit.
+local BUYBACK = 12
+local soldThisVisit = 0
+local function buybackLeft() return BUYBACK - soldThisVisit end
+local function sayMoreToSell(n)
+  if n > 0 then
+    say(("%d more to sell: close the vendor and talk to it again (Buyback only holds %d)."):format(n, BUYBACK))
+  else
+    say(("Buyback is full (%d this visit): close the vendor and talk to it again to sell more."):format(BUYBACK))
+  end
+end
+
 local sellJunk
 -- Sell one bag slot at an open vendor, only if it still holds the same item we listed.
 local function sellEntry(e)
   if not (MerchantFrame and MerchantFrame:IsShown()) then say("talk to a vendor first.") return false end
+  if buybackLeft() <= 0 then return false, "full" end
   local link = slotInfo(e.bag, e.slot)
   if link ~= e.link or protectedReason(link, e.bag, e.slot) then return false end
   useSlot(e.bag, e.slot)
+  soldThisVisit = soldThisVisit + 1
   return true
+end
+local function sellOne(e, left)
+  local _, why = sellEntry(e)
+  if why == "full" then sayMoreToSell(left or 0) end
+  C_Timer.After(0.4, refresh)
 end
 
 local autoSellList   -- defined with the vendor autopilot below
@@ -893,10 +912,17 @@ refresh = function()
   local atShop = MerchantFrame and MerchantFrame:IsShown()
   S.header(panel, "Sell at a vendor", "Interface\\Icons\\INV_Misc_Coin_02", sellCount,
     (atShop and sellCount > 0) and "Sell all" or nil, function()
-      local n = 0
-      for _, e in ipairs(toSell) do if sellEntry(e) then n = n + 1 end end
+      local n, left = 0, 0
+      for _, e in ipairs(toSell) do
+        local ok, why = sellEntry(e)
+        if ok then n = n + 1 elseif why == "full" then left = left + 1 end
+      end
       if n > 0 then say(("sold %d item%s."):format(n, n == 1 and "" or "s")) end
-      if #r.junk > 0 then sellJunk() else C_Timer.After(0.5, refresh) end
+      if #r.junk > 0 then sellJunk(left)
+      else
+        if left > 0 then sayMoreToSell(left) end
+        C_Timer.After(0.5, refresh)
+      end
     end)
   if sellCount == 0 then S.note(panel, "Nothing to sell: your bags only hold things you use.")
   elseif not atShop then
@@ -911,7 +937,7 @@ refresh = function()
   for _, e in ipairs(toSell) do
     S.item(panel, e.link, e.icon, qualityOf(e.link), e.name .. ((e.count or 1) > 1 and ("  x" .. e.count) or ""),
       ((e.why or "sell it"):gsub("^%l", string.upper)),
-      atShop and "Sell" or nil, atShop and function() sellEntry(e); C_Timer.After(0.4, refresh) end or nil)
+      atShop and "Sell" or nil, atShop and function() sellOne(e, #toSell + #r.junk) end or nil)
   end
 
   S.header(panel, "Bags full? Drop these first", "Interface\\Icons\\INV_Misc_Bag_07_Black", math.min(#r.drop, 5))
@@ -928,8 +954,7 @@ refresh = function()
         ("%s%s"):format((e.why:gsub("^%l", string.upper)), e.value > 0 and (", sells for " .. money(e.value)) or ""),
         atVendor and "Sell" or "Destroy", function()
           if atVendor then
-            sellEntry(e)
-            C_Timer.After(0.4, refresh)
+            sellOne(e)
           else
             DruidKit_ConfirmDestroy(e)
           end
@@ -1005,7 +1030,8 @@ end
 
 -- Sell junk button at vendors ---------------------------------------------------------
 local sellBtn
-sellJunk = function()
+sellJunk = function(left)
+  left = type(left) == "number" and left or 0
   local sold, total = 0, 0
   for bag = 0, 4 do
     for slot = 1, (numSlots(bag) or 0) do
@@ -1013,15 +1039,21 @@ sellJunk = function()
       if link and not locked then
         local _, _, q, _, _, _, _, _, _, _, price = getInfo(link)
         if (q or quality) == 0 and (price or 0) > 0 and not protectedReason(link, bag, slot) then
-          useSlot(bag, slot)
-          logSale((getInfo(link)), count, "grey junk")
-          sold = sold + 1; total = total + price * (count or 1)
+          if buybackLeft() <= 0 then
+            left = left + 1
+          else
+            useSlot(bag, slot)
+            soldThisVisit = soldThisVisit + 1
+            logSale((getInfo(link)), count, "grey junk")
+            sold = sold + 1; total = total + price * (count or 1)
+          end
         end
       end
     end
   end
   if sold > 0 then say(("sold %d grey item%s for %s."):format(sold, sold == 1 and "" or "s", money(total)))
-  else say("no grey items to sell.") end
+  elseif left == 0 then say("no grey items to sell.") end
+  if left > 0 then sayMoreToSell(left) end
   C_Timer.After(0.5, refresh)
 end
 -- Mount money: Apprentice Riding is 100g at level 40 (the mount comes with it). Target grows with level (quests pay
@@ -1050,7 +1082,6 @@ DruidKit_MountTarget = mountTarget
 -- than yours, and spare materials; then repair. Kept: quest items, upgrades, gear sets, bank items, anything
 -- worth more on the Auction House, and green or better Bind on Equip gear (sell those on the Auction House).
 -- Mistakes: the vendor's Buyback tab has the last 12 items, so no more than that are sold per visit.
-local BUYBACK = 12
 local autoBusy = false
 local function bindTypeOf(link) return select(14, getInfo(link)) end
 -- What the autopilot sells (player, 19 Nov: "fine to sell ingredients I have no recipe for"): grey junk; gear that's
@@ -1204,7 +1235,7 @@ local function autoPilot()
       say(table.concat(parts, ", ") .. ". Sold something by mistake? The vendor's Buyback tab has it.")
       say(mountLine())
     end
-    if #list > i then say(("%d more to sell: talk to the vendor again (Buyback only holds %d)."):format(#list - i + 1, BUYBACK)) end
+    if #list >= i then sayMoreToSell(#list - i + 1) end
     if r.auction and #r.auction > 0 then
       say(("%d item%s worth more on the Auction House: kept (Alt+B lists them)."):format(#r.auction, #r.auction == 1 and "" or "s"))
     end
@@ -1213,9 +1244,10 @@ local function autoPilot()
   local function step()
     i = i + 1
     local e = list[i]
-    if not e or sold >= BUYBACK or not (MerchantFrame and MerchantFrame:IsShown()) then return finish() end
+    if not e or buybackLeft() <= 0 or not (MerchantFrame and MerchantFrame:IsShown()) then return finish() end
     if slotInfo(e.bag, e.slot) == e.link then
       useSlot(e.bag, e.slot)
+      soldThisVisit = soldThisVisit + 1
       -- Sold log (last 60): the update reads it, so nothing the autopilot sells is a mystery.
       logSale(e.name or (getInfo(e.link)), e.count, e.why)
       sold = sold + 1
@@ -1303,6 +1335,7 @@ ev:SetScript("OnEvent", function(_, e)
     return
   end
   if e == "MERCHANT_SHOW" then
+    soldThisVisit = 0
     pcall(showSellButton)
     C_Timer.After(0.3, function() pcall(autoPilot) end)
     C_Timer.After(0.2, function() pcall(refresh) end)
