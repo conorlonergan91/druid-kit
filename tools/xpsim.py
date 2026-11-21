@@ -15,8 +15,9 @@ import importlib.util, json, sys
 import rk
 
 # Quest XP comes from Questie's own tables (planner/data/xpDB-classic.lua + xpDB-traces.lua, the traces are
-# measured on Forever). These Forever dungeon quests are not traced yet: published values (method.gg, wow.gg).
-PUBLISHED_XP = {95646: (31, 6150), 95772: (31, 6150), 95795: (31, 6150), 98824: (31, 6150)}
+# measured on Forever). Forever quests not traced yet: values from Wowhead Forever quest pages (checked 21 Nov).
+PUBLISHED_XP = {95646: (31, 6150), 95772: (31, 6150), 95795: (31, 6150), 98824: (31, 6150),
+                95647: (31, 4900), 95809: (31, 6150)}
 QUESTIE_XP = {}
 
 
