@@ -17,7 +17,8 @@ CLI (python3 rk.py <cmd> ...):
   calibrate DruidKit.lua               actual vs projected from the addon's step log: fight vs travel share
   cluster --quests ID... [--radius YD]  group quests whose objective areas are close; do each group in one visit
   crowd ID...                          mobs packed round each quest's targets and whether they flee (RULES v13c)
-  party --level L --quests ID...      which kill quests save the most time in a group (kills shared, drops per player)
+  party --level L [--party N] --quests ID...  which kill quests save the most time in a group of N (default
+                                       GROUP_SIZE; kills shared, drops per player)
   itemplan STATE.json ROUTE.py         quest items needed much later: bank (bank on the way) or drop (starter that
                                        drops again) -> build/items.json
   vendors --zones "Z1,Z2"              Alliance vendors in those zones (bags-full prompt):
@@ -68,6 +69,7 @@ ZONE_IDS = {int(k): v for k, v in TRAVEL["zone_ids"].items()}
 RUN_YPS = 7.0  # running speed, yards per second (no mount before 40)
 UNKNOWN_TRIP_MIN = 15.0  # a trip travel.json can't route (unknown start spot, no road without a flight)
 PATH_FACTOR = 1.35  # real paths bend round hills, water and walls (step logs: ~1.3-1.5x a straight line)
+GROUP_SIZE = 3  # party=True steps: kills shared, mob XP split this many ways (RULES v18)
 NIGHTELF, DRUID = 8, 1024
 XP_TO_LEVEL = [
     0,
@@ -332,19 +334,19 @@ def _named_counts(q, objs):
     goals = [(kind, oid, _stems(name)) for kind, oid, name in goals]
     text = " ".join(q.get("objectivesText") or []).lower()
     nums = list(re.finditer(r"\b(\d{1,2})\b", text))
-    got = {}
+    pairs = []
     for i, m in enumerate(nums):
         tail = text[m.end() : nums[i + 1].start() if i + 1 < len(nums) else len(text)][:60]
         words = re.findall(r"[a-z]+", tail)
-        best, score = None, 0
         for g, (_, _, stems) in enumerate(goals):
-            if g in got or not stems:
-                continue
-            hit = sum(any(w.startswith(s) for w in words) for s in stems) / len(stems)
-            if hit > score:
-                best, score = g, hit
-        if best is not None:
-            got[best] = int(m.group(1))
+            hits = sum(any(w.startswith(s) for w in words) for s in stems)
+            if hits:
+                pairs.append(((-hits, -hits / len(stems), i, g), i, g, int(m.group(1))))
+    got, used = {}, set()
+    for _, i, g, n in sorted(pairs):
+        if g not in got and i not in used:
+            got[g] = n
+            used.add(i)
     if len(got) != len(goals):
         return None
     return (
@@ -821,17 +823,17 @@ def hubs(level, done, from_town=None, party=1, current_zone=None):
     return sorted(rows, key=lambda r: -r["xp_per_hour"])
 
 
-def party_savings(qids, level):
+def party_savings(qids, level, size=GROUP_SIZE):
     out = []
     for qid in qids:
         q = quest(qid)
         if not q or not q["kills"]:
             continue
         solo = quest_minutes(q, level, 1)
-        duo = quest_minutes(q, level, 2)
-        lost = kill_xp(q, level, 1) - kill_xp(q, level, 2)  # mob XP is split in a party
+        duo = quest_minutes(q, level, size)
+        lost = kill_xp(q, level, 1) - kill_xp(q, level, size)  # mob XP is split in a party
         solo_rate = (q["xp"] + kill_xp(q, level, 1)) / solo * 60
-        duo_rate = (q["xp"] + kill_xp(q, level, 2)) / duo * 60
+        duo_rate = (q["xp"] + kill_xp(q, level, size)) / duo * 60
         out.append(
             {
                 "q": qid,
@@ -1327,7 +1329,7 @@ def main(argv):
             print(json.dumps(r, ensure_ascii=False))
     elif cmd == "party":
         qids = [int(x) for x in args[args.index("--quests") + 1 :] if x.isdigit()]
-        for r in party_savings(qids, _opt(args, "--level", 10, float)):
+        for r in party_savings(qids, _opt(args, "--level", 10, float), _opt(args, "--party", GROUP_SIZE, int)):
             print(json.dumps(r, ensure_ascii=False))
     elif cmd == "itemplan":
         state = json.loads(Path(args[0]).read_text(encoding="utf-8"))

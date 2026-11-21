@@ -39,7 +39,7 @@ report (custom Forever quests, real NPC and object spots). About 5,900 quests.
 | `loop --zone Z --from TOWN --level L --quests ...` | stop order: nearest neighbour + 2-opt with accept-before-do-before-hand-in precedence |
 | `cluster --quests ... [--radius YD]` | objective areas close enough for one outing |
 | `crowd ID...` | mobs packed round a quest's targets and whether they flee (RULES v13c) |
-| `party --level L --quests ...` | where grouping pays (kills shared, mob XP split) |
+| `party --level L [--party N] --quests ...` | where grouping pays in a group of N (default `GROUP_SIZE` = 3, as xpsim; kills shared, mob XP split) |
 | `travel A B` | minutes between towns (Dijkstra over runs, boats, flights, Teleport: Moonglade) |
 | `sim plan.json` | replays a plan: level reached, hours, hours to 20, trainer visits, missed spell ranks, forms, problems |
 

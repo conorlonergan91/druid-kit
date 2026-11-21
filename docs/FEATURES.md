@@ -72,7 +72,9 @@ at login when a route is loaded, unless you hid it.
 path, set the hearth, level, abandon, boss, note), its details, and the next two steps. The navigation arrow points
 at the step's spot, taking any "via" waypoints (cave entrance, ramp, bridge) first. Quests on the route are accepted
 and handed in for you. Each step tracks time against the plan's estimate, deaths, XP and the path you walk; a log of
-every step (`/dk steps log` shows the last 10) is kept for the next re-plan.
+every step (`/dk steps log` shows the last 10) is kept for the next re-plan. Each step is logged once, when it is
+first finished, whether that is before or after a catch-up, an unskip or a reset; a skipped step is logged as skipped,
+and once more with its real time if you unskip it and finish it.
 
 Buttons: **Back**, **Done**, **Skip**/**Unskip**, **Lore** (quest story on parchment), **Keys** (key map), **Hide**;
 second row **< Prev**, **Next >** (look without changing anything), **Go** (arrow to the step you're looking at),
@@ -109,7 +111,7 @@ flask or scroll whose buff you lack).
 - Auto-accept only takes route quests from about the current step onwards; auto hand-in takes any other route quest. Hold
   Shift while talking to the quest giver to do it yourself; `/dk auto` turns it off.
 - The reward is the one the route names; else the biggest upgrade for your current role; else the one that sells for
-  the most. If the rewards can't be read, you pick.
+  the most. If the rewards can't be read, or one of them can't be compared (an idol, an on-use trinket), you pick.
 - At login, and when a new route loads, the window jumps to just after the last route quest you handed in, within the
   section you are working on. It stops at the first route quest still in your log. A whole earlier section you never
   started is not passed. It tells you how many steps it passed, and if you have quests from a later section.
@@ -177,7 +179,7 @@ and G (Cat Form by spell). The chat lists each bar's keys.
 - After any change a "Reload now" popup appears (after combat if you are fighting).
 - Combat: `/dk bars`, `/dk load`, `/dk newspells`, `/dk heal` and `/dk quest` asked for in combat say they will run
   when combat ends, then run in the order asked, each once. For the mode switch the last mode asked wins: Alt+H twice
-  in combat changes nothing. `/dk keys`, `/dk catkey` and `/dk runkey` are refused
+  in combat changes nothing (no gear swap, no Reload popup; it says the mode stays). `/dk keys`, `/dk catkey` and `/dk runkey` are refused
   ("after combat, please").
 - Never: changes bars or keys at login.
 
@@ -216,7 +218,8 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
 - **Upgrades to put on**, with **Equip**. Upgrades also get a tooltip line and a banner when they reach your bags.
 - **Use these**: quest starters (right-click), bigger bags, containers with loot, recipes you can learn now.
 - **Gear you're keeping**: saved set pieces, gear better for your other role, and gear it can't compare (no stats to
-  score, such as idols and on-use trinkets, or an off-hand while you wield a two-hander).
+  score for either role, such as idols and on-use trinkets, or an off-hand while you wield a two-hander). Gear that
+  scores for only one role (a plain weapon in healing mode) is compared like any other.
 - **Bank these**: recipes and other items for a higher profession rank, gear for a higher level, library books, quest
   items needed much later.
 - **Quest items to check**: quest items that look like they belong to no quest you have, or that the plan says to
@@ -231,11 +234,13 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
   Quest items that look orphaned appear only under "Quest items to check".
 - **Destroy** asks first. When you confirm, it checks the bag slot again and refuses if a different item is there now,
   a different stack size, or if the item has become protected (for example your quest needs it).
+- The autopilot re-checks each item just before selling it (same item, same stack size, not protected).
 - The drop list's **Sell** (and the Sell list's **Sell**) only sells if the same item and stack size are still in that
   slot, it isn't protected, and a vendor is open.
 - Autopilot at a vendor (unless `/dk autosell off`): sells grey junk, gear druids can't use or that's worse than yours,
   items for another class or a profession you don't have (never one you only need a higher rank for), materials none
-  of your recipes use, and worse bandages (once you hold 10 of your best bandage). Then it repairs if you can afford
+  of your recipes use, and worse bandages (once you hold 10 of your best bandage). A red "Requires Engineering (150)"
+  line on its own doesn't make gear unusable: a rank you'll reach is banked. Then it repairs if you can afford
   it, says what it sold and the mount money line, and reminds you the vendor's Buyback tab can undo it.
 - At most 12 items are sold per vendor visit (the Buyback tab's size), counting the autopilot, **Sell**, **Sell all**
   and **Sell junk** together. Past that they sell nothing more and say how many are left; close the vendor and talk to
@@ -252,7 +257,7 @@ gear set saved for that mode. Bear, Cat, Prowl and Shift-key bars don't change.
 - Combat: **Equip** is refused in combat.
 
 **Loot helper** (part of this file): when your bags are full and you open loot, a box says TAKE or SKIP for each
-item and why, with a **Destroy** button for your cheapest droppable item (same confirm and re-check as above).
+item and why ("take: can't compare" for gear it can't judge), with a **Destroy** button for your cheapest droppable item (same confirm and re-check as above).
 Upgrades, set pieces, green or better gear, and valuable items get an on-screen alert with a sound; if you close the
 loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is dropped without your click.
 
@@ -265,12 +270,14 @@ loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is drop
 
 **Expected behaviour**
 
-- Store suggestions: library books, quest items needed much later, recipes for a higher skill, gear for a higher
+- Store suggestions: library books, quest items needed much later, recipes and other items for a higher profession
+  rank, gear for a higher
   level, gear for the role you're not playing, and materials none of your recipes use (herbs only once your Alchemy
   window has been read).
 - Take-out suggestions: items your quests need, your current mode's gear set, reagents for recipes that still give
   skill-ups, active quest items, potions, food and bandages, and upgrades.
-- It never suggests taking back library books or items it says to bank for later.
+- It never suggests taking back library books, items needing a higher profession rank, or items it says to bank for
+  later.
 - **Take**, **Store** and the all buttons check the bag slot again and move nothing if a different item is there now.
 - Which materials you use is learned when you open your profession windows (Alchemy, First Aid, Cooking...). Until
   then it asks you to open them.
@@ -290,10 +297,12 @@ loot and leave one behind, a "LEFT ON THE CORPSE" alert follows. Nothing is drop
   fair; for a big cloth upgrade it says to ask in party chat first. Bind on pickup gear up to 4 levels above you that
   will be a clear upgrade can be NEED.
 - Recipes and crafting materials: GREED. Gear druids can never wear: GREED.
+- Gear it can't compare (idols, on-use trinkets, an off-hand while you wield a two-hander): YOUR CALL, with no
+  button marked and no automatic roll.
 - Automatic Greed (unless `/dk autoroll off`): crafting materials, gear druids can't use, and non-upgrades nobody in
   the party wears are greeded for you, with a chat line. It confirms the bind-on-pickup prompt only for rolls it made
   itself.
-- Never: rolls Need for you, or rolls on anything it didn't advise Greed on.
+- Never: rolls Need for you, or rolls on anything it didn't advise Greed on (including gear it can't compare).
 
 ## Navigation arrow and /way
 

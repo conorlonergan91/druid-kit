@@ -21,9 +21,9 @@ DATA = os.path.join(HERE, "data")
 UNSAFE = ("os", "io", "package", "debug", "require", "module", "dofile", "loadfile", "load", "loadstring", "python")
 
 PRELUDE = r"""
-local loadstring = loadstring
+local type, sbyte, loadstring = type, string.byte, loadstring
 local function compile(src, name)
-  if type(src) ~= "string" or src:byte(1) == 27 then return nil, "binary chunks are not loaded" end
+  if type(src) ~= "string" or sbyte(src, 1) == 27 then return nil, "binary chunks are not loaded" end
   return loadstring(src, name)
 end
 string.dump = nil
@@ -113,13 +113,44 @@ addKeys(QDB.questKeys); addKeys(QDB.npcKeys); addKeys(QDB.objectKeys); addKeys(Q
 """
 
 
+BINARY = "binary chunks are not loaded"
+
+
+def _binary(src):
+    if isinstance(src, bytes):
+        return src[:1] == b"\x1b"
+    return not isinstance(src, str) or src[:1] == "\x1b"
+
+
+class Api:
+    """The prelude's helpers, refusing bytecode in Python before it reaches Lua (foreign chunks can tamper with
+    anything Lua-side)."""
+
+    def __init__(self, lua_api):
+        self._lua = lua_api
+
+    def runchunk(self, src, name):
+        return "LOAD " + BINARY if _binary(src) else self._lua.runchunk(src, name)
+
+    def loadfix(self, src, name):
+        return (None, BINARY) if _binary(src) else self._lua.loadfix(src, name)
+
+    def exec(self, src, name):
+        if _binary(src):
+            raise ValueError(BINARY)
+        return self._lua.exec(src, name)
+
+    def apply(self, db, patch):
+        return self._lua.apply(db, patch)
+
+
 def runtime():
     """Lua 5.1 for QuestieDB's files and the helpers that run them (runchunk, loadfix, apply, exec), kept out of _G:
     helpers defined first, then the Python bridge and every loader/OS library go."""
     lua = LuaRuntime(unpack_returned_tuples=True, register_eval=False, register_builtins=False)
     api = lua.execute(PRELUDE)
     lua.execute("".join(f"{name} = nil\n" for name in UNSAFE))
-    return lua, api
+    return lua, Api(api)
 
 
 def run(api, path):

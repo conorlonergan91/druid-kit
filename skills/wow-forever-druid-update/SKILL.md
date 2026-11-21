@@ -35,7 +35,7 @@ details) lives in `HANDOFF.md` on the player's Mac, never in this skill or the p
 `build/route_vN.py` holds ROUTE: sections of one-action steps (accept / turnin / complete / goto / fly / hearth /
 train / level / note / fp / home / abandon (`qs`=[ids]); `fp` = learn the flight path in town `to`, `home` = set the hearthstone in `to`;
 both tick themselves) with `q`, `name`, `npc`, `where`, `goto [zone, x, y]`, `to`, `pick`, `tip`, plus `est`
-(projected minutes), `party=True` on kill steps worth a group, `how` (the item to use, the way in) and `via`
+(projected minutes), `party=True` on kill steps worth a group (`est` with `--party 3`, rk.GROUP_SIZE: xpsim splits their kill XP 3 ways), `how` (the item to use, the way in) and `via`
 (waypoints the arrow takes first: `[zone or map id, x, y, "label"]`). Keep headlines short; detail goes in `where`/`tip`.
 `build_now.py` puts it into guide.json and the Now tab; `make_guide.py` emits `DruidKitRoute`. Same route `id` keeps
 the player's progress; a new id starts over but catches up a few seconds after login to just past the last quest

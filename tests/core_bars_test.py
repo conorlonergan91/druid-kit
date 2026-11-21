@@ -124,14 +124,28 @@ SlashCmdList.DRUIDKIT('bars')
 """)
 check(g.BIND["G"] == "INTERACTTARGET", "a /dk catkey choice keeps G as it was", g.BIND["G"])
 
-# 16: Alt+H twice in combat toggles the queued mode back, not the same mode twice.
-L, g = setup()
+# 16: Alt+H twice in combat toggles the queued mode back, not the same mode twice, and then does nothing at all.
+L, g = setup(
+    "POPUP = 0; StaticPopup_Show = function() POPUP = POPUP + 1 end; EQUIPPED = 0\n"
+    "C_Item.GetItemCount = function() return 1 end; C_Item.EquipItemByName = function() EQUIPPED = EQUIPPED + 1 end"
+)
 L.execute(r"""
+DruidKitDB.gearSets = { quest = { [1] = "item:7:" } }
 COMBAT = true
 DruidKit_ToggleMode(); DruidKit_ToggleMode()
+n0 = #printed
 COMBAT = false; fire("PLAYER_REGEN_ENABLED")
+after = {}
+for i = n0 + 1, #printed do after[#after + 1] = printed[i] end
 """)
 check(g.DruidKitDB.barMode in (None, "quest"), "two toggles in combat cancel out", g.DruidKitDB.barMode)
+check(g.EQUIPPED == 0, "no gear is swapped", g.EQUIPPED)
+after = list(g.after.values())
+check(not any("bars switched" in m for m in after), "no 'bars switched' message", after)
+check(g.POPUP == 0, "no Reload popup", g.POPUP)
+check(
+    any("stays in questing mode" in m for m in g.printed.values()), "it says the mode stays", list(g.printed.values())
+)
 
 # 15: healing/questing swap fills learned melee spells as /startattack macros.
 L, g = setup()

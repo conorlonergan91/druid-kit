@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "planner"))
 import rk  # noqa: E402
 from routeio import load_route  # noqa: E402
 
-GROUP_SPLIT = 3
+GROUP_SPLIT = rk.GROUP_SIZE
 BOSS_SHARE = 0.0125
 
 

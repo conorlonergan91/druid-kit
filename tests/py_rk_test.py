@@ -97,6 +97,23 @@ for qid in (6, 7):
     q = rk.quest(qid)
     check((q["kills"], q["drop_count"]) == (10 + int(3 / 0.45), 3), f"quest {qid}: each number to its objective", q)
 
+sys.path.insert(0, str(ROOT / "tools"))
+import xpsim  # noqa: E402
+
+group = rk.party_savings([6], 10)[0]["group_min"]
+want = round(rk.quest_minutes(rk.quest(6), 10, xpsim.GROUP_SPLIT), 1)
+check(group == want != round(rk.quest_minutes(rk.quest(6), 10, 2), 1), "party value uses xpsim's group size", group)
+
+fake_db(
+    quests={
+        "10": {"objectives": {"1": [[31]], "3": [[41]]}, "objectivesText": ["Bring 5 Wolf Fangs and kill 8 Wolves."]}
+    },
+    npcs={"31": {"name": "Wolf"}},
+    items={"41": {"name": "Wolf Fang"}},
+)
+got = rk._split_counts(rk.db()["quests"]["10"], rk._objectives(rk.db()["quests"]["10"]))
+check(got == (8, 5), "the more specific name takes its number (Wolf Fang over Wolf)", got)
+
 fake_db(
     quests={"8": {"objectives": {"1": [[60]]}}, "9": {"objectives": {"1": [[61]]}}},
     npcs={
