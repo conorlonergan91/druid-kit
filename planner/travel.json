@@ -494,6 +494,13 @@
    "min": 5,
    "how": "flight",
    "note": "classic geography (unverified in Forever)"
+  },
+  {
+   "a": "Stormwind",
+   "b": "Ironforge",
+   "min": 4,
+   "how": "flight",
+   "note": "Forever: gryphon between the two cities once both flight paths are known; faster than tram + walking"
   }
  ],
  "zone_yards": {

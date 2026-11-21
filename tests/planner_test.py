@@ -122,7 +122,12 @@ TR = {
     ]
 }
 err, warn = route_check.check(TR, home="Lakeshire", flights=["Nighthaven", "Rut'theran", "Auberdine"])
-check(any("no direct flight Nighthaven -> Auberdine" in e for e in err), "two-hop flight in one step is an error", err)
+check(any("no flight Nighthaven -> Auberdine" in e for e in err), "a flight that goes on past the druid-only Nighthaven flight is an error", err)
+TR2 = {"sections": [{"title": "T", "steps": [
+    {"do": "fly", "to": "Menethil Harbor", "where": "Stormwind flight master, Trade District gate"}]}]}
+err2, warn2 = route_check.check(TR2, home="Lakeshire", flights=["Stormwind", "Ironforge", "Menethil Harbor"])
+check(not err2 and any("through Stormwind -> Ironforge -> Menethil" in w for w in warn2),
+      "one flight Stormwind -> Menethil through Ironforge is fine (the game flies on)", (err2, warn2))
 check(any("transport step without how" in w for w in warn), "a boat step without directions is flagged", warn)
 # Item plan: quest items for quests the route won't do soon -> bank (bank on the way) or drop (starter that drops).
 saved_db = rk._DB

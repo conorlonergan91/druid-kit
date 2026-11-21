@@ -147,10 +147,20 @@ def check(route, home=None, flights=None):
                 hops = flight_hops(origin, dest) if origin and dest and origin != dest else None
                 if origin and dest and origin != dest and (not hops or len(hops) > 2):
                     chain = " -> ".join(hops) if hops else "none in planner/travel.json"
-                    errors.append(
-                        f"{label}: no direct flight {origin} -> {dest} (chain: {chain}); one fly step per "
-                        "flight, or another way"
-                    )
+                    # The game flies on through known flight points by itself: pick the far town on the map.
+                    # ...but not on a special one-way flight (Nighthaven's druid flight only goes to Rut'theran)
+                    def regular(x, y):
+                        return any({e["a"], e["b"]} == {x, y} and e.get("how") == "flight" and not e.get("oneway")
+                                   for e in TRAVEL["edges"])
+                    via_known = hops and all(h in known for h in hops[1:-1]) and all(
+                        regular(hops[i], hops[i + 1]) for i in range(len(hops) - 1))
+                    if via_known:
+                        warnings.append(f"{label}: one flight through {chain} (the game flies on by itself)")
+                    else:
+                        errors.append(
+                            f"{label}: no flight {origin} -> {dest} (chain: {chain}); a flight point on the way "
+                            "is not learned, or there is no chain"
+                        )
                 for what, place in (("to", st.get("to")), ("from", st.get("where"))):
                     t = town_of(place) if what == "to" or "flight master" in (place or "").lower() else None
                     if t and t not in known and start_unknown:

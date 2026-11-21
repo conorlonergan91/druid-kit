@@ -137,10 +137,12 @@ A flight or a hearth the character doesn't have turns into a long walk. The rout
   hearthing with no or the wrong home, hearth on cooldown, and walking through a flight-master town without `fp`.
 
 ## Added in v11: transport the player can follow (from play: two flights where the route said one; boat with no directions)
-- Flights go only along direct links. Run `rk.py travel FROM TO --flights "<known>"`: every flight leg in its output
-  is its own `fly` step ("Fly to Rut'theran", then "Fly to Auberdine"), with the flight master named. Never write a
-  `fly` straight to a town two links away. Nighthaven (druid flight) only flies to Rut'theran, and nothing flies
-  to Nighthaven: arrive there by Teleport: Moonglade.
+- Flights: run `rk.py travel FROM TO --flights "<known>"`. One `fly` step may go several links (the game flies on
+  through known flight points: Stormwind -> Menethil goes through Ironforge; its `how` says "pick X on the map")
+  when every point on the way is known and every link is a regular flight (route_check allows it, v19). Special
+  flights stop: Nighthaven (druid flight) only flies to Rut'theran, and nothing flies to Nighthaven (arrive by
+  Teleport: Moonglade); write each such leg as its own `fly` step.
+- Prefer the Stormwind <-> Ironforge gryphon over the Deeprun Tram when both flight paths are known (21 Nov).
 - Boats, trams, portals and zeppelins get a `how`: where to board (pier, platform or tree, with `goto` only when
   the spot is verified), how to tell the right ship (its destination; two ships share some piers), the usual wait,
   the trip time, and where you get off. `rk.py travel` lists the boarding spot and wait for each boat leg.
